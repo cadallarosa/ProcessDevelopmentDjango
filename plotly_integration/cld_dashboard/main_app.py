@@ -335,6 +335,13 @@ except Exception as e:
 
     traceback.print_exc()
 
+#Import Akta Integration callbacks
+try:
+    from .embedded_apps.akta_integration import akta_callbacks
+    print("✅ akta_callbacks imported successfully")
+except Exception as e:
+    print(f"❌ akta_callbacks import failed: {e}")
+
 
 # Register global error handler
 @app.callback(

@@ -1,13 +1,21 @@
-# External application URLs and configurations
+# External application URLs and configurations - UPDATED for SecReportEmbeddedApp
 
 EXTERNAL_APPS = {
     "sec_report": {
-        "url": "/plotly_integration/dash-app/app/SecReportApp2/",
-        "name": "SEC Analysis",
+        "url": "/plotly_integration/dash-app/app/SecReportEmbeddedApp/",  # ✅ UPDATED URL
+        "name": "SEC Analysis (Embedded)",
         "supports_embedding": True,
-        "parameters": ["samples", "report_id", "mode", "hide_report_tab"],
+        "parameters": ["report_id", "samples", "mode", "hide_report_tab"],
         "file_location": "plotly_integration/process_development/downstream_processing/empower/sec_report_app/",
-        "description": "Size Exclusion Chromatography analysis and reporting"
+        "description": "Size Exclusion Chromatography analysis and reporting (embedded version)"
+    },
+    "sec_report_full": {
+        "url": "/plotly_integration/dash-app/app/SecReportApp2/",  # Keep the original for full-screen access
+        "name": "SEC Analysis (Full)",
+        "supports_embedding": False,
+        "parameters": ["report_id", "samples", "mode", "hide_report_tab"],
+        "file_location": "plotly_integration/process_development/downstream_processing/empower/sec_report_app/",
+        "description": "Size Exclusion Chromatography analysis and reporting (full version)"
     },
     "database_manager": {
         "url": "/plotly_integration/dash-app/app/DatabaseManagerApp/",
@@ -32,7 +40,15 @@ EXTERNAL_APPS = {
         "parameters": [],
         "file_location": "plotly_integration/dn_assignment/",
         "description": "Downstream experiment assignment management"
-    }
+    },
+    "akta_report": {
+        "url": "/plotly_integration/dash-app/app/AktaChromatogramApp/",
+        "name": "AKTA Analysis",
+        "supports_embedding": True,
+        "parameters": ["fb", "embed"],
+        "file_location": "plotly_integration/akta_app/",
+        "description": "AKTA chromatography purification analysis"
+    },
 }
 
 # Internal routes for the dashboard
@@ -88,6 +104,54 @@ def get_app_url(app_name: str, **params) -> str:
     if filtered_params:
         from urllib.parse import urlencode
         query_string = urlencode(filtered_params)
+        return f"{base_url}?{query_string}"
+
+    return base_url
+
+
+def get_sec_embedded_url(report_id=None, **params):
+    """
+    Get the embedded SEC application URL with parameters
+
+    Args:
+        report_id (str): Report ID to display
+        **params: Additional parameters
+
+    Returns:
+        str: Complete SEC embedded URL
+    """
+    base_url = "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
+
+    if report_id:
+        params['report_id'] = report_id
+
+    if params:
+        from urllib.parse import urlencode
+        query_string = urlencode(params)
+        return f"{base_url}?{query_string}"
+
+    return base_url
+
+
+def get_sec_full_url(report_id=None, **params):
+    """
+    Get the full SEC application URL with parameters
+
+    Args:
+        report_id (str): Report ID to display
+        **params: Additional parameters
+
+    Returns:
+        str: Complete SEC full URL
+    """
+    base_url = "/plotly_integration/dash-app/app/SecReportApp2/"
+
+    if report_id:
+        params['report_id'] = report_id
+
+    if params:
+        from urllib.parse import urlencode
+        query_string = urlencode(params)
         return f"{base_url}?{query_string}"
 
     return base_url

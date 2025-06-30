@@ -40,6 +40,14 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.cell_culture.vicell.vicell_create_report_app
                 import plotly_integration.process_development.cell_culture.vicell.vicell_report_app
 
+                #SEC
+                import plotly_integration.dash_apps.sec_app_embedded.app
+                import plotly_integration.dash_apps.sec_app.app
+
+                #Akta
+                import plotly_integration.dash_apps.akta_report_app.main_app
+
+
                 #LC_MS Glycan Analysis Apps
                 import plotly_integration.process_development.analytical.lc_ms.glycan_analysis.glycan_data_import_app
                 import plotly_integration.process_development.analytical.lc_ms.glycan_analysis.glycan_create_report_app

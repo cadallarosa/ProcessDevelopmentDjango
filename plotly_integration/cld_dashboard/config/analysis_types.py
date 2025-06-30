@@ -1,16 +1,19 @@
-# Analysis type constants and configurations
+# Analysis type constants and configurations - UPDATED for SecReportEmbeddedApp
 
 ANALYSIS_TYPES = {
     'SEC': {
         'name': 'Size Exclusion Chromatography',
         'code': 'SEC',
-        'app_name': 'SecReportApp2',
+        'app_name': 'SecReportEmbeddedApp',  # ✅ UPDATED: Changed from SecReportApp2
+        'app_name_full': 'SecReportApp2',  # ✅ NEW: Keep original for full-screen access
         'icon': 'fa-microscope',
         'color': 'primary',
         'description': 'Protein size and aggregation analysis',
-        'data_table': 'sec_metadata',  # Table name where data is stored
+        'data_table': 'sec_metadata',
         'supports_embedding': True,
-        'typical_turnaround': '2-3 days'
+        'typical_turnaround': '2-3 days',
+        'embedded_url': '/plotly_integration/dash-app/app/SecReportEmbeddedApp/',  # ✅ NEW
+        'full_url': '/plotly_integration/dash-app/app/SecReportApp2/'  # ✅ NEW
     },
     'TITER': {
         'name': 'Titer Analysis',
@@ -26,12 +29,12 @@ ANALYSIS_TYPES = {
     'AKTA': {
         'name': 'AKTA Analysis',
         'code': 'AKTA',
-        'app_name': 'AKTAReportApp',
+        'app_name': 'AktaChromatogramApp',
         'icon': 'fa-chart-area',
         'color': 'info',
         'description': 'Chromatography purification analysis',
         'data_table': 'akta_metadata',
-        'supports_embedding': False,
+        'supports_embedding': True,
         'typical_turnaround': '1 day'
     },
     'CE_SDS': {
@@ -154,6 +157,38 @@ def get_analysis_config(analysis_type):
         dict: Analysis configuration or None if not found
     """
     return ANALYSIS_TYPES.get(analysis_type.upper())
+
+
+def get_sec_embedded_url(report_id=None):
+    """
+    Get the embedded SEC URL with optional report ID
+
+    Args:
+        report_id (str): Optional report ID
+
+    Returns:
+        str: SEC embedded URL
+    """
+    base_url = ANALYSIS_TYPES['SEC']['embedded_url']
+    if report_id:
+        return f"{base_url}?report_id={report_id}"
+    return base_url
+
+
+def get_sec_full_url(report_id=None):
+    """
+    Get the full SEC URL with optional report ID
+
+    Args:
+        report_id (str): Optional report ID
+
+    Returns:
+        str: SEC full URL
+    """
+    base_url = ANALYSIS_TYPES['SEC']['full_url']
+    if report_id:
+        return f"{base_url}?report_id={report_id}"
+    return base_url
 
 
 def get_status_badge_props(status):

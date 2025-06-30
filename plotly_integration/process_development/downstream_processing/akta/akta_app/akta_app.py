@@ -59,7 +59,7 @@ TABLE_STYLE_TABLE = {
 logging.basicConfig(filename='akta_logs.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-app = DjangoDash("AktaChromatogramApp")
+app = DjangoDash("AktaChromatogramApp2")
 
 app.layout = html.Div([
     dcc.Location(id="url", refresh=False),
@@ -548,6 +548,23 @@ def store_selected_report(selected_rows, table_data):
 
 
 # Central callback to load chromatogram and phase data
+# @app.callback(
+#     Output("chromatogram-data", "data"),
+#     Output("phases-data", "data"),
+#     Input("selected-result-id", "data"),
+#     prevent_initial_call=True
+# )
+# def load_chrom_and_phases(result_id):
+#     chrom_qs = AktaChromatogram.objects.filter(result_id=result_id).values()
+#     chrom_df = pd.DataFrame(chrom_qs).sort_values("date_time")
+#     chrom_df["date_time"] = pd.to_datetime(chrom_df["date_time"])
+#
+#     phases_df = extract_phases(result_id)
+#     phases_df = fill_phase_mLs(phases_df, chrom_df)
+#
+#     return chrom_df.to_dict("records"), phases_df.to_dict("records")
+
+# Central callback to load chromatogram and phase data
 @app.callback(
     Output("chromatogram-data", "data"),
     Output("phases-data", "data"),
@@ -555,15 +572,34 @@ def store_selected_report(selected_rows, table_data):
     prevent_initial_call=True
 )
 def load_chrom_and_phases(result_id):
+    if not result_id:
+        return [], []
+
+    # Check if chromatogram data exists for this result_id
     chrom_qs = AktaChromatogram.objects.filter(result_id=result_id).values()
-    chrom_df = pd.DataFrame(chrom_qs).sort_values("date_time")
+
+    if not chrom_qs.exists():
+        # Return empty data if no chromatogram records found
+        return [], []
+
+    chrom_df = pd.DataFrame(chrom_qs)
+
+    # Check if DataFrame is empty or missing date_time column
+    if chrom_df.empty or "date_time" not in chrom_df.columns:
+        return [], []
+
+    chrom_df = chrom_df.sort_values("date_time")
     chrom_df["date_time"] = pd.to_datetime(chrom_df["date_time"])
 
     phases_df = extract_phases(result_id)
+
+    # Check if phases_df is empty before processing
+    if phases_df.empty:
+        return chrom_df.to_dict("records"), []
+
     phases_df = fill_phase_mLs(phases_df, chrom_df)
 
     return chrom_df.to_dict("records"), phases_df.to_dict("records")
-
 
 # STEP 1: Build sensor options & keep them disjoint
 @app.callback(

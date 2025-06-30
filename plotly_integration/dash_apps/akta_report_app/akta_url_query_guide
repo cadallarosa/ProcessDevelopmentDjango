@@ -1,0 +1,43 @@
+AKTA App URL Query Guide
+Supported URL Query Patterns
+1. Single Sample by Primary Key ID
+/plotly_integration/dash-app/app/AKTAReportApp/?id=123
+
+id=123 - Uses the primary key from the AktaResult table
+This will automatically select the row in the table and create an analysis tab
+
+2. Single Sample by DN Number
+/plotly_integration/dash-app/app/AKTAReportApp/?dn=708
+
+dn=708 - Looks for a result with report_name = "DN708"
+More user-friendly for DN-style naming conventions
+
+3. Multiple Samples by Primary Key IDs
+/plotly_integration/dash-app/app/AKTAReportApp/?ids=123,456,789
+
+ids=123,456,789 - Comma-separated list of primary key IDs
+Creates individual analysis tabs for each sample
+Also creates a multi-sample overlay tab
+
+4. Multiple Samples by Report Names
+/plotly_integration/dash-app/app/AKTAReportApp/?sample_ids=DN708,DN709,FB001
+
+sample_ids=DN708,DN709,FB001 - Comma-separated list of report names
+Looks up the IDs for each report name
+Creates tabs for all found samples
+
+5. Embedded Mode (Single Sample)
+/plotly_integration/dash-app/app/AKTAReportApp/?id=123&embedded=true
+
+embedded=true - Hides the sample selection tab
+hide_selection=true - Alternative parameter for same effect
+Starts directly on the analysis tab
+
+6. Embedded Mode (Multiple Samples)
+/plotly_integration/dash-app/app/AKTAReportApp/?ids=123,456&embedded=true
+
+Multiple samples in embedded mode
+Starts directly on the overlay analysis tab
+
+URL Processing Flow
+The URL processing happens in main_app.py in the parse_url_parameters callback:

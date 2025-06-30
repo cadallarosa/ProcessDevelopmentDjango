@@ -428,8 +428,14 @@ app.layout = html.Div([
 
                             ],
                             data=[{
-                                "sample_id": "", "sample_date": "", "description": "",
-                                "a280": "", "notes": "", "dn": ""
+                                "sample_id": "",
+                                "sample_date": datetime.now().strftime("%Y-%m-%d"),
+                                "description": "",
+                                "a280": "",
+                                "notes": "",
+                                "dn": "",
+                                "project_id": "",
+                                "analyst": ""
                             }],
                             editable=True,
                             row_deletable=True,
@@ -781,7 +787,7 @@ def handle_new_sample_buttons(add_clicks, clear_clicks, current_data):
 
         current_data.append({
             "sample_id": f"PD{next_num}",
-            "sample_date": "",
+            "sample_date": datetime.now().strftime("%Y-%m-%d"),
             "description": "",
             "a280_result": "",
             "notes": ""
@@ -1045,119 +1051,6 @@ def update_result_sample_display(mode, selected_sm_id):
             return sm.resulting_sample.sample_id
 
     return ""
-
-
-# # Callback to save or overwrite source material
-# @app.callback(
-#     Output("save_source_status", "children"),
-#     Input("save-source-btn", "n_clicks"),
-#     State("confirm-sm-overwrite", "value"),
-#     State("source-material-mode", "value"),
-#     State("source-material-id-dropdown", "value"),
-#     State("source-material-name", "value"),
-#     State("final-ph", "value"),
-#     State("final-conductivity", "value"),
-#     State("final-concentration", "value"),
-#     State("final-volume", "value"),
-#     State("dn-context", "data"),
-#     State("pooled-samples-dropdown", "value"),
-#     State("source-material-table", "data"),
-#     prevent_initial_call=True
-# )
-# def save_source_material(n_clicks, confirm_overwrite, mode, selected_sm_id, name,
-#                          final_ph, final_cond, final_conc, final_vol, dn_context,
-#                          pooled_samples, step_table_data):
-#     from datetime import datetime
-#     from plotly_integration.models import (
-#         LimsSourceMaterial,
-#         LimsDnAssignment,
-#         LimsSampleAnalysis,
-#         LimsSourceMaterialStep
-#     )
-#
-#     if not dn_context or "dn" not in dn_context:
-#         return "❌ Missing DN context."
-#
-#     # Get DN and project info
-#     dn_val = dn_context["dn"]
-#     dn_record = LimsDnAssignment.objects.filter(dn=dn_val).first()
-#     if not dn_record:
-#         return f"❌ DN {dn_val} not found."
-#
-#     project_id = dn_record.project_id
-#     sm_id = selected_sm_id if mode == "existing" else dn_val  # Use DN as SM ID if creating new
-#
-#     existing_sm = LimsSourceMaterial.objects.filter(sm_id=sm_id).first()
-#
-#     if existing_sm:
-#         if not confirm_overwrite:
-#             return f"⚠️ SM {sm_id} exists. Confirm overwrite to update."
-#
-#         # ✅ Update existing SM
-#         sm = existing_sm
-#         sm.name = name
-#         sm.final_pH = final_ph
-#         sm.final_conductivity = final_cond
-#         sm.final_concentration = final_conc
-#         sm.final_total_volume = final_vol
-#         sm.project_id = project_id
-#         sm.save()
-#
-#         # Link to DN
-#         dn_record.source_material = sm
-#         dn_record.save()
-#     else:
-#         # ✅ Create new PD sample
-#         last_pd = LimsSampleAnalysis.objects.filter(sample_id__startswith="PD").order_by("-sample_id").first()
-#         next_pd_num = int(last_pd.sample_id[2:]) + 1 if last_pd and last_pd.sample_id[2:].isdigit() else 1
-#         pd_id = f"PD{next_pd_num}"
-#
-#         pd_sample = LimsSampleAnalysis.objects.create(
-#             sample_id=pd_id,
-#             sample_type=3,
-#             sample_date=datetime.today().date(),
-#             project_id=project_id,
-#             description=f"SM{sm_id}-{name}",
-#             analyst="",
-#             status="in_progress",
-#             dn=dn_record
-#         )
-#
-#         # ✅ Create SM and link PD
-#         sm = LimsSourceMaterial.objects.create(
-#             sm_id=sm_id,
-#             name=name,
-#             final_pH=final_ph,
-#             final_conductivity=final_cond,
-#             final_concentration=final_conc,
-#             final_total_volume=final_vol,
-#             project_id=project_id,
-#             resulting_sample=pd_sample
-#         )
-#
-#         # Link to DN
-#         dn_record.source_material = sm
-#         dn_record.save()
-#
-#     # ✅ Link pooled samples
-#     if pooled_samples:
-#         linked_samples = LimsSampleAnalysis.objects.filter(sample_id__in=pooled_samples)
-#         sm.samples.set(linked_samples)
-#
-#     # ✅ Save process steps
-#     LimsSourceMaterialStep.objects.filter(source_material=sm).delete()
-#     for i, step in enumerate(step_table_data or [], start=1):
-#         process = step.get("process", "").strip()
-#         notes = step.get("notes", "").strip()
-#         if process:
-#             LimsSourceMaterialStep.objects.create(
-#                 source_material=sm,
-#                 step_number=i,
-#                 process=process,
-#                 notes=notes
-#             )
-#
-#     return f"✅ Source Material SM{sm_id} {'updated' if existing_sm else 'created'} and linked to PD#{sm.resulting_sample.sample_id}"
 
 
 @app.callback(
@@ -1443,7 +1336,7 @@ def handle_pd_sample_buttons(add_clicks, clear_clicks, current_data):
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     default_row = {
-        "sample_date": "",
+        "sample_date": datetime.now().strftime("%Y-%m-%d"),
         "description": "",
         "a280": "",
         "notes": "",
@@ -1519,6 +1412,13 @@ def save_pd_samples(n_clicks, table_data):
         saved += 1
 
     return f"✅ {saved} PD sample(s) created.", [{
-        "sample_id": "", "sample_date": "", "description": "",
-        "a280": "", "notes": "", "dn": "", "project_id": "", "analyst": "", "status": "in_progress"
+        "sample_id": "",
+        "sample_date": datetime.now().strftime("%Y-%m-%d"),
+        "description": "",
+        "a280": "",
+        "notes": "",
+        "dn": "",
+        "project_id": "",
+        "analyst": "",
+        "status": "in_progress"
     }]

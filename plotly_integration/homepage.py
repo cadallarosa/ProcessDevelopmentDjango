@@ -66,7 +66,7 @@ app.layout = html.Div(
                                 'cursor': 'pointer',
                                 'box-shadow': '2px 2px 5px rgba(0, 0, 0, 0.2)'
                             }),
-                            href="http://localhost:8000/plotly_integration/dash-app/app/CLDSampleManagementApp/",
+                            href="http://localhost:8000/plotly_integration/dash-app/app/CLDDashboardApp3/",
                             target="_blank"
                         ),
                         dcc.Link(
@@ -186,7 +186,7 @@ app.layout = html.Div(
                                 'cursor': 'pointer',
                                 'box-shadow': '2px 2px 5px rgba(0, 0, 0, 0.2)'
                             }),
-                            href="http://localhost:8000/plotly_integration/dash-app/app/SecReportApp2/",
+                            href="http://localhost:8000/plotly_integration/dash-app/app/SecReportApp/",
                             target="_blank"
                         ),
                         dcc.Link(

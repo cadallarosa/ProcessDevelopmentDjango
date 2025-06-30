@@ -2,7 +2,7 @@ from urllib.parse import urlencode, quote
 import json
 
 
-def build_sec_report_url(sample_ids=None, report_id=None, mode="samples", hide_report_tab=True):
+def build_sec_report_url(sample_ids=None, report_id=None, mode="samples", hide_report_tab=True, embedded=True):
     """
     Build URL for SEC analysis with specific parameters
 
@@ -11,11 +11,17 @@ def build_sec_report_url(sample_ids=None, report_id=None, mode="samples", hide_r
         report_id (int): Specific report to view
         mode (str): Analysis mode ('samples', 'report', 'create')
         hide_report_tab (bool): Hide the report selection tab
+        embedded (bool): Use embedded app version (default: True)
 
     Returns:
         str: Complete SEC analysis URL
     """
-    base_url = "/plotly_integration/dash-app/app/SecReportApp2/"
+    # ✅ UPDATED: Choose between embedded and full app
+    if embedded:
+        base_url = "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
+    else:
+        base_url = "/plotly_integration/dash-app/app/SecReportApp2/"
+
     params = {}
 
     if report_id:
@@ -29,6 +35,48 @@ def build_sec_report_url(sample_ids=None, report_id=None, mode="samples", hide_r
         params["mode"] = mode
     if hide_report_tab:
         params["hide_report_tab"] = "true"
+
+    if params:
+        return f"{base_url}?{urlencode(params)}"
+    return base_url
+
+
+def build_sec_embedded_url(report_id=None, **params):
+    """
+    Build URL specifically for the embedded SEC app
+
+    Args:
+        report_id (str): Report ID to display
+        **params: Additional parameters
+
+    Returns:
+        str: Complete embedded SEC URL
+    """
+    base_url = "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
+
+    if report_id:
+        params['report_id'] = report_id
+
+    if params:
+        return f"{base_url}?{urlencode(params)}"
+    return base_url
+
+
+def build_sec_full_url(report_id=None, **params):
+    """
+    Build URL specifically for the full SEC app
+
+    Args:
+        report_id (str): Report ID to display
+        **params: Additional parameters
+
+    Returns:
+        str: Complete full SEC URL
+    """
+    base_url = "/plotly_integration/dash-app/app/SecReportApp2/"
+
+    if report_id:
+        params['report_id'] = report_id
 
     if params:
         return f"{base_url}?{urlencode(params)}"
@@ -174,3 +222,42 @@ def extract_url_params(search_string):
             params[key] = value
 
     return params
+
+
+def build_akta_report_url(sample_ids=None, embed=True):
+    """
+    Build URL for AKTA analysis with specific parameters
+
+    Args:
+        sample_ids (list): List of sample IDs to analyze (FB numbers)
+        embed (bool): Whether to show in embedded mode
+
+    Returns:
+        str: Complete AKTA analysis URL
+    """
+    base_url = "/plotly_integration/dash-app/app/AktaChromatogramApp/"
+    params = {}
+
+    if sample_ids:
+        if isinstance(sample_ids, list):
+            # Convert FB1598 to 1598 if needed, or keep as is
+            clean_ids = []
+            for sid in sample_ids:
+                if str(sid).startswith('FB'):
+                    clean_ids.append(str(sid)[2:])  # Remove 'FB' prefix
+                else:
+                    clean_ids.append(str(sid))
+            params["fb"] = ",".join(clean_ids)
+        else:
+            # Single sample
+            if str(sample_ids).startswith('FB'):
+                params["fb"] = str(sample_ids)[2:]
+            else:
+                params["fb"] = str(sample_ids)
+
+    if embed:
+        params["embed"] = "true"
+
+    if params:
+        return f"{base_url}?{urlencode(params)}"
+    return base_url

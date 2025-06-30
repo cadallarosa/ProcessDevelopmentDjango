@@ -4,16 +4,7 @@ from dash import html
 
 def create_embedded_iframe(src_url, title="Embedded Application", height="800px", show_controls=True):
     """
-    Create an embedded iframe component for external Dash apps
-
-    Args:
-        src_url (str): URL of the app to embed
-        title (str): Title for the iframe
-        height (str): Height of the iframe
-        show_controls (bool): Whether to show header controls
-
-    Returns:
-        dbc.Card: Card containing the embedded iframe
+    Create an embedded iframe component - NO HORIZONTAL SCROLLING
     """
     header_content = [html.H5(title, className="mb-0")]
 
@@ -48,11 +39,20 @@ def create_embedded_iframe(src_url, title="Embedded Application", height="800px"
                     "width": "100%",
                     "height": height,
                     "border": "none",
-                    "border-radius": "5px" if not show_controls else "0 0 5px 5px"
+                    "borderRadius": "5px" if not show_controls else "0 0 5px 5px",
+                    "overflowX": "hidden",  # 🎯 NO horizontal scrolling
+                    "overflowY": "auto"     # 🎯 Allow vertical scrolling only
                 }
             )
-        ], style={"padding": "0"})
-    ], className="shadow")
+        ], style={
+            "padding": "0",
+            "overflowX": "hidden",  # 🎯 Also prevent card body from horizontal scrolling
+            "width": "100%"
+        })
+    ], className="shadow", style={
+        "overflowX": "hidden",  # 🎯 Prevent card from horizontal scrolling
+        "width": "100%"
+    })
 
 
 def create_loading_iframe(title="Loading Application...", height="800px"):
@@ -123,3 +123,27 @@ def create_error_iframe(error_message="Application failed to load", height="800p
                 })
         ])
     ], className="shadow")
+
+
+def create_minimal_embedded_iframe(src_url, height="900px"):
+    """
+    Create a minimal embedded iframe with no dashboard headers
+
+    Args:
+        src_url (str): URL of the app to embed
+        height (str): Height of the iframe
+
+    Returns:
+        html.Iframe: Minimal iframe with no wrapper
+    """
+    return html.Iframe(
+        src=src_url,
+        style={
+            "width": "max-content%",
+            "overflowX": "hidden",
+            "height": height,
+            "border": "none",
+            "margin": "0",
+            "padding": "0"
+        }
+    )

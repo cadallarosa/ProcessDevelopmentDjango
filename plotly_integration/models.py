@@ -36,6 +36,10 @@ class SampleMetadata(models.Model):
         db_table = 'sample_metadata'
         managed = True
         unique_together = ('result_id', 'system_name')
+        indexes = [
+            models.Index(fields=['sample_type', 'sample_name', '-date_acquired']),
+            models.Index(fields=['sample_set_name', 'sample_prefix']),
+        ]
 
 
 class PeakResults(models.Model):
@@ -58,6 +62,9 @@ class PeakResults(models.Model):
         db_table = 'peak_results'
         managed = True
         unique_together = ('result_id', 'peak_retention_time')
+        indexes = [
+            models.Index(fields=['result_id', 'peak_retention_time']),
+        ]
 
 
 class ChromMetadata(models.Model):
@@ -97,6 +104,10 @@ class TimeSeriesData(models.Model):
         db_table = 'time_series_data'
         managed = True
         unique_together = ('result_id', 'time')
+        indexes = [
+            models.Index(fields=['result_id', 'time']),
+        ]
+        ordering = ['result_id', 'time']
 
 
 class EmpowerColumnLogbook(models.Model):
@@ -142,6 +153,9 @@ class Report(models.Model):
     class Meta:
         db_table = 'report'
         managed = True
+        indexes = [
+            models.Index(fields=['analysis_type', 'department', '-report_id']),
+        ]
 
 
 class Users(models.Model):
@@ -391,6 +405,10 @@ class AktaResult(models.Model):
 
     class Meta:
         db_table = 'akta_result'
+        indexes = [
+            # Already has unique index on result_id
+            models.Index(fields=['report_name'], name='idx_result_report_name'),
+        ]
 
     # def __str__(self):
     #     return f"Result ID: {self.result_id} | User: {self.user} | Date: {self.date}"
@@ -455,8 +473,11 @@ class AktaChromatogram(models.Model):
     class Meta:
         db_table = "akta_chromatogram"
 
-    # def __str__(self):
-    #     return f"Result: {self.result.result_id} | ml: {self.ml}"
+        indexes = [
+            models.Index(fields=['result_id', 'ml'], name='idx_chrom_result_ml'),
+            # This helps with ID-based sampling
+            models.Index(fields=['result_id', 'id'], name='idx_chrom_result_id'),
+        ]
 
 
 class AktaFraction(models.Model):
@@ -467,6 +488,10 @@ class AktaFraction(models.Model):
 
     class Meta:
         db_table = "akta_fraction"
+        indexes = [
+            # This speeds up fraction analysis
+            models.Index(fields=['result_id', 'date_time'], name='idx_fraction_result_time'),
+        ]
     # def __str__(self):
     #     return f"Result: {self.result.result_id} | Fraction at ml: {self.ml}"
 
@@ -479,6 +504,10 @@ class AktaRunLog(models.Model):
 
     class Meta:
         db_table = "akta_run_log"
+        indexes = [
+            # This speeds up phase extraction
+            models.Index(fields=['result_id', 'date_time'], name='idx_runlog_result_time'),
+        ]
 
     # def __str__(self):
     #     return f"Result: {self.result.result_id} | Log at ml: {self.ml}"
@@ -819,6 +848,9 @@ class LimsProjectInformation(models.Model):
     class Meta:
         db_table = 'lims_project_information'
         managed = True
+        # indexes = [
+        #     models.Index(fields=['protein']),  # For project lookups
+        # ]
 
 
 # Lims Fed Batch Sample Details
@@ -905,6 +937,9 @@ class LimsSampleAnalysis(models.Model):
 
     class Meta:
         db_table = 'lims_sample_analysis'
+        # indexes = [
+        #     models.Index(fields=['sample_id']),
+        # ]
 
 #Sample Set Creation and tables for monitoring analysis progress
 class LimsSampleSet(models.Model):
