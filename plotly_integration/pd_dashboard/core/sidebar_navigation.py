@@ -1,5 +1,5 @@
 # plotly_integration/pd_dashboard/core/sidebar_navigation.py
-# Simplified version - all items always visible, no dropdowns
+# Updated sidebar with all apps organized by category
 
 from dash import html
 import dash_bootstrap_components as dbc
@@ -41,8 +41,8 @@ def create_sidebar_navigation():
                 {'name': 'Create Samples', 'href': '#!/cld/create-samples', 'icon': 'fa-plus'},
                 {'name': 'View Samples', 'href': '#!/cld/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/cld/sample-sets', 'icon': 'fa-layer-group'},
-                {'name': 'Nova Flex', 'href': '#!/cld/nova-flex', 'icon': 'fa-microscope'},
-                {'name': 'Vicell', 'href': '#!/cld/vicell', 'icon': 'fa-vial'}
+                {'name': 'Vicell', 'href': '#!/cld/vicell', 'icon': 'fa-vial'},
+                {'name': 'Nova', 'href': '#!/cld/nova', 'icon': 'fa-microscope'}
             ]
         },
         {
@@ -54,8 +54,8 @@ def create_sidebar_navigation():
                 {'name': 'Create Samples', 'href': '#!/usp/create-samples', 'icon': 'fa-plus'},
                 {'name': 'View Samples', 'href': '#!/usp/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/usp/sample-sets', 'icon': 'fa-layer-group'},
-                {'name': 'Nova Flex', 'href': '#!/usp/nova-flex', 'icon': 'fa-microscope'},
-                {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'}
+                {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'},
+                {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'}
             ]
         },
         {
@@ -64,11 +64,11 @@ def create_sidebar_navigation():
             'icon': 'fa-industry',
             'color': '#f39c12',
             'items': [
-                {'name': 'Create Experiments', 'href': '#!/dsp/create-experiments', 'icon': 'fa-flask'},
+                {'name': 'Create DN', 'href': '#!/dsp/create-dn', 'icon': 'fa-flask'},
                 {'name': 'AKTA', 'href': '#!/dsp/akta', 'icon': 'fa-chart-area'},
-                {'name': 'VI', 'href': '#!/dsp/vi', 'icon': 'fa-shield-virus'},
+                {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-water'},
                 {'name': 'VF', 'href': '#!/dsp/vf', 'icon': 'fa-filter'},
-                {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-water'}
+                {'name': 'VI', 'href': '#!/dsp/vi', 'icon': 'fa-shield-virus'}
             ]
         },
         {
@@ -81,20 +81,22 @@ def create_sidebar_navigation():
                 {'name': 'TITER', 'href': '#!/analytical/titer', 'icon': 'fa-vial'},
                 {'name': 'CE SDS', 'href': '#!/analytical/ce-sds', 'icon': 'fa-chart-line'},
                 {'name': 'cIEF', 'href': '#!/analytical/cief', 'icon': 'fa-wave-square'},
-                {'name': 'Mass Spec', 'href': '#!/analytical/mass-spec', 'icon': 'fa-atom'},
-                {'name': 'Create Reports', 'href': '#!/analytical/create-reports', 'icon': 'fa-file-alt'}
+                {'name': 'Mass Spec', 'href': '#!/analytical/mass-spec', 'icon': 'fa-atom'}
             ]
         },
         {
-            'id': 'data',
-            'title': 'Data Management',
+            'id': 'database',
+            'title': 'Database Management',
             'icon': 'fa-database',
             'color': '#34495e',
             'items': [
-                {'name': 'Import Data', 'href': '#!/data-management/import', 'icon': 'fa-upload'},
-                {'name': 'Export Data', 'href': '#!/data-management/export', 'icon': 'fa-download'},
-                {'name': 'Data Quality', 'href': '#!/data-management/quality', 'icon': 'fa-check-circle'},
-                {'name': 'Archive', 'href': '#!/data-management/archive', 'icon': 'fa-archive'}
+                {'name': 'Import Empower', 'href': '#!/database/import-empower', 'icon': 'fa-upload'},
+                {'name': 'Import CE SDS', 'href': '#!/database/import-cesds', 'icon': 'fa-upload'},
+                {'name': 'Import cIEF', 'href': '#!/database/import-cief', 'icon': 'fa-upload'},
+                {'name': 'Import UFDF', 'href': '#!/database/import-ufdf', 'icon': 'fa-upload'},
+                {'name': 'Import VF', 'href': '#!/database/import-vf', 'icon': 'fa-upload'},
+                {'name': 'Import Nova Flex', 'href': '#!/database/import-nova-flex', 'icon': 'fa-upload'},
+                {'name': 'Import ViCell', 'href': '#!/database/import-vicell', 'icon': 'fa-upload'}
             ]
         },
         {
@@ -212,7 +214,7 @@ def create_sidebar_navigation():
     ], style=get_sidebar_main_style(), id="main-sidebar")
 
 
-# 🎯 NO CALLBACKS NEEDED! - Remove the register_sidebar_callbacks function entirely
+# No callbacks needed for always-expanded sidebar
 def register_sidebar_callbacks(app):
     """No callbacks needed for always-expanded sidebar"""
     print("✅ Sidebar callbacks skipped - using always-expanded mode")

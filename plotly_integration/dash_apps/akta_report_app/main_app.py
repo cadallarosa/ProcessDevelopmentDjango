@@ -158,7 +158,7 @@ app.layout = html.Div([
                                                            "fontFamily": "Arial, sans-serif"},
                                              filter_action="native",
                                              sort_action="native",
-                                             page_size=20,
+                                             page_size=18,
                                              page_current=0,
                                          )
                                      ], style={"padding": "10px"})
