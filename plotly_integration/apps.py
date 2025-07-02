@@ -41,8 +41,8 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.cell_culture.vicell.vicell_report_app
 
                 #SEC
-                import plotly_integration.dash_apps.sec_app_embedded.app
-                import plotly_integration.dash_apps.sec_app.app
+                import plotly_integration.dash_apps.Analytical.sec_app_embedded.app
+                import plotly_integration.dash_apps.Analytical.sec_app.app
 
                 #Akta
                 import plotly_integration.dash_apps.akta_report_app.main_app
@@ -78,6 +78,9 @@ class PlotlyIntegrationConfig(AppConfig):
 
                 import plotly_integration.process_development.lims.cld_dashboard.CLDDashboardApp2
                 import plotly_integration.cld_dashboard.main_app
+
+                #New PD Dash App
+                import plotly_integration.pd_dashboard.main_app
 
 
 
