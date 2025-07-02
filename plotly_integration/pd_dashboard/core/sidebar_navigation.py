@@ -1,23 +1,26 @@
 # plotly_integration/pd_dashboard/core/sidebar_navigation.py
-from dash import html, callback, Output, Input, State
+# Simplified version - all items always visible, no dropdowns
+
+from dash import html
 import dash_bootstrap_components as dbc
+from ..shared.styles.common_styles import (
+    SIDEBAR_CONFIG,
+    get_sidebar_main_style,
+    get_sidebar_title_style,
+    get_main_item_icon_style,
+    get_main_item_text_style,
+    get_dropdown_container_style,
+    get_dropdown_item_style,
+    get_dropdown_icon_style,
+    get_logo_area_style,
+    get_user_area_style,
+    get_user_text_style,
+    SIDEBAR_HOVER_CSS
+)
 
 
 def create_sidebar_navigation():
-    """Create the main sidebar navigation with expandable/collapsible sections"""
-
-    sidebar_style = {
-        'position': 'fixed',
-        'top': 0,
-        'left': 0,
-        'bottom': 0,
-        'width': '250px',
-        'padding': '1rem',
-        'backgroundColor': '#2c3e50',
-        'borderRight': '1px solid #34495e',
-        'overflowY': 'auto',
-        'zIndex': 1000
-    }
+    """Create the main sidebar navigation with all items always visible"""
 
     # Navigation items with their sub-menus
     nav_sections = [
@@ -105,112 +108,73 @@ def create_sidebar_navigation():
     ]
 
     def create_nav_item(section):
-        """Create a navigation item with expandable/collapsible sub-items"""
-        item_id = f"nav-{section['id']}"
+        """Create a navigation item - always expanded if it has sub-items"""
 
+        nav_elements = []
+
+        # Main item (section header)
         if section['items']:
-            # Section with sub-items - collapsible
-            main_item = dbc.Card([
-                dbc.CardHeader([
-                    dbc.Button([
-                        html.I(
-                            className=f"fas {section['icon']}",
-                            style={
-                                'fontSize': '16px',
-                                'color': section['color'],
-                                'marginRight': '12px',
-                                'width': '20px'
-                            }
-                        ),
-                        html.Span(section['title'], style={'color': '#ecf0f1'}),
-                        html.I(
-                            className="fas fa-chevron-down",
-                            style={
-                                'fontSize': '12px',
-                                'color': '#bdc3c7',
-                                'marginLeft': 'auto'
-                            },
-                            id=f"{item_id}-chevron"
-                        )
-                    ],
-                        id=f"{item_id}-toggle",
-                        color="link",
-                        className="text-start p-0 w-100 d-flex align-items-center",
-                        style={
-                            'backgroundColor': 'transparent',
-                            'border': 'none',
-                            'padding': '12px 16px !important',
-                            'textDecoration': 'none'
-                        }
-                    )
-                ], style={
-                    'backgroundColor': 'transparent',
-                    'border': 'none',
-                    'padding': '0'
-                }),
+            # Section with sub-items - show header but no link
+            main_item = html.Div([
+                html.I(
+                    className=f"fas {section['icon']}",
+                    style=get_main_item_icon_style(section['color'])
+                ),
+                html.Span(section['title'], style=get_main_item_text_style())
+            ],
+                style={
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'padding': SIDEBAR_CONFIG['main_item_padding'],
+                    'borderRadius': '8px',
+                    'marginBottom': f"{SIDEBAR_CONFIG['item_margin']}",
+                    'backgroundColor': 'rgba(255,255,255,0.05)',  # Slight background for headers
+                    'fontWeight': 'bold'
+                }
+            )
+            nav_elements.append(main_item)
 
-                dbc.Collapse([
-                    dbc.CardBody([
-                        html.Div([
-                            html.A([
-                                html.I(className=f"fas {item['icon']}",
-                                       style={'width': '16px', 'marginRight': '8px', 'fontSize': '12px',
-                                              'color': '#bdc3c7'}),
-                                item['name']
-                            ],
-                                href=item['href'],
-                                style={
-                                    'display': 'block',
-                                    'padding': '8px 16px',
-                                    'color': '#bdc3c7',
-                                    'textDecoration': 'none',
-                                    'fontSize': '14px',
-                                    'borderRadius': '4px',
-                                    'margin': '2px 0',
-                                    'transition': 'all 0.2s ease'
-                                },
-                                className="sidebar-sub-item"
-                            ) for item in section['items']
-                        ])
-                    ], style={'padding': '0 0 10px 36px'})  # Indent sub-items
+            # Sub-items (always visible)
+            sub_items = html.Div([
+                html.A([
+                    html.I(
+                        className=f"fas {item['icon']}",
+                        style=get_dropdown_icon_style()
+                    ),
+                    html.Span(item['name'])
                 ],
-                    id=f"{item_id}-collapse",
-                    is_open=False  # Start collapsed
-                )
-            ], style={
-                'backgroundColor': 'transparent',
-                'border': 'none',
-                'marginBottom': '4px'
-            })
+                    href=item['href'],
+                    style=get_dropdown_item_style(),
+                    className="sidebar-sub-item"
+                ) for item in section['items']
+            ], style=get_dropdown_container_style())
+
+            nav_elements.append(sub_items)
 
         else:
-            # Direct link item (no sub-items)
+            # Direct link item (no sub-items) - like Dashboard and Settings
             main_item = html.A([
                 html.I(
                     className=f"fas {section['icon']}",
-                    style={
-                        'fontSize': '16px',
-                        'color': section['color'],
-                        'marginRight': '12px',
-                        'width': '20px'
-                    }
+                    style=get_main_item_icon_style(section['color'])
                 ),
-                html.Span(section['title'], style={'color': '#ecf0f1'})
+                html.Span(section['title'], style=get_main_item_text_style())
             ],
                 href=section.get('href', '#'),
                 style={
                     'display': 'flex',
                     'alignItems': 'center',
-                    'padding': '12px 16px',
+                    'padding': SIDEBAR_CONFIG['main_item_padding'],
                     'borderRadius': '8px',
                     'textDecoration': 'none',
                     'transition': 'all 0.2s ease',
-                    'marginBottom': '4px'
+                    'marginBottom': SIDEBAR_CONFIG['item_margin']
                 },
                 className="sidebar-main-item"
             )
+            nav_elements.append(main_item)
 
-        return main_item
+        return html.Div(nav_elements, style={'marginBottom': '15px'})  # Space between sections
 
     # Create all navigation items
     nav_items = [create_nav_item(section) for section in nav_sections]
@@ -219,9 +183,9 @@ def create_sidebar_navigation():
         # Logo/Brand area
         html.Div([
             html.Div([
-                html.Span("🧬", style={'fontSize': '24px', 'marginRight': '10px'}),
-                html.Span("PD Dashboard", style={'fontSize': '18px', 'fontWeight': 'bold', 'color': '#3498db'})
-            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '30px', 'padding': '10px'})
+                html.Span("🧬", style={'fontSize': '22px', 'marginRight': '8px'}),
+                html.Span("PD Dashboard", style=get_sidebar_title_style())
+            ], style=get_logo_area_style())
         ]),
 
         # Navigation items
@@ -232,54 +196,24 @@ def create_sidebar_navigation():
             html.Hr(style={'borderColor': '#4a5a6a', 'margin': '20px 0'}),
             html.Div([
                 html.I(className="fas fa-user-circle",
-                       style={'fontSize': '16px', 'color': '#bdc3c7', 'marginRight': '8px'}),
-                html.Span("User", style={'color': '#bdc3c7', 'fontSize': '14px'})
-            ],
-                style={
-                    'display': 'flex',
-                    'alignItems': 'center',
-                    'padding': '10px 16px'
-                })
+                       style={'fontSize': '16px', 'color': SIDEBAR_CONFIG['text_muted'], 'marginRight': '8px'}),
+                html.Span("User", style=get_user_text_style())
+            ], style=get_user_area_style())
         ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'}),
 
         # Add CSS for hover effects
         html.Div([
             html.Link(
                 rel="stylesheet",
-                href="data:text/css;charset=utf-8," + """
-                .sidebar-main-item:hover {
-                    background-color: rgba(52, 152, 219, 0.1) !important;
-                }
-
-                .sidebar-sub-item:hover {
-                    background-color: rgba(52, 152, 219, 0.2) !important;
-                    color: #ffffff !important;
-                }
-                """
+                href="data:text/css;charset=utf-8," + SIDEBAR_HOVER_CSS
             )
         ])
 
-    ], style=sidebar_style, id="main-sidebar")
+    ], style=get_sidebar_main_style(), id="main-sidebar")
 
 
-# Add callbacks for collapsible sections
+# 🎯 NO CALLBACKS NEEDED! - Remove the register_sidebar_callbacks function entirely
 def register_sidebar_callbacks(app):
-    """Register callbacks for sidebar collapse functionality"""
-
-    # Get all sections with items for callbacks
-    sections_with_items = ['cld', 'usp', 'dsp', 'analytical', 'data']
-
-    for section in sections_with_items:
-        @callback(
-            [Output(f"nav-{section}-collapse", "is_open"),
-             Output(f"nav-{section}-chevron", "className")],
-            Input(f"nav-{section}-toggle", "n_clicks"),
-            State(f"nav-{section}-collapse", "is_open"),
-            prevent_initial_call=True
-        )
-        def toggle_collapse(n_clicks, is_open):
-            if n_clicks:
-                new_state = not is_open
-                chevron_class = "fas fa-chevron-up" if new_state else "fas fa-chevron-down"
-                return new_state, chevron_class
-            return is_open, "fas fa-chevron-down"
+    """No callbacks needed for always-expanded sidebar"""
+    print("✅ Sidebar callbacks skipped - using always-expanded mode")
+    pass

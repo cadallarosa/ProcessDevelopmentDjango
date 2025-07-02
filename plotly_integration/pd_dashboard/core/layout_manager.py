@@ -13,7 +13,7 @@ def create_full_page_layout(content):
         content: The main content component
     """
     content_style = {
-        'marginLeft': '250px',  # Updated for wider sidebar
+        'marginLeft': '200px',  # Updated for wider sidebar
         'padding': '2rem',
         'backgroundColor': '#fafbfc',
         'minHeight': '100vh'

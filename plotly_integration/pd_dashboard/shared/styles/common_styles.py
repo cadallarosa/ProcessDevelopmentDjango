@@ -38,11 +38,10 @@ SIDEBAR_STYLE = {
 }
 
 CONTENT_STYLE = {
-    "marginLeft": "18rem",
-    "marginRight": "2rem",
-    "padding": "2rem 1rem",
-    "minHeight": "100vh",
-    "background": "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)"  # Much lighter background
+    "marginLeft": "200px",  # 🎯 Changed from 250px to match new sidebar width
+    "padding": "2rem",
+    "backgroundColor": "#fafbfc",
+    "minHeight": "100vh"
 }
 
 # Enhanced table styles with blue theme
@@ -358,3 +357,192 @@ def create_shadow_style(elevation='medium'):
     }
 
     return {'boxShadow': shadows.get(elevation, shadows['medium'])}
+
+
+# =============================================================================
+# SIDEBAR CONFIGURATION - Easy to adjust all sidebar styling from here
+# =============================================================================
+
+SIDEBAR_CONFIG = {
+    # Sidebar dimensions
+    'width': '220px',  # 🎯 Slightly wider for better text fit
+    'padding': '1rem',
+
+    # Text sizes
+    'title_font_size': '18px',  # Dashboard title
+    'main_item_font_size': '16px',  # Main section titles (CLD, USP, etc.)
+    'dropdown_item_font_size': '15px',  # Dropdown items (Create Samples, etc.)
+    'user_font_size': '14px',  # User text at bottom
+
+    # Icon sizes
+    'main_icon_size': '16px',  # Main section icons
+    'dropdown_icon_size': '14px',  # Dropdown item icons
+    'chevron_size': '12px',  # Chevron arrows
+
+    # Spacing and layout
+    'dropdown_offset': '20px',  # 🎯 Left offset for dropdown items (not 50px - too much)
+    'main_item_padding': '12px 16px',  # Padding for main items
+    'dropdown_item_padding': '10px 12px',  # Padding for dropdown items
+    'item_margin': '3px',  # Margin between items
+    'section_margin': '25px',  # Margin for logo/brand area
+
+    # Colors
+    'background_color': '#2c3e50',
+    'border_color': '#34495e',
+    'text_color': '#ecf0f1',
+    'text_muted': '#bdc3c7',
+    'accent_color': '#3498db',
+
+    # Hover effects
+    'hover_main': 'rgba(52, 152, 219, 0.1)',
+    'hover_dropdown': 'rgba(52, 152, 219, 0.2)',
+}
+
+# Updated content style to match sidebar width
+CONTENT_STYLE = {
+    "marginLeft": SIDEBAR_CONFIG['width'],  # 🎯 Use sidebar width
+    "padding": "2rem",
+    "backgroundColor": "#fafbfc",
+    "minHeight": "100vh"
+}
+
+
+# =============================================================================
+# SIDEBAR STYLE BUILDER FUNCTIONS
+# =============================================================================
+
+def get_sidebar_main_style():
+    """Get the main sidebar container style"""
+    return {
+        'position': 'fixed',
+        'top': 0,
+        'left': 0,
+        'bottom': 0,
+        'width': SIDEBAR_CONFIG['width'],
+        'padding': SIDEBAR_CONFIG['padding'],
+        'backgroundColor': SIDEBAR_CONFIG['background_color'],
+        'borderRight': f"1px solid {SIDEBAR_CONFIG['border_color']}",
+        'overflowY': 'auto',
+        'overflowX': 'hidden',
+        'zIndex': 1000,
+        'boxSizing': 'border-box'
+    }
+
+
+def get_sidebar_title_style():
+    """Get the dashboard title style"""
+    return {
+        'fontSize': SIDEBAR_CONFIG['title_font_size'],
+        'fontWeight': 'bold',
+        'color': SIDEBAR_CONFIG['accent_color']
+    }
+
+
+def get_main_item_icon_style(color):
+    """Get style for main item icons"""
+    return {
+        'fontSize': SIDEBAR_CONFIG['main_icon_size'],
+        'color': color,
+        'marginRight': '10px',
+        'width': '20px'
+    }
+
+
+def get_main_item_text_style():
+    """Get style for main item text"""
+    return {
+        'color': SIDEBAR_CONFIG['text_color'],
+        'fontSize': SIDEBAR_CONFIG['main_item_font_size']
+    }
+
+
+def get_main_item_button_style():
+    """Get style for main item buttons"""
+    return {
+        'backgroundColor': 'transparent',
+        'border': 'none',
+        'padding': SIDEBAR_CONFIG['main_item_padding'],
+        'textDecoration': 'none'
+    }
+
+
+def get_dropdown_container_style():
+    """Get style for dropdown container"""
+    return {
+        'padding': f"0 0 10px {SIDEBAR_CONFIG['dropdown_offset']}"  # 🎯 Left offset here
+    }
+
+
+def get_dropdown_item_style():
+    """Get style for individual dropdown items"""
+    return {
+        'display': 'flex',  # 🎯 Use flex for better alignment
+        'alignItems': 'center',
+        'padding': SIDEBAR_CONFIG['dropdown_item_padding'],
+        'color': SIDEBAR_CONFIG['text_muted'],
+        'textDecoration': 'none',
+        'fontSize': SIDEBAR_CONFIG['dropdown_item_font_size'],
+        'borderRadius': '4px',
+        'margin': f"{SIDEBAR_CONFIG['item_margin']} 0",
+        'transition': 'all 0.2s ease'
+    }
+
+
+def get_dropdown_icon_style():
+    """Get style for dropdown item icons"""
+    return {
+        'width': '16px',
+        'marginRight': '8px',
+        'fontSize': SIDEBAR_CONFIG['dropdown_icon_size'],
+        'color': SIDEBAR_CONFIG['text_muted'],
+        'flexShrink': 0  # 🎯 Prevent icon from shrinking
+    }
+
+
+def get_chevron_style():
+    """Get style for chevron arrows"""
+    return {
+        'fontSize': SIDEBAR_CONFIG['chevron_size'],
+        'color': SIDEBAR_CONFIG['text_muted'],
+        'marginLeft': 'auto'
+    }
+
+
+def get_logo_area_style():
+    """Get style for logo/brand area"""
+    return {
+        'display': 'flex',
+        'alignItems': 'center',
+        'marginBottom': SIDEBAR_CONFIG['section_margin'],
+        'padding': '10px'
+    }
+
+
+def get_user_area_style():
+    """Get style for user area at bottom"""
+    return {
+        'display': 'flex',
+        'alignItems': 'center',
+        'padding': '10px 16px'
+    }
+
+
+def get_user_text_style():
+    """Get style for user text"""
+    return {
+        'color': SIDEBAR_CONFIG['text_muted'],
+        'fontSize': SIDEBAR_CONFIG['user_font_size']
+    }
+
+
+# CSS for hover effects
+SIDEBAR_HOVER_CSS = f"""
+.sidebar-main-item:hover {{
+    background-color: {SIDEBAR_CONFIG['hover_main']} !important;
+}}
+
+.sidebar-sub-item:hover {{
+    background-color: {SIDEBAR_CONFIG['hover_dropdown']} !important;
+    color: #ffffff !important;
+}}
+"""
