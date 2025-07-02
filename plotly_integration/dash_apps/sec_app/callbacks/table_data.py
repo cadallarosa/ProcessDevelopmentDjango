@@ -46,20 +46,27 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
     summary_data = []
 
     for result_id in selected_result_ids:
+        # print(f"Result ID:{result_id}")
         sample = SampleMetadata.objects.filter(result_id=result_id).first()
+
         if not sample:
             continue
         injection_volume = sample.injection_volume
         system_name = sample.system_name
         system = SystemInformation.objects.filter(system_name=system_name).first()
         channel_name = system.channel_1
-        # print(f'Channel Name:{channel_name}')
+        # print(f'Channel Name:{channel_name}'
+        #       f'System Name:{system_name}'
+        #       f'Sample Name:{sample.sample_name}'
+        #       f'Sample ID:{sample.result_id}')
 
-        peak_results = PeakResults.objects.filter(result_id=sample.result_id,channel_name=channel_name)
+
+        peak_results = PeakResults.objects.filter(result_id=sample.result_id,channel_name=channel_name,system_name=system_name)
         if not peak_results.exists():
             continue
 
         df = pd.DataFrame.from_records(peak_results.values())
+        # print(df)
         if 'peak_retention_time' not in df.columns:
             continue
 

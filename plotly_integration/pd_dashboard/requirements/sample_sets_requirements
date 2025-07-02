@@ -1,0 +1,171 @@
+Sample Sets Page Requirements Document
+Overview
+The Sample Sets page will serve as a comprehensive analysis management tool for grouped Fed-Batch (FB) samples, providing visibility into analysis progress and enabling users to request various analytical tests for sample sets.
+Core Requirements
+1. Sample Grouping
+
+Data Source: Query LimsSampleAnalysis table filtered by sample_type=2 (FB)
+Grouping Logic: Group samples by:
+
+project_id
+sip_number (from related LimsUpstreamSamples)
+development_stage (from related LimsUpstreamSamples)
+
+
+Display Format: Cards or expandable rows showing grouped samples
+
+2. Analysis Status Tracking
+For each sample set, display the status of all available analyses:
+
+SEC (Size Exclusion Chromatography)
+Titer
+Mass Check
+Glycan
+CE-SDS
+cIEF
+HCP (Host Cell Protein)
+ProA
+
+Status indicators:
+
+⚪ Not Requested
+🟡 Requested/Pending
+🔵 In Progress
+✅ Completed
+❌ Failed
+
+3. Analysis Request Functionality
+When a user requests an analysis for a sample set:
+
+Create entries in the corresponding result table (e.g., LimsSecResult)
+Update the LimsSampleAnalysis foreign key relationship
+Set initial status as "requested" or "pending"
+Log the request timestamp and requesting user
+
+Enhanced Features
+1. Batch Operations Panel
+
+Select multiple sample sets for bulk analysis requests
+Apply analysis templates (e.g., "Standard QC Panel" = SEC + CE-SDS + cIEF)
+Priority assignment for urgent requests
+Estimated turnaround time display
+
+2. Analysis Timeline View
+
+Gantt chart visualization showing:
+
+When each analysis was requested
+Expected completion dates
+Actual completion vs. target
+Dependencies between analyses
+
+
+
+3. Sample Set Analytics Dashboard
+
+Analysis completion rates by project
+Average turnaround times by analysis type
+Bottleneck identification
+Cost tracking per sample set
+
+4. Integration Features
+
+LIMS Integration: Direct data import when results are available
+Instrument Queue: Show position in analytical instrument queues
+Email/Slack Notifications: Alert when analyses complete
+Report Generation: One-click comprehensive report for a sample set
+
+5. Quality Control Features
+
+Flag outliers or unexpected results
+Compare results across similar sample sets
+Trend analysis over time
+Pass/Fail criteria automation
+
+6. Sample Set Comparison Tool
+
+Side-by-side comparison of analytical results
+Overlay chromatograms from different sample sets
+Statistical analysis between groups
+Export comparison reports
+
+7. Workflow Management
+
+Define analysis workflows (e.g., "SEC → if aggregation > 5% → CE-SDS")
+Automatic next-step triggering
+Approval gates for proceeding to next analysis
+SOP compliance tracking
+
+Page Layout Structure
+┌─────────────────────────────────────────────────────────────────┐
+│ 🧪 Sample Sets Analysis Management                              │
+│ ┌─────────────┬────────────────┬──────────────┬──────────────┐ │
+│ │ Total Sets  │ Pending Analysis│ In Progress  │ Completed    │ │
+│ │    156      │       23        │     45       │     88       │ │
+│ └─────────────┴────────────────┴──────────────┴──────────────┘ │
+│                                                                 │
+│ [Search] [Filter by Project ▼] [Filter by Status ▼] [+ Batch]  │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Sample Set: PROJ001_SIP001_MP (12 samples)                  │ │
+│ │ ┌─────────────────────────────────────────────────────────┐ │ │
+│ │ │ SEC ✅ | Titer 🔵 | CE-SDS ⚪ | cIEF ⚪ | Mass ⚪        │ │
+│ │ └─────────────────────────────────────────────────────────┘ │ │
+│ │ [View Details] [Request Analysis ▼] [View Timeline]         │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+Database Design Decision: Sample Sets Table
+Recommendation: YES, create a dedicated SampleSet table
+Reasons to create a separate table:
+
+Performance: Avoid repeated grouping calculations on every page load
+Metadata Storage: Store sample set-specific information (creation date, owner, notes)
+Relationships: Cleaner foreign key relationships for analysis requests
+Audit Trail: Track when sets were created/modified
+Flexibility: Add sample set-level attributes without affecting individual samples
+
+Proposed Schema:
+pythonclass SampleSet(models.Model):
+    """Represents a grouped collection of samples"""
+    id = models.AutoField(primary_key=True)
+    set_name = models.CharField(max_length=200, unique=True)  # e.g., "PROJ001_SIP001_MP"
+    project_id = models.CharField(max_length=100)
+    sip_number = models.CharField(max_length=50, null=True, blank=True)
+    development_stage = models.CharField(max_length=50, null=True, blank=True)
+
+    # Metadata
+    sample_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Status tracking
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'sample_sets'
+        unique_together = ['project_id', 'sip_number', 'development_stage']
+
+class SampleSetMembership(models.Model):
+    """Links individual samples to sample sets"""
+    sample_set = models.ForeignKey(SampleSet, on_delete=models.CASCADE, related_name='members')
+    sample = models.ForeignKey(LimsSampleAnalysis, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sample_set_membership'
+        unique_together = ['sample_set', 'sample']
+
+class AnalysisRequest(models.Model):
+    """Track analysis requests for sample sets"""
+    sample_set = models.ForeignKey(SampleSet, on_delete=models.CASCADE, related_name='analysis_requests')
+    analysis_type = models.CharField(max_length=50)  # SEC, Titer, etc.
+    requested_by = models.CharField(max_length=100)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    priority = models.IntegerField(default=1)
+    status = models.CharField(max_length=50, default='requested')
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'analysis_requests'
