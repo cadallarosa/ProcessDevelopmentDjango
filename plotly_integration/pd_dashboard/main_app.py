@@ -1,10 +1,11 @@
+# plotly_integration/pd_dashboard/main_app.py
 from django_plotly_dash import DjangoDash
 from dash import html, dcc, Input, Output, callback, clientside_callback
 import dash_bootstrap_components as dbc
-# from .core.routing import create_page_router
+from .core.routing_layouts import create_page_router  # Fixed import
 from .shared.styles.common_styles import CONTENT_STYLE
 
-# print("🚀 Starting CLD Dashboard v3 initialization...")
+print("🚀 Starting PD Dashboard initialization...")
 
 # Create the main dashboard app with suppress_callback_exceptions=True
 app = DjangoDash("PDDashBoard",
@@ -85,6 +86,15 @@ app.clientside_callback(
 print("🔧 Initializing routing...")
 create_page_router(app)
 
+# Register sidebar callbacks
+print("🔧 Registering sidebar callbacks...")
+try:
+    from .core.sidebar_navigation import register_sidebar_callbacks
+    register_sidebar_callbacks(app)
+    print("✅ Sidebar callbacks registered successfully")
+except Exception as e:
+    print(f"❌ Sidebar callbacks registration failed: {e}")
+
 # Import all callbacks to register them
 print("📥 Importing core callbacks...")
 from .core import dashboard_home
@@ -96,77 +106,45 @@ print("🔍 Testing callback imports one by one...")
 try:
     print("🔍 Testing sample_sets import...")
     from .samples.callbacks import sample_sets
-
     print("✅ sample_sets imported successfully")
 except Exception as e:
     print(f"❌ sample_sets import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
 
 try:
     print("🔍 Testing view_samples import...")
     from .samples.callbacks import view_samples
-
     print("✅ view_samples imported successfully")
 except Exception as e:
     print(f"❌ view_samples import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
 
 try:
     print("🔍 Testing create_samples import...")
     from .samples.callbacks import create_samples
-
     print("✅ create_samples imported successfully")
 except Exception as e:
     print(f"❌ create_samples import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
 
 try:
     print("🔍 Testing file_upload_handlers import...")
     from .samples.callbacks import file_upload_handlers
-
     print("✅ file_upload_handlers imported successfully")
 except Exception as e:
     print(f"❌ file_upload_handlers import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
 
 try:
     print("🔍 Testing analysis_requests import...")
     from .samples.callbacks import analysis_requests
-
     print("✅ analysis_requests imported successfully")
 except Exception as e:
     print(f"❌ analysis_requests import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
 
 # Import SEC integration callbacks
 try:
     print("🔍 Testing sec_callbacks import...")
     from .embedded_apps.sec_integration import sec_callbacks
-
     print("✅ sec_callbacks imported successfully")
 except Exception as e:
     print(f"❌ sec_callbacks import failed: {e}")
-    import traceback
-
-    traceback.print_exc()
-
-#Import Akta Integration callbacks
-try:
-    from .embedded_apps.akta_integration import akta_callbacks
-    print("✅ akta_callbacks imported successfully")
-except Exception as e:
-    print(f"❌ akta_callbacks import failed: {e}")
-
 
 # Register global error handler
 @app.callback(
@@ -184,9 +162,8 @@ def handle_app_errors(app_state):
         print(f"❌ App error: {e}")
         return {"initialized": False, "errors": [str(e)]}
 
-#
-# print("🚀 CLD Dashboard v3 initialization complete!")
-# print("   ✅ App created with suppress_callback_exceptions=True")
-# print("   ✅ Layout set")
-# print("   ✅ Routing initialized")
-# print("   🔍 Check above for callback import results")
+print("🚀 PD Dashboard initialization complete!")
+print("   ✅ App created with suppress_callback_exceptions=True")
+print("   ✅ Layout set")
+print("   ✅ Routing initialized")
+print("   🔍 Check above for callback import results")

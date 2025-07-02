@@ -1,48 +1,38 @@
 # plotly_integration/pd_dashboard/core/layout_manager.py
 from dash import html
-from .sidebar_navigation import create_sidebar_navigation, get_sidebar_css
-from .dashboard_content import create_dashboard_content, get_dashboard_css
+from .sidebar_navigation import create_sidebar_navigation
+from .dashboard_content import create_dashboard_content
 from .settings_content import create_settings_content
 
 
-def create_full_page_layout(content, include_dashboard_css=False):
+def create_full_page_layout(content):
     """
     Create a full page layout with sidebar and content
 
     Args:
         content: The main content component
-        include_dashboard_css: Whether to include dashboard-specific CSS
     """
     content_style = {
-        'marginLeft': '70px',  # Match the compact sidebar width
+        'marginLeft': '250px',  # Updated for wider sidebar
         'padding': '2rem',
         'backgroundColor': '#fafbfc',
         'minHeight': '100vh'
     }
 
-    css_components = [get_sidebar_css()]
-    if include_dashboard_css:
-        css_components.append(get_dashboard_css())
-
     return html.Div([
-        # Compact Sidebar
+        # Sidebar
         create_sidebar_navigation(),
 
         # Main Content
         html.Div([
-            content,
-            # Add CSS components
-            html.Div(css_components)
+            content
         ], style=content_style)
     ])
 
 
 def create_dashboard_layout():
     """Create the complete dashboard layout (standalone version)"""
-    return create_full_page_layout(
-        create_dashboard_content(),
-        include_dashboard_css=True
-    )
+    return create_full_page_layout(create_dashboard_content())
 
 
 def create_settings_layout():

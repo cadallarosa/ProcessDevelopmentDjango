@@ -1,24 +1,22 @@
 # plotly_integration/pd_dashboard/core/sidebar_navigation.py
-from dash import html
+from dash import html, callback, Output, Input, State
 import dash_bootstrap_components as dbc
 
 
 def create_sidebar_navigation():
-    """Create the main sidebar navigation with icon-based expandable sections"""
+    """Create the main sidebar navigation with expandable/collapsible sections"""
 
     sidebar_style = {
         'position': 'fixed',
         'top': 0,
         'left': 0,
         'bottom': 0,
-        'width': '70px',
-        'padding': '1rem 0.5rem',
+        'width': '250px',
+        'padding': '1rem',
         'backgroundColor': '#2c3e50',
         'borderRight': '1px solid #34495e',
         'overflowY': 'auto',
-        'overflowX': 'visible',
-        'zIndex': 1000,
-        'transition': 'width 0.3s ease'
+        'zIndex': 1000
     }
 
     # Navigation items with their sub-menus
@@ -107,93 +105,112 @@ def create_sidebar_navigation():
     ]
 
     def create_nav_item(section):
-        """Create a navigation item with popout menu"""
+        """Create a navigation item with expandable/collapsible sub-items"""
         item_id = f"nav-{section['id']}"
 
-        # Main icon button
-        main_button = html.Div([
-            html.Div([
+        if section['items']:
+            # Section with sub-items - collapsible
+            main_item = dbc.Card([
+                dbc.CardHeader([
+                    dbc.Button([
+                        html.I(
+                            className=f"fas {section['icon']}",
+                            style={
+                                'fontSize': '16px',
+                                'color': section['color'],
+                                'marginRight': '12px',
+                                'width': '20px'
+                            }
+                        ),
+                        html.Span(section['title'], style={'color': '#ecf0f1'}),
+                        html.I(
+                            className="fas fa-chevron-down",
+                            style={
+                                'fontSize': '12px',
+                                'color': '#bdc3c7',
+                                'marginLeft': 'auto'
+                            },
+                            id=f"{item_id}-chevron"
+                        )
+                    ],
+                        id=f"{item_id}-toggle",
+                        color="link",
+                        className="text-start p-0 w-100 d-flex align-items-center",
+                        style={
+                            'backgroundColor': 'transparent',
+                            'border': 'none',
+                            'padding': '12px 16px !important',
+                            'textDecoration': 'none'
+                        }
+                    )
+                ], style={
+                    'backgroundColor': 'transparent',
+                    'border': 'none',
+                    'padding': '0'
+                }),
+
+                dbc.Collapse([
+                    dbc.CardBody([
+                        html.Div([
+                            html.A([
+                                html.I(className=f"fas {item['icon']}",
+                                       style={'width': '16px', 'marginRight': '8px', 'fontSize': '12px',
+                                              'color': '#bdc3c7'}),
+                                item['name']
+                            ],
+                                href=item['href'],
+                                style={
+                                    'display': 'block',
+                                    'padding': '8px 16px',
+                                    'color': '#bdc3c7',
+                                    'textDecoration': 'none',
+                                    'fontSize': '14px',
+                                    'borderRadius': '4px',
+                                    'margin': '2px 0',
+                                    'transition': 'all 0.2s ease'
+                                },
+                                className="sidebar-sub-item"
+                            ) for item in section['items']
+                        ])
+                    ], style={'padding': '0 0 10px 36px'})  # Indent sub-items
+                ],
+                    id=f"{item_id}-collapse",
+                    is_open=False  # Start collapsed
+                )
+            ], style={
+                'backgroundColor': 'transparent',
+                'border': 'none',
+                'marginBottom': '4px'
+            })
+
+        else:
+            # Direct link item (no sub-items)
+            main_item = html.A([
                 html.I(
                     className=f"fas {section['icon']}",
                     style={
-                        'fontSize': '20px',
+                        'fontSize': '16px',
                         'color': section['color'],
-                        'display': 'block',
-                        'textAlign': 'center'
+                        'marginRight': '12px',
+                        'width': '20px'
                     }
-                )
+                ),
+                html.Span(section['title'], style={'color': '#ecf0f1'})
             ],
-                className="nav-icon-link",
+                href=section.get('href', '#'),
                 style={
-                    'display': 'block',
-                    'padding': '15px 10px',
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'padding': '12px 16px',
+                    'borderRadius': '8px',
                     'textDecoration': 'none',
-                    'borderRadius': '8px',
                     'transition': 'all 0.2s ease',
-                    'position': 'relative',
-                    'cursor': 'pointer'
+                    'marginBottom': '4px'
                 },
-                id=f"{item_id}-trigger"
-            ),
+                className="sidebar-main-item"
+            )
 
-            # Tooltip with section title
-            dbc.Tooltip(
-                section['title'],
-                target=f"{item_id}-trigger",
-                placement="right"
-            ),
-
-            # Popout menu (only if has items)
-            html.Div([
-                html.Div([
-                    html.Div([
-                        html.H6(section['title'],
-                                className="text-white mb-3 px-3 pt-3",
-                                style={'borderBottom': '1px solid #4a5a6a', 'paddingBottom': '10px'})
-                    ]),
-                    html.Div([
-                        html.A([
-                            html.I(className=f"fas {item['icon']} me-2",
-                                   style={'width': '16px', 'textAlign': 'center'}),
-                            item['name']
-                        ],
-                            href=item['href'],
-                            className="dropdown-item text-white py-2 px-3",
-                            style={
-                                'textDecoration': 'none',
-                                'fontSize': '14px',
-                                'borderRadius': '4px',
-                                'margin': '2px 8px',
-                                'transition': 'background-color 0.2s ease',
-                                'display': 'flex',
-                                'alignItems': 'center'
-                            }
-                        ) for item in section['items']
-                    ], style={'paddingBottom': '10px'})
-                ], style={
-                    'backgroundColor': '#34495e',
-                    'borderRadius': '8px',
-                    'minWidth': '220px',
-                    'boxShadow': '0 4px 12px rgba(0,0,0,0.15)',
-                    'border': '1px solid #4a5a6a'
-                })
-            ],
-                id=f"{item_id}-popout",
-                className="nav-popout",
-                style={
-                    'position': 'absolute',
-                    'left': '75px',
-                    'top': '0',
-                    'zIndex': 1001,
-                    'display': 'none'
-                }
-            ) if section['items'] else html.Div()
-        ],
-            className="nav-item-container",
-            style={'position': 'relative', 'marginBottom': '5px'}
-        )
-
-        return main_button
+        return main_item
 
     # Create all navigation items
     nav_items = [create_nav_item(section) for section in nav_sections]
@@ -201,13 +218,10 @@ def create_sidebar_navigation():
     return html.Div([
         # Logo/Brand area
         html.Div([
-            html.Div("🧬", style={
-                'fontSize': '24px',
-                'textAlign': 'center',
-                'color': '#3498db',
-                'marginBottom': '20px',
-                'padding': '10px'
-            })
+            html.Div([
+                html.Span("🧬", style={'fontSize': '24px', 'marginRight': '10px'}),
+                html.Span("PD Dashboard", style={'fontSize': '18px', 'fontWeight': 'bold', 'color': '#3498db'})
+            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '30px', 'padding': '10px'})
         ]),
 
         # Navigation items
@@ -215,70 +229,57 @@ def create_sidebar_navigation():
 
         # User info at bottom
         html.Div([
+            html.Hr(style={'borderColor': '#4a5a6a', 'margin': '20px 0'}),
             html.Div([
                 html.I(className="fas fa-user-circle",
-                       style={
-                           'fontSize': '20px',
-                           'color': '#bdc3c7',
-                           'textAlign': 'center',
-                           'display': 'block'
-                       })
+                       style={'fontSize': '16px', 'color': '#bdc3c7', 'marginRight': '8px'}),
+                html.Span("User", style={'color': '#bdc3c7', 'fontSize': '14px'})
             ],
                 style={
-                    'padding': '15px 10px',
-                    'borderTop': '1px solid #4a5a6a',
-                    'marginTop': 'auto'
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'padding': '10px 16px'
                 })
-        ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'})
+        ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'}),
+
+        # Add CSS for hover effects
+        html.Div([
+            html.Link(
+                rel="stylesheet",
+                href="data:text/css;charset=utf-8," + """
+                .sidebar-main-item:hover {
+                    background-color: rgba(52, 152, 219, 0.1) !important;
+                }
+
+                .sidebar-sub-item:hover {
+                    background-color: rgba(52, 152, 219, 0.2) !important;
+                    color: #ffffff !important;
+                }
+                """
+            )
+        ])
 
     ], style=sidebar_style, id="main-sidebar")
 
 
-def get_sidebar_css():
-    """CSS for sidebar hover effects and popout menus"""
-    return html.Style("""
-    /* Sidebar hover effects */
-    .nav-icon-link:hover {
-        background-color: rgba(52, 152, 219, 0.1) !important;
-        transform: scale(1.05);
-    }
+# Add callbacks for collapsible sections
+def register_sidebar_callbacks(app):
+    """Register callbacks for sidebar collapse functionality"""
 
-    /* Show popout on hover */
-    .nav-item-container:hover .nav-popout {
-        display: block !important;
-        animation: slideIn 0.2s ease-out;
-    }
+    # Get all sections with items for callbacks
+    sections_with_items = ['cld', 'usp', 'dsp', 'analytical', 'data']
 
-    /* Keep popout visible when hovering over it */
-    .nav-popout:hover {
-        display: block !important;
-    }
-
-    /* Popout animation */
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateX(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-
-    /* Dropdown item hover */
-    .dropdown-item:hover {
-        background-color: rgba(52, 152, 219, 0.2) !important;
-    }
-
-    /* Ensure popout stays visible during transition */
-    .nav-item-container:hover .nav-popout,
-    .nav-popout:hover {
-        display: block !important;
-    }
-
-    /* Add some spacing for better UX */
-    .nav-popout .dropdown-item {
-        white-space: nowrap;
-    }
-    """)
+    for section in sections_with_items:
+        @callback(
+            [Output(f"nav-{section}-collapse", "is_open"),
+             Output(f"nav-{section}-chevron", "className")],
+            Input(f"nav-{section}-toggle", "n_clicks"),
+            State(f"nav-{section}-collapse", "is_open"),
+            prevent_initial_call=True
+        )
+        def toggle_collapse(n_clicks, is_open):
+            if n_clicks:
+                new_state = not is_open
+                chevron_class = "fas fa-chevron-up" if new_state else "fas fa-chevron-down"
+                return new_state, chevron_class
+            return is_open, "fas fa-chevron-down"

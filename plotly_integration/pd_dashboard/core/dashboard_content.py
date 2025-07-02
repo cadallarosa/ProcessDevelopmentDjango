@@ -258,20 +258,6 @@ def create_dashboard_content():
 
 
 def get_dashboard_css():
-    """CSS specific to dashboard content"""
-    return html.Style("""
-    /* Quick action cards hover */
-    .card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
-    }
-
-    /* Stats cards animation */
-    .stats-card {
-        transition: all 0.3s ease;
-    }
-
-    .stats-card:hover {
-        transform: scale(1.02);
-    }
-    """)
+    """CSS specific to dashboard content - simplified version"""
+    # Return empty div since CSS is handled elsewhere
+    return html.Div(style={'display': 'none'})
