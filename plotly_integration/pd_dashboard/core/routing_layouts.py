@@ -505,8 +505,8 @@ def create_page_router(app):
 
         elif pathname == "/cld/sample-sets":
             try:
-                from plotly_integration.pd_dashboard.home.cld.sample_sets.layouts.sample_sets import create_sample_sets_layout
-                return create_sample_sets_layout()
+                from plotly_integration.pd_dashboard.home.cld.sample_sets.layouts.sample_sets import create_sample_sets_main_layout
+                return create_sample_sets_main_layout()
             except ImportError as e:
                 print(f"Error importing sample sets layout: {e}")
                 return html.Div([
@@ -517,7 +517,7 @@ def create_page_router(app):
 
         elif pathname == "/cld/sample-sets/details":
             try:
-                from plotly_integration.pd_dashboard.home.cld.sample_sets.layouts.sample_sets import create_sample_set_detail_layout
+                from plotly_integration.pd_dashboard.home.cld.sample_sets.layouts.sample_set_details import create_sample_set_detail_layout
                 return create_sample_set_detail_layout(query_params)
             except ImportError as e:
                 print(f"Error importing sample set detail layout: {e}")

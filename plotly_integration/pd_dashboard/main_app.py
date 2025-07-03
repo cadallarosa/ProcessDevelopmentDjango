@@ -120,7 +120,7 @@ except Exception as e:
 
 try:
     print("🔍 Testing sample_sets import...")
-    from .home.cld.sample_sets.callbacks import sample_sets
+    from .home.cld.sample_sets.callbacks import sample_sets,sample_set_details
     print("✅ sample_sets imported successfully")
 except Exception as e:
     print(f"❌ sample_sets import failed: {e}")

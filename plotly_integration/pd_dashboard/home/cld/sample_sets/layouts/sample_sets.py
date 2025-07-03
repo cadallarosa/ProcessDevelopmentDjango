@@ -1,12 +1,12 @@
 # plotly_integration/pd_dashboard/home/cld/sample_sets/layouts/sample_sets.py
-# Updated for the refactored pd_dashboard structure
+# Updated to use the new sample_set_details layout
 
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
 
 
-def create_sample_sets_layout():
-    """Create main sample sets layout with table view (NEW - replaces card view)"""
+def create_sample_sets_main_layout():
+    """Create main sample sets layout with table view"""
     return dbc.Container([
         # Header with navigation
         dbc.Row([
@@ -96,15 +96,14 @@ def create_sample_sets_layout():
             ])
         ], className="mb-4"),
 
-        # Sample Sets Table (NEW - replaces cards)
+        # Sample Sets Table
         dbc.Row([
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader([
                         html.Div([
                             html.H5("Sample Sets", className="mb-0"),
-                            html.Small("Click 'Details' to view individual samples and manage analysis",
-                                       className="text-muted")
+                            html.Small("Click 'Details' to view individual samples and manage analysis", className="text-muted")
                         ])
                     ]),
                     dbc.CardBody([
@@ -112,8 +111,7 @@ def create_sample_sets_layout():
                             dbc.Spinner(
                                 html.Div([
                                     html.P("Loading sample sets...", className="text-center text-muted"),
-                                ], style={"height": "200px", "display": "flex", "alignItems": "center",
-                                          "justifyContent": "center"}),
+                                ], style={"height": "200px", "display": "flex", "alignItems": "center", "justifyContent": "center"}),
                                 color="primary"
                             )
                         ])
@@ -128,13 +126,9 @@ def create_sample_sets_layout():
         dcc.Store(id="sec-report-created", data={}),
         dcc.Store(id="sec-selected-sample-set", data={}),
 
-        # SEC sample selection modal (keep existing functionality)
+        # Keep existing modals (SEC, analysis request, etc.)
         create_sec_sample_selection_modal(),
-
-        # Sample set details modal (keep existing functionality)
         create_sample_set_details_modal(),
-
-        # Analysis request modal (keep existing functionality)
         create_analysis_request_modal(),
 
         # Notifications area
@@ -146,111 +140,12 @@ def create_sample_sets_layout():
     ], fluid=True, style={"padding": "20px"})
 
 
-def create_sample_set_detail_layout(query_params):
-    """Create detailed view layout for a specific sample set (NEW)"""
-    sample_set_id = query_params.get('id', [None])[0] if query_params else None
-
-    if not sample_set_id:
-        return dbc.Container([
-            dbc.Alert([
-                html.I(className="fas fa-exclamation-triangle me-2"),
-                "No sample set ID provided"
-            ], color="warning")
-        ])
-
-    return dbc.Container([
-        # Header with navigation
-        dbc.Row([
-            dbc.Col([
-                html.H2([
-                    html.I(className="fas fa-info-circle text-primary me-2"),
-                    "Sample Set Details"
-                ]),
-                html.P("Detailed view and analysis management", className="text-muted")
-            ], md=8),
-            dbc.Col([
-                dbc.ButtonGroup([
-                    dbc.Button([
-                        html.I(className="fas fa-arrow-left me-1"),
-                        "Back to Sets"
-                    ], href="#!/cld/sample-sets", color="outline-secondary", size="sm"),
-                    dbc.Button([
-                        html.I(className="fas fa-edit me-1"),
-                        "Edit Set"
-                    ], id="edit-sample-set", color="outline-primary", size="sm")
-                ], className="float-end")
-            ], md=4)
-        ], className="mb-4"),
-
-        # Sample Set Summary (NEW)
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader([
-                        html.H5([
-                            html.I(className="fas fa-clipboard-list me-2"),
-                            "Sample Set Summary"
-                        ], className="mb-0")
-                    ]),
-                    dbc.CardBody([
-                        html.Div(id="sample-set-summary", children=[
-                            dbc.Spinner(color="primary")
-                        ])
-                    ])
-                ], className="shadow-sm")
-            ])
-        ], className="mb-4"),
-
-        # Individual Samples Table (NEW)
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader([
-                        html.H5([
-                            html.I(className="fas fa-vials me-2"),
-                            "Individual Samples"
-                        ], className="mb-0")
-                    ]),
-                    dbc.CardBody([
-                        html.Div(id="individual-samples-table", children=[
-                            dbc.Spinner(color="primary")
-                        ])
-                    ])
-                ], className="shadow-sm")
-            ])
-        ], className="mb-4"),
-
-        # Analysis Request Panel (NEW)
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader([
-                        html.H5([
-                            html.I(className="fas fa-chart-line me-2"),
-                            "Analysis Management"
-                        ], className="mb-0")
-                    ]),
-                    dbc.CardBody([
-                        html.Div(id="analysis-management-panel", children=[
-                            dbc.Spinner(color="primary")
-                        ])
-                    ])
-                ], className="shadow-sm")
-            ])
-        ]),
-
-        # Hidden stores for detail page
-        dcc.Store(id="current-sample-set-id", data=sample_set_id),
-        dcc.Store(id="sample-set-data", data={}),
-
-        # Dummy output
-        html.Div(id="detail-dummy-output", style={"display": "none"})
-
-    ], fluid=True, style={"padding": "20px"})
+# REMOVED: create_sample_set_detail_layout - now in separate file
+# Use sample_set_details.py for the details page layout
 
 
 def create_metric_card(title, metric_id, icon, color):
-    """Create a metric display card (keep existing)"""
+    """Create a metric display card"""
     return dbc.Card([
         dbc.CardBody([
             html.Div([
@@ -267,7 +162,7 @@ def create_metric_card(title, metric_id, icon, color):
 
 
 def create_sample_sets_table(sample_sets_data):
-    """Create the data table for sample sets with analysis status columns (NEW)"""
+    """Create the data table for sample sets with analysis status columns"""
     if not sample_sets_data:
         return dbc.Alert([
             html.I(className="fas fa-info-circle me-2"),
@@ -330,7 +225,7 @@ def create_sample_sets_table(sample_sets_data):
     )
 
 
-# Keep existing modal functions from original implementation
+# Keep existing modal functions
 def create_sec_sample_selection_modal():
     """Create modal for SEC sample selection (keep existing)"""
     return dbc.Modal([
@@ -443,4 +338,4 @@ def create_analysis_request_modal():
     ], id="analysis-request-modal", size="lg")
 
 
-print("✅ Sample Sets Table Layout - Created for refactored structure")
+print("✅ Main Sample Sets Layout - Updated to use separate details file")

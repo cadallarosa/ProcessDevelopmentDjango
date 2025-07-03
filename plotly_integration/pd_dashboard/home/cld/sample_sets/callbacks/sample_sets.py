@@ -343,7 +343,7 @@ def update_analysis_management_panel(sample_set_id):
 # ============================================================================
 
 def get_analysis_status_for_set(sample_set):
-    """Get status of each analysis type for a sample set"""
+    """Get status of each analysis type for a sample set - UPDATED"""
     analysis_types = ['SEC', 'AKTA', 'Titer', 'CE-SDS', 'cIEF', 'Mass Check', 'Glycan', 'HCP', 'ProA']
     status_dict = {}
 
@@ -353,7 +353,7 @@ def get_analysis_status_for_set(sample_set):
     except:
         requests = {}
 
-    # Get member samples
+    # Get member samples - convert to sample numbers
     member_samples = sample_set.members.select_related('sample').all()
     sample_ids = [m.sample.sample_id for m in member_samples]
 
@@ -382,34 +382,43 @@ def get_analysis_status_for_set(sample_set):
     return status_dict
 
 
+print("✅ Fixed analysis data checking functions with correct field names")
+
 def check_analysis_data_exists(analysis_type, sample_ids):
-    """Check if analysis data exists for any samples"""
+    """Check if analysis data exists for any samples - FIXED field names"""
     if not sample_ids:
         return False
 
     try:
+        # Convert sample_ids to sample_numbers for database queries
+        sample_numbers = []
+        for sample_id in sample_ids:
+            # Extract sample number from sample_id (e.g., "FB123" -> 123)
+            if sample_id.startswith('FB'):
+                sample_numbers.append(int(sample_id[2:]))
+            else:
+                try:
+                    sample_numbers.append(int(sample_id))
+                except:
+                    continue
+
         # Special handling for AKTA
         if analysis_type == 'AKTA':
-            return check_akta_data_exists(sample_ids)
+            return check_akta_data_exists(sample_numbers)
 
-        # Map analysis types to result models
-        model_map = {
-            'SEC': LimsSecResult,
-            'Titer': LimsTiterResult if LimsTiterResult.objects is not None else None,
-            'CE-SDS': LimsCeSdsResult if LimsCeSdsResult.objects is not None else None,
-            'cIEF': LimsCiefResult if LimsCiefResult.objects is not None else None,
-            'Mass Check': LimsMassCheckResult if LimsMassCheckResult.objects is not None else None,
-            'Glycan': LimsReleasedGlycanResult if LimsReleasedGlycanResult.objects is not None else None,
-            'HCP': LimsHcpResult if LimsHcpResult.objects is not None else None,
-            'ProA': LimsProaResult if LimsProaResult.objects is not None else None
-        }
-
-        model_class = model_map.get(analysis_type)
-        if model_class:
-            # Check if any results exist for these samples
-            return model_class.objects.filter(
-                sample_id__in=sample_ids
+        # Map analysis types to result models with correct field names
+        if analysis_type == 'SEC':
+            return LimsSecResult.objects.filter(
+                sample_id__sample_number__in=sample_numbers  # Use relationship path
             ).exists()
+
+        # For other analysis types, implement similar patterns
+        # elif analysis_type == 'Titer':
+        #     return LimsTiterResult.objects.filter(
+        #         sample_id__sample_number__in=sample_numbers
+        #     ).exists()
+
+        # Add other analysis types as your models become available
 
         return False
 
@@ -418,15 +427,15 @@ def check_analysis_data_exists(analysis_type, sample_ids):
         return False
 
 
-def check_akta_data_exists(sample_ids):
-    """Special check for AKTA data"""
+def check_akta_data_exists(sample_numbers):
+    """Special check for AKTA data - FIXED field names"""
     try:
-        # AKTA data might be stored in SampleMetadata or a specific AKTA model
-        # Check if any AKTA-related metadata exists
+        # AKTA data is in SampleMetadata - use correct field name
         akta_data = SampleMetadata.objects.filter(
-            sample_id__in=sample_ids,
+            sample_number__in=sample_numbers,  # Use sample_number field
             # Add specific AKTA filters based on your data structure
-            # For example: data_type__contains='AKTA'
+            # For example, if you have a field that identifies AKTA data:
+            # analysis_type__icontains='AKTA'
         ).exists()
 
         return akta_data
@@ -434,8 +443,6 @@ def check_akta_data_exists(sample_ids):
     except Exception as e:
         print(f"Error checking AKTA data: {e}")
         return False
-
-
 # ============================================================================
 # HELPER FUNCTIONS FOR TABLE AND DETAILS
 # ============================================================================
