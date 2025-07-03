@@ -2,7 +2,7 @@
 from dash import Input, Output, callback, no_update, html, State, callback_context
 import dash_bootstrap_components as dbc
 from plotly_integration.models import LimsUpstreamSamples
-from plotly_integration.cld_dashboard.main_app import app
+from plotly_integration.pd_dashboard.main_app import app
 from datetime import datetime
 import pandas as pd
 import io

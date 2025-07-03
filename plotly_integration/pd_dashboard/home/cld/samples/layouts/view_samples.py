@@ -3,8 +3,8 @@ import dash
 from dash import html, dcc, dash_table, Output, Input, State
 import dash_bootstrap_components as dbc
 
-from ...main_app import app
-from ...shared.styles.common_styles import TABLE_STYLE_CELL, TABLE_STYLE_HEADER
+from plotly_integration.pd_dashboard.main_app import app
+from plotly_integration.pd_dashboard.shared.styles.common_styles import TABLE_STYLE_CELL, TABLE_STYLE_HEADER
 
 # Field definitions
 UP_SAMPLE_FIELDS = [

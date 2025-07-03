@@ -15,7 +15,8 @@ from collections import Counter
 import json
 
 # Import the app instance
-from plotly_integration.cld_dashboard.main_app import app
+from plotly_integration.pd_dashboard.main_app import app
+
 
 
 @app.callback(

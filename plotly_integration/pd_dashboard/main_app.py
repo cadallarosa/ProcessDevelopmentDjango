@@ -2,7 +2,7 @@
 # Main application file with CLD Sample routing
 
 from django_plotly_dash import DjangoDash
-from dash import html, dcc, Input, Output, callback, clientside_callback
+from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 from .core.routing_layouts import create_page_router  # Updated import
 from .shared.styles.common_styles import CONTENT_STYLE
@@ -99,42 +99,41 @@ except Exception as e:
 
 # Import all callbacks to register them
 print("📥 Importing core callbacks...")
-from .core import dashboard_content
 
 # Test sample callback imports individually
 print("🔍 Testing callback imports one by one...")
 
 try:
     print("🔍 Testing sample_sets import...")
-    from .samples.callbacks import sample_sets
+    from plotly_integration.pd_dashboard.home.cld.samples.callbacks import sample_sets, file_upload_handlers, \
+        view_samples
+
     print("✅ sample_sets imported successfully")
 except Exception as e:
     print(f"❌ sample_sets import failed: {e}")
 
 try:
     print("🔍 Testing view_samples import...")
-    from .samples.callbacks import view_samples
     print("✅ view_samples imported successfully")
 except Exception as e:
     print(f"❌ view_samples import failed: {e}")
 
 try:
     print("🔍 Testing create_samples import...")
-    from .samples.callbacks import create_samples
+    from .home.cld.samples.callbacks import create_samples, analysis_requests
+
     print("✅ create_samples imported successfully")
 except Exception as e:
     print(f"❌ create_samples import failed: {e}")
 
 try:
     print("🔍 Testing file_upload_handlers import...")
-    from .samples.callbacks import file_upload_handlers
     print("✅ file_upload_handlers imported successfully")
 except Exception as e:
     print(f"❌ file_upload_handlers import failed: {e}")
 
 try:
     print("🔍 Testing analysis_requests import...")
-    from .samples.callbacks import analysis_requests
     print("✅ analysis_requests imported successfully")
 except Exception as e:
     print(f"❌ analysis_requests import failed: {e}")

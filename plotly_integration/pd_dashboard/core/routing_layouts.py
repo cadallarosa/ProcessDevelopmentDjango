@@ -1,7 +1,7 @@
 # plotly_integration/pd_dashboard/core/routing_layouts.py
 # Clean routing system - Home + DSP AKTA only
 
-from dash import html, Input, Output, State, callback
+from dash import html, Input, Output
 import dash_bootstrap_components as dbc
 from urllib.parse import parse_qs
 from ..core.sidebar_navigation import create_sidebar_navigation
@@ -481,7 +481,7 @@ def create_page_router(app):
 
         elif pathname == "/cld/create-samples":
             try:
-                from ..samples.layouts.create_samples import create_create_samples_layout
+                from plotly_integration.pd_dashboard.home.cld.samples.layouts.create_samples import create_create_samples_layout
                 return create_create_samples_layout()
             except ImportError as e:
                 print(f"Error importing create samples layout: {e}")
@@ -493,7 +493,7 @@ def create_page_router(app):
 
         elif pathname == "/cld/view-samples":
             try:
-                from ..samples.layouts.view_samples import create_view_samples_layout
+                from plotly_integration.pd_dashboard.home.cld.samples.layouts import create_view_samples_layout
                 return create_view_samples_layout()
             except ImportError as e:
                 print(f"Error importing view samples layout: {e}")
@@ -505,7 +505,7 @@ def create_page_router(app):
 
         elif pathname == "/cld/sample-sets":
             try:
-                from ..samples.layouts.sample_sets import create_sample_sets_layout
+                from plotly_integration.pd_dashboard.home.cld.samples.layouts import create_sample_sets_layout
                 return create_sample_sets_layout()
             except ImportError as e:
                 print(f"Error importing sample sets layout: {e}")

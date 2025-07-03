@@ -1,4 +1,4 @@
-# cld_dashboard/samples/callbacks/create_samples.py - Fixed syntax errors
+
 from dash import Input, Output, State, no_update, html, dcc, ctx
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -9,7 +9,7 @@ import io
 from dash.exceptions import PreventUpdate
 from django.db.models import Max
 from datetime import datetime
-from plotly_integration.cld_dashboard.main_app import app
+from plotly_integration.pd_dashboard.main_app import app
 
 print("🔧 Registering create_samples callbacks...")
 

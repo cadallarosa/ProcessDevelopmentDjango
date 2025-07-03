@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 
 # Make sure this import path is correct for your project structure
 try:
-    from ...shared.styles.common_styles import CARD_STYLE, COLORS
+    from plotly_integration.pd_dashboard.shared.styles.common_styles import CARD_STYLE, COLORS
 except ImportError:
     # Fallback if import fails
     CARD_STYLE = {}

@@ -2,7 +2,7 @@
 import dash
 from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
-from ...shared.styles.common_styles import (
+from plotly_integration.pd_dashboard.shared.styles.common_styles import (
     TABLE_STYLE_CELL, TABLE_STYLE_HEADER, CARD_STYLE,
     INPUT_STYLE, DROPDOWN_STYLE, BUTTON_STYLE_PRIMARY
 )
