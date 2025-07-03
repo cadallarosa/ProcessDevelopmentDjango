@@ -54,6 +54,9 @@ EXTERNAL_APPS = {
 # Internal routes for the dashboard
 INTERNAL_ROUTES = {
     "dashboard_home": "/",
+    "cld_create_samples": "/cld/create-samples",
+    "cld_view_samples": "/cld/view-samples",
+    "cld_sample_sets": "/cld/sample-sets",
     "sample_sets_view": "/sample-sets",
     "sample_sets_table": "/sample-sets/table",
     "sample_sets_analytics": "/sample-sets/analytics",
@@ -236,6 +239,11 @@ def get_navigation_links():
     return {
         "main": [
             {"name": "Dashboard", "url": INTERNAL_ROUTES["dashboard_home"], "icon": "fa-tachometer-alt"},
+        ],
+        "cld_samples": [
+            {"name": "Create Samples", "url": INTERNAL_ROUTES["cld_create_samples"], "icon": "fa-plus"},
+            {"name": "View Samples", "url": INTERNAL_ROUTES["cld_view_samples"], "icon": "fa-eye"},
+            {"name": "Sample Sets", "url": INTERNAL_ROUTES["cld_sample_sets"], "icon": "fa-layer-group"},
         ],
         "samples": [
             {"name": "View All Samples", "url": INTERNAL_ROUTES["samples_view"], "icon": "fa-vial"},

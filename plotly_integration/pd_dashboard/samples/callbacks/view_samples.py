@@ -29,8 +29,8 @@ def load_samples_main(pathname, n_clicks, search_term, project_filter, stage_fil
     """Main data loading callback - stores original snapshot"""
     global _original_data
 
-    if pathname != "/samples/view":
-        return [], [], {}
+    # if pathname != "/samples/view":
+    #     return [], [], {}
 
     try:
         # Query database with filters
@@ -327,8 +327,8 @@ def calculate_recoveries(data):
 )
 def populate_projects(pathname):
     """Populate project dropdown"""
-    if pathname != "/samples/view":
-        return []
+    # if pathname != "/samples/view":
+    #     return []
 
     try:
         projects = LimsUpstreamSamples.objects.filter(

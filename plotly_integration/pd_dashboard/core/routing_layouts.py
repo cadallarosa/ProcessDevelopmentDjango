@@ -479,6 +479,42 @@ def create_page_router(app):
             dn_url = "/plotly_integration/dash-app/app/DnAssignmentApp/"
             return create_full_screen_app("Create DN Assignment", dn_url, "refresh-dsp-dn")
 
+        elif pathname == "/cld/create-samples":
+            try:
+                from ..samples.layouts.create_samples import create_create_samples_layout
+                return create_create_samples_layout()
+            except ImportError as e:
+                print(f"Error importing create samples layout: {e}")
+                return html.Div([
+                    html.H2("Create CLD Samples"),
+                    html.P("Error loading create samples page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
+        elif pathname == "/cld/view-samples":
+            try:
+                from ..samples.layouts.view_samples import create_view_samples_layout
+                return create_view_samples_layout()
+            except ImportError as e:
+                print(f"Error importing view samples layout: {e}")
+                return html.Div([
+                    html.H2("View CLD Samples"),
+                    html.P("Error loading view samples page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
+        elif pathname == "/cld/sample-sets":
+            try:
+                from ..samples.layouts.sample_sets import create_sample_sets_layout
+                return create_sample_sets_layout()
+            except ImportError as e:
+                print(f"Error importing sample sets layout: {e}")
+                return html.Div([
+                    html.H2("CLD Sample Sets"),
+                    html.P("Error loading sample sets page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
         # CLD Routes - Full screen, non-scrollable
         elif pathname == "/cld/vicell":
             cld_vicell_url = "/plotly_integration/dash-app/app/ViCellReportApp/"

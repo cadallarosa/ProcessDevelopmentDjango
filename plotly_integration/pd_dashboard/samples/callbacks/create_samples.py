@@ -248,8 +248,8 @@ def download_sample_template(download_btn_clicks, excel_btn_clicks):
 )
 def populate_project_dropdown(pathname):
     """Populate project dropdown from CLD database"""
-    if pathname != "/samples/create":
-        raise PreventUpdate
+    # if pathname != "/samples/create":
+    #     raise PreventUpdate
 
     try:
         # Get unique projects from existing samples and project information

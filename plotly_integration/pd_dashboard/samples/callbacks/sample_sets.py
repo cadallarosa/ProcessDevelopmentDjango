@@ -33,9 +33,9 @@ from plotly_integration.cld_dashboard.main_app import app
 def update_sample_sets_display(n_clicks, search_term, project_filter, status_filter, pathname):
     """Load and display sample sets with analysis status"""
 
-    # Only run on sample-sets page
-    if pathname != "/sample-sets":
-        return no_update, no_update, no_update, no_update, no_update
+    # # Only run on sample-sets page
+    # if pathname != "/sample-sets":
+    #     return no_update, no_update, no_update, no_update, no_update
 
     try:
         # Query sample sets
@@ -723,8 +723,8 @@ def get_existing_sec_reports_for_sample_set(sample_set):
 )
 def update_project_filter(n_clicks, pathname):
     """Update project filter dropdown options"""
-    if pathname != "/sample-sets":
-        return no_update
+    # if pathname != "/sample-sets":
+    #     return no_update
 
     try:
         projects = LimsSampleSet.objects.values_list('project_id', flat=True).distinct()
