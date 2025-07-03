@@ -56,39 +56,73 @@ def update_sample_set_basic_info(sample_set_id):
     Input("current-sample-set-id", "data")
 )
 def update_sample_set_samples_table(sample_set_id):
-    """Update the samples table filtered to the sample set - SIMPLIFIED like view_samples"""
+    """Update the samples table filtered to the sample set (same as view_samples)"""
     if not sample_set_id:
         return dbc.Alert("No sample set selected", color="warning")
 
     try:
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
 
-        # Get the sample numbers that are in this sample set
-        # First get the LimsSampleAnalysis records in the set
-        member_samples = sample_set.members.select_related('sample__up').all()
+        # Get all LimsSampleAnalysis records in this set
+        member_samples = sample_set.members.select_related('sample').all()
+        sample_analysis_ids = [m.sample.sample_id for m in member_samples]
 
-        # Extract the sample numbers from the upstream samples
-        sample_numbers = []
-        for member in member_samples:
-            if member.sample.up:  # If there's an upstream sample linked
-                sample_numbers.append(member.sample.up.sample_number)
+        if not sample_analysis_ids:
+            return dbc.Alert("No samples found in this set", color="info")
 
-        if not sample_numbers:
-            return dbc.Alert("No upstream samples found for this sample set", color="info")
+        # Get the corresponding LimsUpstreamSamples records
+        # Need to match through the 'up' relationship in LimsSampleAnalysis
+        sample_analysis_records = LimsSampleAnalysis.objects.filter(
+            sample_id__in=sample_analysis_ids
+        ).select_related('up')
 
-        # Query LimsUpstreamSamples directly with the sample numbers (same as view_samples)
-        samples_query = LimsUpstreamSamples.objects.filter(
-            sample_number=sample_numbers,
-            sample_type=2
-        ).order_by('sample_number')
-
-        # Convert to table data (same logic as view_samples)
+        # Convert to table data format (same as view_samples)
         table_data = []
-        for sample_obj in samples_query:
-            row_data = build_sample_row_with_recoveries(sample_obj)
-            table_data.append(row_data)
+        for analysis_record in sample_analysis_records:
+            if analysis_record.up:  # If there's a related upstream sample
+                upstream = analysis_record.up
+                table_data.append({
+                    "project": upstream.project,
+                    "sample_number": upstream.sample_number,
+                    "cell_line": upstream.cell_line or "",
+                    "sip_number": upstream.sip_number or "",
+                    "development_stage": upstream.development_stage or "",
+                    "analyst": upstream.analyst or "",
+                    "harvest_date": upstream.harvest_date.strftime('%Y-%m-%d') if upstream.harvest_date else "",
+                    "unifi_number": upstream.unifi_number or "",
+                    "hf_octet_titer": upstream.hf_octet_titer,
+                    "pro_aqa_hf_titer": upstream.pro_aqa_hf_titer,
+                    "pro_aqa_e_titer": upstream.pro_aqa_e_titer,
+                    "proa_eluate_a280_conc": upstream.proa_eluate_a280_conc,
+                    "hccf_loading_volume": upstream.hccf_loading_volume,
+                    "proa_eluate_volume": upstream.proa_eluate_volume,
+                    "fast_pro_a_recovery": upstream.fast_pro_a_recovery,
+                    "purification_recovery_a280": upstream.purification_recovery_a280,
+                    "note": upstream.note or ""
+                })
+            else:
+                # If no upstream sample linked, use basic info from analysis record
+                table_data.append({
+                    "project": analysis_record.project_id,
+                    "sample_number": analysis_record.sample_id,
+                    "cell_line": "",
+                    "sip_number": "",
+                    "development_stage": "",
+                    "analyst": analysis_record.analyst,
+                    "harvest_date": "",
+                    "unifi_number": "",
+                    "hf_octet_titer": None,
+                    "pro_aqa_hf_titer": None,
+                    "pro_aqa_e_titer": None,
+                    "proa_eluate_a280_conc": None,
+                    "hccf_loading_volume": None,
+                    "proa_eluate_volume": None,
+                    "fast_pro_a_recovery": None,
+                    "purification_recovery_a280": None,
+                    "note": ""
+                })
 
-        # Create the table
+        # Create the table using the same structure as view_samples
         table = create_samples_table_for_set()
         table.data = table_data
 
@@ -102,53 +136,6 @@ def update_sample_set_samples_table(sample_set_id):
         print(f"Error loading sample set samples: {e}")
         return dbc.Alert(f"Error loading samples: {str(e)}", color="danger")
 
-
-def build_sample_row_with_recoveries(sample_obj):
-    """Build a row dictionary from a sample object - EXACT same as view_samples"""
-    # Calculate recoveries (copied from view_samples)
-    fast_recovery = ""
-    a280_recovery = ""
-
-    try:
-        if sample_obj.pro_aqa_hf_titer and sample_obj.pro_aqa_e_titer and sample_obj.pro_aqa_hf_titer > 0:
-            fast_recovery = round((sample_obj.pro_aqa_e_titer / sample_obj.pro_aqa_hf_titer) * 100, 1)
-    except:
-        pass
-
-    try:
-        if all([sample_obj.hccf_loading_volume, sample_obj.proa_eluate_volume,
-                sample_obj.hf_octet_titer, sample_obj.proa_eluate_a280_conc]):
-            if all([x > 0 for x in [sample_obj.hccf_loading_volume, sample_obj.proa_eluate_volume,
-                                    sample_obj.hf_octet_titer, sample_obj.proa_eluate_a280_conc]]):
-                total_protein_in = sample_obj.hccf_loading_volume * sample_obj.hf_octet_titer
-                total_protein_out = sample_obj.proa_eluate_volume * sample_obj.proa_eluate_a280_conc
-                a280_recovery = round((total_protein_out / total_protein_in) * 100, 1)
-    except:
-        pass
-
-    # Return row data (exact same format as view_samples)
-    return {
-        "project": sample_obj.project or "",
-        "sample_number": sample_obj.sample_number,
-        "cell_line": sample_obj.cell_line or "",
-        "sip_number": sample_obj.sip_number or "",
-        "development_stage": sample_obj.development_stage or "",
-        "analyst": sample_obj.analyst or "",
-        "harvest_date": sample_obj.harvest_date.strftime('%Y-%m-%d') if sample_obj.harvest_date else "",
-        "unifi_number": sample_obj.unifi_number or "",
-        "hf_octet_titer": sample_obj.hf_octet_titer,
-        "pro_aqa_hf_titer": sample_obj.pro_aqa_hf_titer,
-        "pro_aqa_e_titer": sample_obj.pro_aqa_e_titer,
-        "proa_eluate_a280_conc": sample_obj.proa_eluate_a280_conc,
-        "hccf_loading_volume": sample_obj.hccf_loading_volume,
-        "proa_eluate_volume": sample_obj.proa_eluate_volume,
-        "fast_pro_a_recovery": fast_recovery,
-        "purification_recovery_a280": a280_recovery,
-        "note": sample_obj.note or ""
-    }
-
-
-print("✅ Simplified overview table callback - directly matches view_samples")
 
 @app.callback(
     Output("analysis-results-cards", "children"),
