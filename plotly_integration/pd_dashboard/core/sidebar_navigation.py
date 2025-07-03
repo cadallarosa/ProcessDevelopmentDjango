@@ -1,5 +1,6 @@
-# plotly_integration/pd_dashboard/core/sidebar_navigation.py
-# Updated sidebar with all apps organized by category
+# STEP 1: First, restore your EXACT working sidebar_navigation.py
+
+# Replace your sidebar_navigation.py with this (your original working version):
 
 from dash import html
 import dash_bootstrap_components as dbc
@@ -61,43 +62,36 @@ def create_sidebar_navigation():
         {
             'id': 'dsp',
             'title': 'DSP',
-            'icon': 'fa-industry',
+            'icon': 'fa-cogs',
             'color': '#f39c12',
             'items': [
-                {'name': 'Create DN', 'href': '#!/dsp/create-dn', 'icon': 'fa-flask'},
-                {'name': 'AKTA', 'href': '#!/dsp/akta', 'icon': 'fa-chart-area'},
-                {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-water'},
-                {'name': 'VF', 'href': '#!/dsp/vf', 'icon': 'fa-filter'},
-                {'name': 'VI', 'href': '#!/dsp/vi', 'icon': 'fa-shield-virus'}
+                {'name': 'Create DN/PD', 'href': '#!/dsp/create-dn-pd', 'icon': 'fa-plus'},
+                {'name': 'AKTA', 'href': '#!/dsp/akta', 'icon': 'fa-chart-line'},
+                {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-filter'},
+                {'name': 'VF', 'href': '#!/dsp/vf', 'icon': 'fa-virus'},
+                {'name': 'Viral Inactivation', 'href': '#!/dsp/viral-inactivation', 'icon': 'fa-shield-virus'}
             ]
         },
         {
             'id': 'analytical',
             'title': 'Analytical',
-            'icon': 'fa-chart-bar',
+            'icon': 'fa-microscope',
             'color': '#9b59b6',
             'items': [
-                {'name': 'SEC', 'href': '#!/analytical/sec', 'icon': 'fa-microscope'},
-                {'name': 'TITER', 'href': '#!/analytical/titer', 'icon': 'fa-vial'},
-                {'name': 'CE SDS', 'href': '#!/analytical/ce-sds', 'icon': 'fa-chart-line'},
-                {'name': 'cIEF', 'href': '#!/analytical/cief', 'icon': 'fa-wave-square'},
+                {'name': 'SEC', 'href': '#!/analytical/sec', 'icon': 'fa-chart-area'},
+                {'name': 'Titer', 'href': '#!/analytical/titer', 'icon': 'fa-vial'},
+                {'name': 'CE SDS', 'href': '#!/analytical/ce-sds', 'icon': 'fa-wave-square'},
+                {'name': 'cIEF', 'href': '#!/analytical/cief', 'icon': 'fa-bolt'},
                 {'name': 'Mass Spec', 'href': '#!/analytical/mass-spec', 'icon': 'fa-atom'}
             ]
         },
         {
-            'id': 'database',
-            'title': 'Database Management',
-            'icon': 'fa-database',
-            'color': '#34495e',
-            'items': [
-                {'name': 'Import Empower', 'href': '#!/database/import-empower', 'icon': 'fa-upload'},
-                {'name': 'Import CE SDS', 'href': '#!/database/import-cesds', 'icon': 'fa-upload'},
-                {'name': 'Import cIEF', 'href': '#!/database/import-cief', 'icon': 'fa-upload'},
-                {'name': 'Import UFDF', 'href': '#!/database/import-ufdf', 'icon': 'fa-upload'},
-                {'name': 'Import VF', 'href': '#!/database/import-vf', 'icon': 'fa-upload'},
-                {'name': 'Import Nova Flex', 'href': '#!/database/import-nova-flex', 'icon': 'fa-upload'},
-                {'name': 'Import ViCell', 'href': '#!/database/import-vicell', 'icon': 'fa-upload'}
-            ]
+            'id': 'data-import',
+            'title': 'Data Import',
+            'icon': 'fa-upload',
+            'color': '#1abc9c',
+            'href': '#!/data-import',
+            'items': []
         },
         {
             'id': 'settings',

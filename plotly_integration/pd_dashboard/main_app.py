@@ -23,6 +23,8 @@ app.layout = html.Div([
     dcc.Store(id="user-settings", data={}),
     # Add a store for the parsed pathname
     dcc.Store(id="parsed-pathname", data="/"),
+    dcc.Store(id='sidebar-collapse-state', data={'cld': True, 'usp': True, 'dsp': True, 'analytical': True},
+              storage_type='session'),
 
     # Sidebar navigation
     html.Div(id="sidebar-nav"),
@@ -90,6 +92,7 @@ create_page_router(app)
 print("🔧 Registering sidebar callbacks...")
 try:
     from .core.sidebar_navigation import register_sidebar_callbacks
+
     register_sidebar_callbacks(app)
     print("✅ Sidebar callbacks registered successfully")
 except Exception as e:
@@ -106,6 +109,7 @@ print("🔍 Testing callback imports one by one...")
 try:
     print("🔍 Testing sample_sets import...")
     from .samples.callbacks import sample_sets
+
     print("✅ sample_sets imported successfully")
 except Exception as e:
     print(f"❌ sample_sets import failed: {e}")
@@ -113,6 +117,7 @@ except Exception as e:
 try:
     print("🔍 Testing view_samples import...")
     from .samples.callbacks import view_samples
+
     print("✅ view_samples imported successfully")
 except Exception as e:
     print(f"❌ view_samples import failed: {e}")
@@ -120,6 +125,7 @@ except Exception as e:
 try:
     print("🔍 Testing create_samples import...")
     from .samples.callbacks import create_samples
+
     print("✅ create_samples imported successfully")
 except Exception as e:
     print(f"❌ create_samples import failed: {e}")
@@ -127,6 +133,7 @@ except Exception as e:
 try:
     print("🔍 Testing file_upload_handlers import...")
     from .samples.callbacks import file_upload_handlers
+
     print("✅ file_upload_handlers imported successfully")
 except Exception as e:
     print(f"❌ file_upload_handlers import failed: {e}")
@@ -134,6 +141,7 @@ except Exception as e:
 try:
     print("🔍 Testing analysis_requests import...")
     from .samples.callbacks import analysis_requests
+
     print("✅ analysis_requests imported successfully")
 except Exception as e:
     print(f"❌ analysis_requests import failed: {e}")
@@ -142,9 +150,11 @@ except Exception as e:
 try:
     print("🔍 Testing sec_callbacks import...")
     from .embedded_apps.sec_integration import sec_callbacks
+
     print("✅ sec_callbacks imported successfully")
 except Exception as e:
     print(f"❌ sec_callbacks import failed: {e}")
+
 
 # Register global error handler
 @app.callback(
@@ -161,6 +171,7 @@ def handle_app_errors(app_state):
     except Exception as e:
         print(f"❌ App error: {e}")
         return {"initialized": False, "errors": [str(e)]}
+
 
 print("🚀 PD Dashboard initialization complete!")
 print("   ✅ App created with suppress_callback_exceptions=True")
