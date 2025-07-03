@@ -105,7 +105,7 @@ print("🔍 Testing callback imports one by one...")
 
 try:
     print("🔍 Testing sample_sets import...")
-    from plotly_integration.pd_dashboard.home.cld.samples.callbacks import sample_sets, file_upload_handlers, \
+    from plotly_integration.pd_dashboard.home.cld.sample_sets.callbacks import sample_sets, file_upload_handlers, \
         view_samples
 
     print("✅ sample_sets imported successfully")
@@ -120,7 +120,7 @@ except Exception as e:
 
 try:
     print("🔍 Testing create_samples import...")
-    from .home.cld.samples.callbacks import create_samples, analysis_requests
+    from .home.cld.sample_sets.callbacks import create_samples, analysis_requests
 
     print("✅ create_samples imported successfully")
 except Exception as e:
