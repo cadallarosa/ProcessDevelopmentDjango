@@ -1,10 +1,10 @@
 # plotly_integration/pd_dashboard/main_app.py
-# Main application file with CLD Sample routing
+# Main application file with updated imports for refactored home/cld structure
 
 from django_plotly_dash import DjangoDash
 from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
-from .core.routing_layouts import create_page_router  # Updated import
+from .core.routing_layouts import create_page_router
 from .shared.styles.common_styles import CONTENT_STYLE
 
 print("🚀 Starting PD Dashboard initialization...")
@@ -100,43 +100,52 @@ except Exception as e:
 # Import all callbacks to register them
 print("📥 Importing core callbacks...")
 
-# Test sample callback imports individually
+# Test callback imports individually with updated paths
 print("🔍 Testing callback imports one by one...")
 
-try:
-    print("🔍 Testing sample_sets import...")
-    from plotly_integration.pd_dashboard.home.cld.sample_sets.callbacks import sample_sets, file_upload_handlers, \
-        view_samples
-
-    print("✅ sample_sets imported successfully")
-except Exception as e:
-    print(f"❌ sample_sets import failed: {e}")
-
-try:
-    print("🔍 Testing view_samples import...")
-    print("✅ view_samples imported successfully")
-except Exception as e:
-    print(f"❌ view_samples import failed: {e}")
-
+# Updated imports to match refactored home/cld structure
 try:
     print("🔍 Testing create_samples import...")
-    from .home.cld.sample_sets.callbacks import create_samples, analysis_requests
-
+    from .home.cld.create_samples.callbacks import create_samples
     print("✅ create_samples imported successfully")
 except Exception as e:
     print(f"❌ create_samples import failed: {e}")
 
 try:
+    print("🔍 Testing view_samples import...")
+    from .home.cld.view_samples.callbacks import view_samples
+    print("✅ view_samples imported successfully")
+except Exception as e:
+    print(f"❌ view_samples import failed: {e}")
+
+try:
+    print("🔍 Testing sample_sets import...")
+    from .home.cld.sample_sets.callbacks import sample_sets
+    print("✅ sample_sets imported successfully")
+except Exception as e:
+    print(f"❌ sample_sets import failed: {e}")
+
+try:
     print("🔍 Testing file_upload_handlers import...")
+    from .home.cld.create_samples.callbacks import file_upload_handlers
     print("✅ file_upload_handlers imported successfully")
 except Exception as e:
     print(f"❌ file_upload_handlers import failed: {e}")
 
 try:
     print("🔍 Testing analysis_requests import...")
+    from .home.cld.create_samples.callbacks import analysis_requests
     print("✅ analysis_requests imported successfully")
 except Exception as e:
     print(f"❌ analysis_requests import failed: {e}")
+
+# Import dashboard home
+try:
+    print("🔍 Testing dashboard_home import...")
+    from .core import dashboard_home
+    print("✅ dashboard_home imported successfully")
+except Exception as e:
+    print(f"❌ dashboard_home import failed: {e}")
 
 # Import SEC integration callbacks
 try:
@@ -145,7 +154,6 @@ try:
     print("✅ sec_callbacks imported successfully")
 except Exception as e:
     print(f"❌ sec_callbacks import failed: {e}")
-
 
 # Register global error handler
 @app.callback(
