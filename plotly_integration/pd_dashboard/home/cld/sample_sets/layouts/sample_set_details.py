@@ -1,344 +1,341 @@
-# plotly_integration/pd_dashboard/home/cld/sample_sets/layouts/sample_set_details.py
-# Separate layout file for sample set details page
-
-from dash import html, dcc, dash_table
+from dash import html, dash_table, dcc
 import dash_bootstrap_components as dbc
 
-# Import the view samples table structure
-try:
-    from ...view_samples.layouts.view_samples import UP_SAMPLE_FIELDS
-except ImportError:
-    # Fallback field definitions if import fails
-    UP_SAMPLE_FIELDS = [
-        {"name": "Project", "id": "project", "editable": False},
-        {"name": "Sample #", "id": "sample_number", "editable": False},
-        {"name": "Clone", "id": "cell_line", "editable": True},
-        {"name": "SIP #", "id": "sip_number", "editable": True},
-        {"name": "Dev Stage", "id": "development_stage", "editable": True},
-        {"name": "Analyst", "id": "analyst", "editable": True},
-        {"name": "Harvest Date", "id": "harvest_date", "editable": True, "type": "datetime"},
-        {"name": "Unifi #", "id": "unifi_number", "editable": True},
-        {"name": "HF Octet Titer", "id": "hf_octet_titer", "editable": True, "type": "numeric"},
-        {"name": "ProAqa HF Titer", "id": "pro_aqa_hf_titer", "editable": True, "type": "numeric"},
-        {"name": "ProAqa Eluate Titer", "id": "pro_aqa_e_titer", "editable": True, "type": "numeric"},
-        {"name": "Eluate A280", "id": "proa_eluate_a280_conc", "editable": True, "type": "numeric"},
-        {"name": "HF Volume", "id": "hccf_loading_volume", "editable": True, "type": "numeric"},
-        {"name": "Eluate Volume", "id": "proa_eluate_volume", "editable": True, "type": "numeric"},
-        {"name": "ProAqa Recovery", "id": "fast_pro_a_recovery", "editable": False, "type": "numeric"},
-        {"name": "A280 Recovery", "id": "purification_recovery_a280", "editable": False, "type": "numeric"},
-        {"name": "Note", "id": "note", "editable": True}
-    ]
+# Import field definitions
+UP_SAMPLE_FIELDS = [
+    {"name": "Project", "id": "project", "editable": False},
+    {"name": "Sample #", "id": "sample_number", "editable": False},
+    {"name": "Clone", "id": "cell_line", "editable": True},
+    {"name": "SIP #", "id": "sip_number", "editable": True},
+    {"name": "Dev Stage", "id": "development_stage", "editable": True},
+    {"name": "Analyst", "id": "analyst", "editable": True},
+    {"name": "Harvest Date", "id": "harvest_date", "editable": True, "type": "datetime"},
+    {"name": "Unifi #", "id": "unifi_number", "editable": True},
+    {"name": "HF Octet Titer", "id": "hf_octet_titer", "editable": True, "type": "numeric"},
+    {"name": "ProAqa HF Titer", "id": "pro_aqa_hf_titer", "editable": True, "type": "numeric"},
+    {"name": "ProAqa Eluate Titer", "id": "pro_aqa_e_titer", "editable": True, "type": "numeric"},
+    {"name": "Eluate A280", "id": "proa_eluate_a280_conc", "editable": True, "type": "numeric"},
+    {"name": "HF Volume", "id": "hccf_loading_volume", "editable": True, "type": "numeric"},
+    {"name": "Eluate Volume", "id": "proa_eluate_volume", "editable": True, "type": "numeric"},
+    {"name": "ProAqa Recovery", "id": "fast_pro_a_recovery", "editable": False, "type": "numeric"},
+    {"name": "A280 Recovery", "id": "purification_recovery_a280", "editable": False, "type": "numeric"},
+    {"name": "Note", "id": "note", "editable": True}
+]
 
 
 def create_sample_set_detail_layout(query_params):
-    """Create detailed view layout for a specific sample set with tabs"""
+    """Create detailed view layout for a specific sample set"""
     sample_set_id = query_params.get('id', [None])[0] if query_params else None
 
     if not sample_set_id:
         return dbc.Container([
-            dbc.Alert([
-                html.I(className="fas fa-exclamation-triangle me-2"),
-                "No sample set ID provided"
-            ], color="warning")
+            dbc.Alert("No sample set ID provided", color="warning")
         ])
 
     return dbc.Container([
-        # Header with navigation
+        # Store for current sample set ID
+        dcc.Store(id="current-sample-set-id", data=sample_set_id),
+
+        # Header
         dbc.Row([
             dbc.Col([
-                html.H2([
-                    html.I(className="fas fa-info-circle text-primary me-2"),
-                    "Sample Set Details"
-                ]),
-                html.P("Detailed view and analysis management", className="text-muted")
+                html.Div(id="sample-set-basic-info", children=[
+                    dbc.Spinner(html.Div("Loading...", className="text-center"), color="primary")
+                ])
             ], md=8),
             dbc.Col([
                 dbc.ButtonGroup([
                     dbc.Button([
                         html.I(className="fas fa-arrow-left me-1"),
                         "Back to Sets"
-                    ], href="#!/cld/sample-sets", color="outline-secondary", size="sm"),
+                    ], href="#!/sample-sets", color="outline-secondary", size="sm"),
                     dbc.Button([
-                        html.I(className="fas fa-edit me-1"),
-                        "Edit Set"
-                    ], id="edit-sample-set", color="outline-primary", size="sm")
+                        html.I(className="fas fa-sync-alt me-1"),
+                        "Refresh"
+                    ], id="refresh-details-btn", color="outline-primary", size="sm")
                 ], className="float-end")
             ], md=4)
         ], className="mb-4"),
 
-        # Sample Set Basic Info (always visible)
+        # Tabs Section
         dbc.Row([
             dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.Div(id="sample-set-basic-info", children=[
-                            dbc.Spinner(color="primary")
-                        ])
-                    ])
-                ], className="shadow-sm")
-            ])
-        ], className="mb-4"),
-
-        # Tabbed Content
-        dbc.Tabs([
-            # Tab 1: Overview with samples table
-            dbc.Tab(
-                label="Overview",
-                tab_id="overview-tab",
-                children=[
-                    html.Div([
-                        # Samples Table Section
-                        dbc.Row([
-                            dbc.Col([
-                                dbc.Card([
-                                    dbc.CardHeader([
-                                        html.H5([
-                                            html.I(className="fas fa-vials me-2"),
-                                            "Sample Set Samples"
-                                        ], className="mb-0")
-                                    ]),
-                                    dbc.CardBody([
-                                        html.Div(id="sample-set-samples-table", children=[
-                                            dbc.Spinner(color="primary")
-                                        ])
-                                    ])
-                                ], className="shadow-sm")
+                dbc.Tabs([
+                    dbc.Tab([
+                        # Samples Table
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5([
+                                    html.I(className="fas fa-table me-2"),
+                                    "Sample Details"
+                                ], className="mb-0")
+                            ]),
+                            dbc.CardBody([
+                                # The actual DataTable with correct fields
+                                dash_table.DataTable(
+                                    id="sample-set-details-table",
+                                    columns=[
+                                        {
+                                            "name": col["name"],
+                                            "id": col["id"],
+                                            "editable": col.get("editable", False),
+                                            "type": col.get("type", "text")
+                                        } for col in UP_SAMPLE_FIELDS
+                                    ],
+                                    data=[],  # Will be populated by callback
+                                    editable=False,
+                                    sort_action="native",
+                                    filter_action="native",
+                                    page_action="native",
+                                    page_current=0,
+                                    page_size=15,
+                                    style_table={"overflowX": "auto"},
+                                    style_cell={
+                                        "textAlign": "left",
+                                        "padding": "8px",
+                                        "fontSize": "14px",
+                                        "fontFamily": "system-ui",
+                                        "whiteSpace": "normal",
+                                        "height": "auto",
+                                        "minWidth": "100px"
+                                    },
+                                    style_header={
+                                        "backgroundColor": "#f8f9fa",
+                                        "fontWeight": "bold",
+                                        "border": "1px solid #dee2e6",
+                                        "textAlign": "center"
+                                    },
+                                    style_data_conditional=[
+                                        {
+                                            "if": {"row_index": "odd"},
+                                            "backgroundColor": "#f8f9fa"
+                                        }
+                                    ]
+                                )
                             ])
-                        ], className="mt-4")
-                    ])
-                ]
-            ),
+                        ], className="shadow-sm mt-3")
+                    ], label="Sample Details", tab_id="samples-tab"),
 
-            # Tab 2: Analytics with analysis cards
-            dbc.Tab(
-                label="Analytics",
-                tab_id="analytics-tab",
-                children=[
-                    html.Div([
-                        # Analysis Results Section
-                        dbc.Row([
-                            dbc.Col([
+                    dbc.Tab([
+                        # Analysis Cards Section
+                        dbc.Card([
+                            dbc.CardHeader([
                                 html.H5([
                                     html.I(className="fas fa-chart-line me-2"),
-                                    "Analysis Results"
-                                ], className="mb-3 mt-4"),
-                                html.Div(id="analysis-results-cards", children=[
-                                    dbc.Spinner(color="primary")
+                                    "Analysis Status"
+                                ], className="mb-0")
+                            ]),
+                            dbc.CardBody([
+                                html.Div(id="analysis-status-cards", children=[
+                                    dbc.Spinner(html.Div("Loading analysis status...", className="text-center"),
+                                                color="primary")
                                 ])
                             ])
-                        ])
-                    ])
-                ]
-            )
-        ], id="details-tabs", active_tab="overview-tab"),
+                        ], className="shadow-sm mt-3")
+                    ], label="Analysis Status", tab_id="analysis-tab")
 
-        # Hidden stores for detail page
-        dcc.Store(id="current-sample-set-id", data=sample_set_id),
-        dcc.Store(id="sample-set-data", data={}),
-
-        # Dummy output
-        html.Div(id="detail-dummy-output", style={"display": "none"})
+                ], active_tab="samples-tab")
+            ])
+        ])
 
     ], fluid=True, style={"padding": "20px"})
 
 
-def create_samples_table_for_set():
-    """Create the samples table using the same structure as view_samples"""
-    return dash_table.DataTable(
-        id="sample-set-details-table",
-        columns=UP_SAMPLE_FIELDS,
-        data=[],
-        editable=True,
-        sort_action="native",
-        filter_action="native",
-        page_action="native",
-        page_current=0,
-        page_size=20,
-        style_table={
-            "overflowX": "auto",
-            "minWidth": "100%"
-        },
-        style_cell={
-            "textAlign": "left",
-            "padding": "8px",
-            "fontSize": "14px",
-            "fontFamily": "system-ui",
-            "whiteSpace": "normal",
-            "height": "auto",
-            "minWidth": "120px"
-        },
-        style_header={
-            "backgroundColor": "#f8f9fa",
-            "fontWeight": "bold",
-            "border": "1px solid #dee2e6",
-            "textAlign": "center"
-        },
-        style_data_conditional=[
-            {
-                "if": {"row_index": "odd"},
-                "backgroundColor": "#f8f9fa"
-            }
-        ],
-        export_format="xlsx",
-        export_headers="display"
-    )
+# ==============================================================================
+# CALLBACKS: plotly_integration/pd_dashboard/home/cld/sample_sets/callbacks/sample_set_details.py
+# ==============================================================================
+
+from dash import callback, Input, Output, State
+import dash_bootstrap_components as dbc
+from dash import html
+from plotly_integration.pd_dashboard.main_app import app
+from plotly_integration.models import LimsSampleSet, LimsUpstreamSamples
 
 
-def create_analysis_result_card(analysis_type, status, results_data=None, report_id=None):
-    """Create a card for displaying analysis results"""
+def build_sample_row_with_recoveries(s):
+    """Build sample row data (same as view_samples)"""
+    try:
+        # Calculate recoveries if possible
+        fast_pro_a_recovery = None
+        purification_recovery_a280 = None
 
-    # Status configuration
-    status_config = {
-        "not_requested": {"color": "secondary", "icon": "circle", "text": "Not Requested"},
-        "requested": {"color": "warning", "icon": "clock", "text": "Requested"},
-        "in_progress": {"color": "info", "icon": "spinner", "text": "In Progress"},
-        "completed": {"color": "success", "icon": "check", "text": "Complete"},
-        "failed": {"color": "danger", "icon": "times", "text": "Failed"}
-    }
+        if s.pro_aqa_hf_titer and s.pro_aqa_e_titer and s.pro_aqa_hf_titer > 0:
+            fast_pro_a_recovery = round((s.pro_aqa_e_titer / s.pro_aqa_hf_titer) * 100, 1)
 
-    config = status_config.get(status, status_config["not_requested"])
+        if s.proa_eluate_a280_conc and s.hccf_loading_volume and s.proa_eluate_volume:
+            if s.proa_eluate_a280_conc > 0 and s.hccf_loading_volume > 0:
+                purification_recovery_a280 = round(
+                    (s.proa_eluate_a280_conc * s.proa_eluate_volume) /
+                    (s.hccf_loading_volume * 100), 1
+                )
 
-    # Card header with status
-    card_header = dbc.CardHeader([
-        html.Div([
-            html.H6([
-                html.I(className=f"fas fa-{get_analysis_icon(analysis_type)} me-2"),
-                analysis_type
-            ], className="mb-0"),
-            html.Span([
-                html.I(className=f"fas fa-{config['icon']} me-1"),
-                config["text"]
-            ], className=f"badge bg-{config['color']}")
-        ], className="d-flex justify-content-between align-items-center")
-    ])
+        return {
+            "project": s.project or "",
+            "sample_number": s.sample_number or "",
+            "cell_line": s.cell_line or "",
+            "sip_number": s.sip_number or "",
+            "development_stage": s.development_stage or "",
+            "analyst": s.analyst or "",
+            "harvest_date": s.harvest_date.strftime('%Y-%m-%d') if s.harvest_date else "",
+            "unifi_number": s.unifi_number or "",
+            "hf_octet_titer": s.hf_octet_titer,
+            "pro_aqa_hf_titer": s.pro_aqa_hf_titer,
+            "pro_aqa_e_titer": s.pro_aqa_e_titer,
+            "proa_eluate_a280_conc": s.proa_eluate_a280_conc,
+            "hccf_loading_volume": s.hccf_loading_volume,
+            "proa_eluate_volume": s.proa_eluate_volume,
+            "fast_pro_a_recovery": fast_pro_a_recovery,
+            "purification_recovery_a280": purification_recovery_a280,
+            "note": s.note or ""
+        }
+    except Exception as e:
+        print(f"Error building row for sample {s.sample_number}: {e}")
+        return {}
 
-    # Card body content
-    if status == "completed" and results_data:
-        card_body = create_analysis_results_content(analysis_type, results_data, report_id)
-    elif status in ["requested", "in_progress"]:
-        card_body = dbc.CardBody([
-            html.P(f"{analysis_type} analysis is {status}.", className="text-muted"),
-            html.Small("Results will appear here when analysis is complete.", className="text-muted")
-        ])
-    else:
-        card_body = dbc.CardBody([
-            html.P(f"No {analysis_type} analysis requested for this sample set.", className="text-muted"),
-            dbc.Button([
-                html.I(className="fas fa-play me-1"),
-                f"Request {analysis_type} Analysis"
-            ],
-                id={"type": "request-analysis-detail", "analysis": analysis_type},
-                color="outline-primary",
-                size="sm")
+
+@app.callback(
+    Output("sample-set-basic-info", "children"),
+    Input("current-sample-set-id", "data")
+)
+def update_sample_set_basic_info(sample_set_id):
+    """Update the basic sample set information at the top"""
+    print(f"DEBUG: update_sample_set_basic_info called with ID: {sample_set_id}")
+
+    if not sample_set_id:
+        return dbc.Alert("No sample set selected", color="warning")
+
+    try:
+        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        print(f"DEBUG: Found sample set: {sample_set.set_name}")
+
+        return html.Div([
+            html.H2([
+                html.I(className="fas fa-info-circle text-primary me-2"),
+                sample_set.set_name
+            ], className="mb-2"),
+            html.P([
+                html.Strong("Project: "), sample_set.project_id, " | ",
+                html.Strong("SIP: "), sample_set.sip_number or "N/A", " | ",
+                html.Strong("Stage: "), sample_set.development_stage or "N/A", " | ",
+                html.Strong("Sample Count: "), str(sample_set.sample_count)
+            ], className="text-muted mb-0")
         ])
 
-    return dbc.Card([
-        card_header,
-        card_body
-    ], className="mb-3 shadow-sm")
+    except Exception as e:
+        print(f"ERROR: loading sample set basic info: {e}")
+        return dbc.Alert(f"Error loading sample set: {str(e)}", color="danger")
 
 
-def create_analysis_results_content(analysis_type, results_data, report_id=None):
-    """Create the content for analysis results based on type"""
+@app.callback(
+    Output("sample-set-details-table", "data"),
+    Input("current-sample-set-id", "data")
+)
+def load_sample_set_details_table(sample_set_id):
+    """Load sample set details using the same method as view samples"""
+    print(f"DEBUG: load_sample_set_details_table called with ID: {sample_set_id}")
 
-    # Common elements
-    content = []
+    if not sample_set_id:
+        print("DEBUG: No sample set ID provided")
+        return []
 
-    if results_data:
-        # Display key results (customize based on analysis type)
-        if analysis_type == "SEC":
-            content.extend([
-                html.P([
-                    html.Strong("Results Summary:"), html.Br(),
-                    f"Sample Count: {len(results_data)}", html.Br(),
-                    f"Latest Analysis: {results_data[0].get('date_analyzed', 'N/A') if results_data else 'N/A'}"
+    try:
+        # Get the sample set
+        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        print(f"DEBUG: Found sample set: {sample_set.set_name}")
+
+        # Get members and extract sample_ids
+        members = sample_set.members.all()
+        print(f"DEBUG: Found {len(members)} members")
+
+        if not members:
+            print("DEBUG: No members found")
+            return []
+
+        # Extract sample numbers from members (FB123 -> 123)
+        sample_numbers = []
+        for member in members:
+            sample_id = member.sample.sample_id
+            print(f"DEBUG: Found sample_id: {sample_id}")
+            if sample_id.startswith('FB'):
+                sample_number = sample_id[2:]  # Remove 'FB' prefix
+                sample_numbers.append(sample_number)
+                print(f"DEBUG: Extracted sample_number: {sample_number}")
+
+        if not sample_numbers:
+            print("DEBUG: No valid sample numbers found")
+            return []
+
+        # Query upstream samples using the same method as view samples
+        samples_query = LimsUpstreamSamples.objects.filter(
+            sample_type=2,
+            sample_number__in=sample_numbers
+        ).order_by("sample_number")
+
+        samples = list(samples_query)
+        print(f"DEBUG: Found {len(samples)} upstream samples")
+
+        # Build data using the same method as view samples
+        data = []
+        for s in samples:
+            row = build_sample_row_with_recoveries(s)
+            if row:  # Only add if row was built successfully
+                data.append(row)
+
+        print(f"DEBUG: Built {len(data)} rows")
+        return data
+
+    except Exception as e:
+        print(f"ERROR: in load_sample_set_details_table: {e}")
+        return []
+
+
+@app.callback(
+    Output("analysis-status-cards", "children"),
+    Input("current-sample-set-id", "data")
+)
+def update_analysis_status_cards(sample_set_id):
+    """Update analysis status cards in single column layout"""
+    print(f"DEBUG: update_analysis_status_cards called with ID: {sample_set_id}")
+
+    if not sample_set_id:
+        return dbc.Alert("No sample set selected", color="warning")
+
+    try:
+        # Analysis types
+        analysis_types = ['SEC', 'AKTA', 'Titer', 'CE-SDS', 'cIEF', 'Mass Check', 'Glycan', 'HCP', 'ProA']
+
+        # Create cards in single column layout
+        cards = []
+        for analysis_type in analysis_types:
+            card = dbc.Card([
+                dbc.CardHeader([
+                    html.H6([
+                        html.I(className="fas fa-flask me-2"),
+                        analysis_type
+                    ], className="mb-0")
                 ]),
-                html.Hr()
-            ])
-        elif analysis_type == "AKTA":
-            content.extend([
-                html.P([
-                    html.Strong("AKTA Summary:"), html.Br(),
-                    f"Chromatography runs: {len(results_data)}", html.Br(),
-                    f"Latest Run: {results_data[0].get('run_date', 'N/A') if results_data else 'N/A'}"
-                ]),
-                html.Hr()
-            ])
-        else:
-            # Generic results display
-            content.extend([
-                html.P([
-                    html.Strong(f"{analysis_type} Results:"), html.Br(),
-                    f"Data points: {len(results_data)}"
-                ]),
-                html.Hr()
-            ])
+                dbc.CardBody([
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Badge("Not Requested", color="secondary", className="me-2"),
+                            html.Span("No analysis requested", className="text-muted")
+                        ], md=8),
+                        dbc.Col([
+                            dbc.Button([
+                                html.I(className="fas fa-play me-1"),
+                                "Request"
+                            ], color="outline-primary", size="sm", className="w-100")
+                        ], md=4)
+                    ])
+                ])
+            ], className="mb-2")
+            cards.append(card)
 
-    # Action buttons
-    buttons = []
+        return cards
 
-    if report_id:
-        # Link to analysis app with report ID
-        app_url = get_analysis_app_url(analysis_type, report_id)
-        if app_url:
-            buttons.append(
-                dbc.Button([
-                    html.I(className="fas fa-external-link-alt me-1"),
-                    f"View in {analysis_type} App"
-                ],
-                    href=app_url,
-                    color="primary",
-                    size="sm",
-                    className="me-2",
-                    target="_blank")
-            )
-
-    # Download results button
-    buttons.append(
-        dbc.Button([
-            html.I(className="fas fa-download me-1"),
-            "Download Results"
-        ],
-            id={"type": "download-results", "analysis": analysis_type},
-            color="outline-secondary",
-            size="sm")
-    )
-
-    content.append(html.Div(buttons))
-
-    return dbc.CardBody(content)
+    except Exception as e:
+        print(f"ERROR: loading analysis status: {e}")
+        return dbc.Alert(f"Error loading analysis status: {str(e)}", color="danger")
 
 
-def get_analysis_icon(analysis_type):
-    """Get appropriate icon for analysis type"""
-    icon_map = {
-        "SEC": "chart-line",
-        "AKTA": "wave-square",
-        "Titer": "vial",
-        "CE-SDS": "dna",
-        "cIEF": "electric",
-        "Mass Check": "weight",
-        "Glycan": "sugar",
-        "HCP": "protein",
-        "ProA": "molecule"
-    }
-    return icon_map.get(analysis_type, "flask")
-
-
-def get_analysis_app_url(analysis_type, report_id):
-    """Get the URL for the analysis app with report ID"""
-    url_map = {
-        "SEC": f"#!/analysis/sec/report?report_id={report_id}",
-        "AKTA": f"#!/analysis/akta/report?report_id={report_id}",
-        "Titer": f"#!/analysis/titer/report?report_id={report_id}",
-        "CE-SDS": f"#!/analysis/ce-sds/report?report_id={report_id}",
-        "cIEF": f"#!/analysis/cief/report?report_id={report_id}",
-        "Mass Check": f"#!/analysis/mass-check/report?report_id={report_id}",
-        "Glycan": f"#!/analysis/glycan/report?report_id={report_id}",
-        "HCP": f"#!/analysis/hcp/report?report_id={report_id}",
-        "ProA": f"#!/analysis/proa/report?report_id={report_id}"
-    }
-    return url_map.get(analysis_type)
-
-
-print("✅ Sample Set Details Layout - Created successfully")
+print("Complete sample set details layout and callbacks loaded")

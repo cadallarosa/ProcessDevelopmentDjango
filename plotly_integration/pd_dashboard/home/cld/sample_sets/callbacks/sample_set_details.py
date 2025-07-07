@@ -1,25 +1,49 @@
-# plotly_integration/pd_dashboard/home/cld/sample_sets/callbacks/sample_set_details.py
-# Corrected callbacks with proper model relationships
-
-from dash import callback, Input, Output, State, ALL, ctx, no_update
+from dash import callback, Input, Output, State
 import dash_bootstrap_components as dbc
 from dash import html
-import json
-from datetime import datetime
-
-# Import from the main app
 from plotly_integration.pd_dashboard.main_app import app
+from plotly_integration.models import LimsSampleSet, LimsUpstreamSamples
 
-# Import models
-from plotly_integration.models import (
-    LimsSampleSet, LimsUpstreamSamples, LimsSampleAnalysis,
-    LimsSecResult, Report, SampleMetadata
-)
 
-# Import layout functions
-from ..layouts.sample_set_details import (
-    create_samples_table_for_set, create_analysis_result_card
-)
+def build_sample_row_with_recoveries(s):
+    """Build sample row data (same as view_samples)"""
+    try:
+        # Calculate recoveries if possible
+        fast_pro_a_recovery = None
+        purification_recovery_a280 = None
+
+        if s.pro_aqa_hf_titer and s.pro_aqa_e_titer and s.pro_aqa_hf_titer > 0:
+            fast_pro_a_recovery = round((s.pro_aqa_e_titer / s.pro_aqa_hf_titer) * 100, 1)
+
+        if s.proa_eluate_a280_conc and s.hccf_loading_volume and s.proa_eluate_volume:
+            if s.proa_eluate_a280_conc > 0 and s.hccf_loading_volume > 0:
+                purification_recovery_a280 = round(
+                    (s.proa_eluate_a280_conc * s.proa_eluate_volume) /
+                    (s.hccf_loading_volume * 100), 1
+                )
+
+        return {
+            "project": s.project or "",
+            "sample_number": s.sample_number or "",
+            "cell_line": s.cell_line or "",
+            "sip_number": s.sip_number or "",
+            "development_stage": s.development_stage or "",
+            "analyst": s.analyst or "",
+            "harvest_date": s.harvest_date.strftime('%Y-%m-%d') if s.harvest_date else "",
+            "unifi_number": s.unifi_number or "",
+            "hf_octet_titer": s.hf_octet_titer,
+            "pro_aqa_hf_titer": s.pro_aqa_hf_titer,
+            "pro_aqa_e_titer": s.pro_aqa_e_titer,
+            "proa_eluate_a280_conc": s.proa_eluate_a280_conc,
+            "hccf_loading_volume": s.hccf_loading_volume,
+            "proa_eluate_volume": s.proa_eluate_volume,
+            "fast_pro_a_recovery": fast_pro_a_recovery,
+            "purification_recovery_a280": purification_recovery_a280,
+            "note": s.note or ""
+        }
+    except Exception as e:
+        print(f"Error building row for sample {s.sample_number}: {e}")
+        return {}
 
 
 @app.callback(
@@ -28,331 +52,143 @@ from ..layouts.sample_set_details import (
 )
 def update_sample_set_basic_info(sample_set_id):
     """Update the basic sample set information at the top"""
+    print(f"DEBUG: update_sample_set_basic_info called with ID: {sample_set_id}")
+
     if not sample_set_id:
         return dbc.Alert("No sample set selected", color="warning")
 
     try:
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        print(f"DEBUG: Found sample set: {sample_set.set_name}")
 
-        return dbc.Row([
-            dbc.Col([
-                html.H4(sample_set.set_name, className="text-primary mb-1"),
-                html.P([
-                    html.Strong("Project: "), sample_set.project_id, " | ",
-                    html.Strong("SIP: "), sample_set.sip_number or "N/A", " | ",
-                    html.Strong("Stage: "), sample_set.development_stage or "N/A", " | ",
-                    html.Strong("Samples: "), str(sample_set.sample_count)
-                ], className="text-muted mb-0")
-            ])
+        return html.Div([
+            html.H2([
+                html.I(className="fas fa-info-circle text-primary me-2"),
+                sample_set.set_name
+            ], className="mb-2"),
+            html.P([
+                html.Strong("Project: "), sample_set.project_id, " | ",
+                html.Strong("SIP: "), sample_set.sip_number or "N/A", " | ",
+                html.Strong("Stage: "), sample_set.development_stage or "N/A", " | ",
+                html.Strong("Sample Count: "), str(sample_set.sample_count)
+            ], className="text-muted mb-0")
         ])
 
     except Exception as e:
-        print(f"Error loading sample set basic info: {e}")
+        print(f"ERROR: loading sample set basic info: {e}")
         return dbc.Alert(f"Error loading sample set: {str(e)}", color="danger")
 
 
 @app.callback(
-    Output("sample-set-samples-table", "children"),
+    Output("sample-set-details-table", "data"),
     Input("current-sample-set-id", "data")
 )
-def update_sample_set_samples_table(sample_set_id):
-    """Update the samples table filtered to the sample set (same as view_samples)"""
+def load_sample_set_details_table(sample_set_id):
+    """Load sample set details using the same method as view samples"""
+    print(f"DEBUG: load_sample_set_details_table called with ID: {sample_set_id}")
+
     if not sample_set_id:
-        return dbc.Alert("No sample set selected", color="warning")
+        print("DEBUG: No sample set ID provided")
+        return []
 
     try:
+        # Get the sample set
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        print(f"DEBUG: Found sample set: {sample_set.set_name}")
 
-        # Get all LimsSampleAnalysis records in this set
-        member_samples = sample_set.members.select_related('sample').all()
-        sample_analysis_ids = [m.sample.sample_id for m in member_samples]
+        # Get members and extract sample_ids
+        members = sample_set.members.all()
+        print(f"DEBUG: Found {len(members)} members")
 
-        if not sample_analysis_ids:
-            return dbc.Alert("No samples found in this set", color="info")
+        if not members:
+            print("DEBUG: No members found")
+            return []
 
-        # Get the corresponding LimsUpstreamSamples records
-        # Need to match through the 'up' relationship in LimsSampleAnalysis
-        sample_analysis_records = LimsSampleAnalysis.objects.filter(
-            sample_id__in=sample_analysis_ids
-        ).select_related('up')
+        # Extract sample numbers from members (FB123 -> 123)
+        sample_numbers = []
+        for member in members:
+            sample_id = member.sample.sample_id
+            print(f"DEBUG: Found sample_id: {sample_id}")
+            if sample_id.startswith('FB'):
+                sample_number = sample_id[2:]  # Remove 'FB' prefix
+                sample_numbers.append(sample_number)
+                print(f"DEBUG: Extracted sample_number: {sample_number}")
 
-        # Convert to table data format (same as view_samples)
-        table_data = []
-        for analysis_record in sample_analysis_records:
-            if analysis_record.up:  # If there's a related upstream sample
-                upstream = analysis_record.up
-                table_data.append({
-                    "project": upstream.project,
-                    "sample_number": upstream.sample_number,
-                    "cell_line": upstream.cell_line or "",
-                    "sip_number": upstream.sip_number or "",
-                    "development_stage": upstream.development_stage or "",
-                    "analyst": upstream.analyst or "",
-                    "harvest_date": upstream.harvest_date.strftime('%Y-%m-%d') if upstream.harvest_date else "",
-                    "unifi_number": upstream.unifi_number or "",
-                    "hf_octet_titer": upstream.hf_octet_titer,
-                    "pro_aqa_hf_titer": upstream.pro_aqa_hf_titer,
-                    "pro_aqa_e_titer": upstream.pro_aqa_e_titer,
-                    "proa_eluate_a280_conc": upstream.proa_eluate_a280_conc,
-                    "hccf_loading_volume": upstream.hccf_loading_volume,
-                    "proa_eluate_volume": upstream.proa_eluate_volume,
-                    "fast_pro_a_recovery": upstream.fast_pro_a_recovery,
-                    "purification_recovery_a280": upstream.purification_recovery_a280,
-                    "note": upstream.note or ""
-                })
-            else:
-                # If no upstream sample linked, use basic info from analysis record
-                table_data.append({
-                    "project": analysis_record.project_id,
-                    "sample_number": analysis_record.sample_id,
-                    "cell_line": "",
-                    "sip_number": "",
-                    "development_stage": "",
-                    "analyst": analysis_record.analyst,
-                    "harvest_date": "",
-                    "unifi_number": "",
-                    "hf_octet_titer": None,
-                    "pro_aqa_hf_titer": None,
-                    "pro_aqa_e_titer": None,
-                    "proa_eluate_a280_conc": None,
-                    "hccf_loading_volume": None,
-                    "proa_eluate_volume": None,
-                    "fast_pro_a_recovery": None,
-                    "purification_recovery_a280": None,
-                    "note": ""
-                })
+        if not sample_numbers:
+            print("DEBUG: No valid sample numbers found")
+            return []
 
-        # Create the table using the same structure as view_samples
-        table = create_samples_table_for_set()
-        table.data = table_data
+        # Query upstream samples using the same method as view samples
+        samples_query = LimsUpstreamSamples.objects.filter(
+            sample_type=2,
+            sample_number__in=sample_numbers
+        ).order_by("sample_number")
 
-        return html.Div([
-            html.P(f"Showing {len(table_data)} samples from this sample set",
-                   className="text-muted small mb-3"),
-            table
-        ])
+        samples = list(samples_query)
+        print(f"DEBUG: Found {len(samples)} upstream samples")
+
+        # Build data using the same method as view samples
+        data = []
+        for s in samples:
+            row = build_sample_row_with_recoveries(s)
+            if row:  # Only add if row was built successfully
+                data.append(row)
+
+        print(f"DEBUG: Built {len(data)} rows")
+        return data
 
     except Exception as e:
-        print(f"Error loading sample set samples: {e}")
-        return dbc.Alert(f"Error loading samples: {str(e)}", color="danger")
+        print(f"ERROR: in load_sample_set_details_table: {e}")
+        return []
 
 
 @app.callback(
-    Output("analysis-results-cards", "children"),
+    Output("analysis-status-cards", "children"),
     Input("current-sample-set-id", "data")
 )
-def update_analysis_results_cards(sample_set_id):
-    """Update the analysis results cards for each analysis type"""
+def update_analysis_status_cards(sample_set_id):
+    """Update analysis status cards in single column layout"""
+    print(f"DEBUG: update_analysis_status_cards called with ID: {sample_set_id}")
+
     if not sample_set_id:
         return dbc.Alert("No sample set selected", color="warning")
 
     try:
-        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-
-        # Get analysis status (reuse existing function)
-        from .sample_sets import get_analysis_status_for_set
-        analysis_status = get_analysis_status_for_set(sample_set)
-
-        # Get member sample IDs from LimsSampleAnalysis
-        member_samples = sample_set.members.select_related('sample').all()
-        sample_analysis_ids = [m.sample.sample_id for m in member_samples]
-
-        # Analysis types to display
+        # Analysis types
         analysis_types = ['SEC', 'AKTA', 'Titer', 'CE-SDS', 'cIEF', 'Mass Check', 'Glycan', 'HCP', 'ProA']
 
+        # Create cards in single column layout
         cards = []
-
         for analysis_type in analysis_types:
-            status = analysis_status.get(analysis_type, 'not_requested')
-
-            # Get results data and report ID if analysis is completed
-            results_data = None
-            report_id = None
-
-            if status == 'completed':
-                results_data, report_id = get_analysis_results_data(analysis_type, sample_analysis_ids,
-                                                                    sample_set.project_id)
-
-            # Create card for this analysis
-            card = create_analysis_result_card(
-                analysis_type=analysis_type,
-                status=status,
-                results_data=results_data,
-                report_id=report_id
-            )
+            card = dbc.Card([
+                dbc.CardHeader([
+                    html.H6([
+                        html.I(className="fas fa-flask me-2"),
+                        analysis_type
+                    ], className="mb-0")
+                ]),
+                dbc.CardBody([
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Badge("Not Requested", color="secondary", className="me-2"),
+                            html.Span("No analysis requested", className="text-muted")
+                        ], md=8),
+                        dbc.Col([
+                            dbc.Button([
+                                html.I(className="fas fa-play me-1"),
+                                "Request"
+                            ], color="outline-primary", size="sm", className="w-100")
+                        ], md=4)
+                    ])
+                ])
+            ], className="mb-2")
             cards.append(card)
 
-        # Arrange cards in grid
-        card_rows = []
-        for i in range(0, len(cards), 3):  # 3 cards per row
-            row_cards = cards[i:i + 3]
-            card_row = dbc.Row([
-                dbc.Col(card, md=4) for card in row_cards
-            ], className="mb-3")
-            card_rows.append(card_row)
-
-        return html.Div(card_rows)
+        return cards
 
     except Exception as e:
-        print(f"Error loading analysis results: {e}")
-        return dbc.Alert(f"Error loading analysis results: {str(e)}", color="danger")
+        print(f"ERROR: loading analysis status: {e}")
+        return dbc.Alert(f"Error loading analysis status: {str(e)}", color="danger")
 
 
-def get_analysis_results_data(analysis_type, sample_analysis_ids, project_id):
-    """Get results data and report ID for a specific analysis type"""
-    try:
-        if analysis_type == "SEC":
-            return get_sec_results_data(sample_analysis_ids, project_id)
-        elif analysis_type == "AKTA":
-            return get_akta_results_data(sample_analysis_ids, project_id)
-        elif analysis_type == "Titer":
-            return get_titer_results_data(sample_analysis_ids, project_id)
-        # Add other analysis types as needed
-        else:
-            return None, None
-
-    except Exception as e:
-        print(f"Error getting {analysis_type} results: {e}")
-        return None, None
-
-
-def get_sec_results_data(sample_analysis_ids, project_id):
-    """Get SEC results data and report ID"""
-    try:
-        # Get SEC results for these sample analysis IDs
-        # LimsSecResult has sample_id as OneToOneField to LimsSampleAnalysis
-        sec_results = LimsSecResult.objects.filter(
-            sample_id__in=sample_analysis_ids
-        ).select_related('sample_id').order_by('-created_at')
-
-        # Get associated reports
-        reports = Report.objects.filter(
-            analysis_type=1,  # SEC
-            project_id=project_id
-        ).order_by('-date_created')
-
-        results_data = []
-        for result in sec_results:
-            results_data.append({
-                'sample_id': result.sample_id.sample_id,
-                'date_analyzed': result.created_at.strftime('%Y-%m-%d') if result.created_at else None,
-                'main_peak_percent': result.main_peak,
-                'hmw_percent': result.hmw,
-                'lmw_percent': result.lmw,
-                'qc_pass': result.qc_pass,
-                'status': result.status
-            })
-
-        report_id = reports.first().report_id if reports.exists() else None
-
-        return results_data, report_id
-
-    except Exception as e:
-        print(f"Error getting SEC results: {e}")
-        return None, None
-
-
-def get_akta_results_data(sample_analysis_ids, project_id):
-    """Get AKTA results data and report ID"""
-    try:
-        # Get AKTA data from SampleMetadata
-        # Match by converting sample_analysis_ids to sample numbers if needed
-        akta_data = SampleMetadata.objects.filter(
-            # You'll need to determine how AKTA data relates to your sample analysis IDs
-            # This might require a different approach based on your data structure
-        ).order_by('-date_acquired')
-
-        results_data = []
-        for data in akta_data:
-            results_data.append({
-                'sample_id': data.sample_name,  # or appropriate field
-                'run_date': data.date_acquired.strftime('%Y-%m-%d') if data.date_acquired else None,
-                'sample_name': data.sample_name,
-                'injection_volume': data.injection_volume,
-                'column_name': data.column_name,
-                'processing_method': data.processing_method
-            })
-
-        # AKTA reports might be in a different structure
-        report_id = None
-
-        return results_data, report_id
-
-    except Exception as e:
-        print(f"Error getting AKTA results: {e}")
-        return None, None
-
-
-def get_titer_results_data(sample_analysis_ids, project_id):
-    """Get Titer results data and report ID"""
-    try:
-        # Get Titer results using the OneToOneField relationship
-        from plotly_integration.models import LimsTiterResult
-
-        titer_results = LimsTiterResult.objects.filter(
-            sample_id__in=sample_analysis_ids
-        ).select_related('sample_id').order_by('-created_at')
-
-        results_data = []
-        for result in titer_results:
-            results_data.append({
-                'sample_id': result.sample_id.sample_id,
-                'date_analyzed': result.created_at.strftime('%Y-%m-%d') if result.created_at else None,
-                'titer_value': result.titer_value,  # Adjust field name as needed
-                'status': result.status
-            })
-
-        report_id = None  # Set based on your Titer report structure
-
-        return results_data, report_id
-
-    except Exception as e:
-        print(f"Error getting Titer results: {e}")
-        return None, None
-
-
-# Callback for analysis request buttons in detail cards
-@app.callback(
-    Output("detail-dummy-output", "children"),
-    Input({"type": "request-analysis-detail", "analysis": ALL}, "n_clicks"),
-    State("current-sample-set-id", "data"),
-    prevent_initial_call=True
-)
-def handle_analysis_request_from_detail(n_clicks_list, sample_set_id):
-    """Handle analysis request from detail page cards"""
-    if not any(n_clicks_list) or not sample_set_id:
-        return no_update
-
-    # Find which button was clicked
-    triggered_id = ctx.triggered_id
-    if triggered_id:
-        analysis_type = triggered_id["analysis"]
-        print(f"Analysis request for {analysis_type} from sample set {sample_set_id}")
-        # Implement analysis request logic here
-
-    return ""
-
-
-# Callback for download results buttons
-@app.callback(
-    Output("detail-dummy-output", "children", allow_duplicate=True),
-    Input({"type": "download-results", "analysis": ALL}, "n_clicks"),
-    State("current-sample-set-id", "data"),
-    prevent_initial_call=True
-)
-def handle_download_results(n_clicks_list, sample_set_id):
-    """Handle download results from detail page cards"""
-    if not any(n_clicks_list) or not sample_set_id:
-        return no_update
-
-    # Find which button was clicked
-    triggered_id = ctx.triggered_id
-    if triggered_id:
-        analysis_type = triggered_id["analysis"]
-        print(f"Download request for {analysis_type} from sample set {sample_set_id}")
-        # Implement download logic here
-
-    return ""
-
-
-print("✅ Sample Set Details Callbacks - Corrected with proper model relationships")
+print("Complete sample set details layout and callbacks loaded")
