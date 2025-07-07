@@ -389,10 +389,10 @@ app.layout = html.Div([
                         columns=[
                             {"name": "PD#", "id": "sample_id", "editable": False},
                             {"name": "Project ID", "id": "project_id", "editable": True},
-                            {"name": "Linked DN", "id": "dn", "editable": True},
+                            {"name": "Linked DN", "id": "dn", "editable": True, "type": "numeric"},
                             {"name": "Description", "id": "description", "editable": True},
                             {"name": "Sample Date (YYYY-MM-DD)", "id": "sample_date", "editable": True},
-                            {"name": "A280 (mg/mL)", "id": "a280", "editable": True},
+                            {"name": "A280 (mg/mL)", "id": "a280", "editable": True, "type": "numeric"},
                             {"name": "Analyst", "id": "analyst", "editable": True},
                             {"name": "Notes", "id": "notes", "editable": True},
                         ],
