@@ -181,6 +181,76 @@ def create_page_router(app):
                 "zIndex": "999"  # Ensure it's above other content
             })
 
+        # SEC Analysis with Report ID parameter
+        elif pathname == "/analytical/sec/report":
+            try:
+                # Extract report_id from query params
+                report_id = query_params.get('report_id', ['320'])[0]  # Default to 320
+                sec_url = f"/plotly_integration/dash-app/app/SecReportEmbeddedApp/?report_id={report_id}"
+
+                return html.Div([
+                    # Header with navigation
+                    html.Div([
+                        html.Div([
+                            html.H5(f"SEC Report {report_id}", style={"margin": "0", "color": "#333"}),
+                            dbc.ButtonGroup([
+                                dbc.Button([
+                                    html.I(className="fas fa-arrow-left me-1"),
+                                    "Back"
+                                ], href="#!/analytical/sec", color="outline-secondary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-external-link-alt me-1"),
+                                    "Open in New Tab"
+                                ], href=sec_url, target="_blank", color="outline-primary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-sync-alt me-1"),
+                                    "Refresh"
+                                ], id="refresh-sec-report", color="outline-info", size="sm")
+                            ])
+                        ], style={
+                            "display": "flex",
+                            "justifyContent": "space-between",
+                            "alignItems": "center",
+                            "padding": "8px 16px",
+                            "backgroundColor": "#f8f9fa",
+                            "borderBottom": "1px solid #dee2e6"
+                        })
+                    ], style={"height": "50px", "flexShrink": "0"}),
+
+                    # SEC Report iframe
+                    html.Iframe(
+                        src=sec_url,
+                        style={
+                            "width": "100%",
+                            "height": "calc(100vh - 50px)",
+                            "border": "none",
+                            "display": "block",
+                            "overflow": "hidden"
+                        }
+                    )
+                ], style={
+                    "position": "fixed",
+                    "top": "0",
+                    "left": "220px",
+                    "right": "20px",
+                    "bottom": "0",
+                    "height": "100vh",
+                    "width": "calc(100vw - 240px)",
+                    "overflow": "hidden",
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "zIndex": "999"
+                })
+
+            except Exception as e:
+                print(f"Error loading SEC report: {e}")
+                return html.Div([
+                    dbc.Alert([
+                        html.H5("Error Loading SEC Report"),
+                        html.P(f"Failed to load SEC report: {str(e)}")
+                    ], color="danger")
+                ])
+
         # Analytical Titer Route - Full screen, non-scrollable
         elif pathname == "/analytical/titer":
             titer_url = "/plotly_integration/dash-app/app/TiterReportApp/"
@@ -529,30 +599,76 @@ def create_page_router(app):
 
 
         # SEC Analysis Routes
-
-        elif pathname == "/analysis/sec/report":
+        # SEC Analysis with Report ID parameter
+        elif pathname == "/analytical/sec/report":
             try:
-                print(f"🔍 Routing to SEC embed with params: {query_params}")
-                from ..embedded_apps.sec_integration.sec_embedder import create_embedded_sec_report
-                return create_embedded_sec_report(query_params)
-            except ImportError as e:
-                print(f"Error importing sec_embedder: {e}")
+                # Extract report_id from query params
+                report_id = query_params.get('report_id', ['320'])[0]  # Default to 320
+                sec_url = f"/plotly_integration/dash-app/app/SecReportEmbeddedApp/?report_id={report_id}"
+
                 return html.Div([
-                    html.H2("SEC Report"),
-                    html.P("Error loading SEC embedder module"),
-                    html.P(str(e), className="text-danger")
-                ])
+                    # Header with navigation
+                    html.Div([
+                        html.Div([
+                            html.H5(f"SEC Report {report_id}", style={"margin": "0", "color": "#333"}),
+                            dbc.ButtonGroup([
+                                dbc.Button([
+                                    html.I(className="fas fa-arrow-left me-1"),
+                                    "Back"
+                                ], href="#!/analytical/sec", color="outline-secondary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-external-link-alt me-1"),
+                                    "Open in New Tab"
+                                ], href=sec_url, target="_blank", color="outline-primary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-sync-alt me-1"),
+                                    "Refresh"
+                                ], id="refresh-sec-report", color="outline-info", size="sm")
+                            ])
+                        ], style={
+                            "display": "flex",
+                            "justifyContent": "space-between",
+                            "alignItems": "center",
+                            "padding": "8px 16px",
+                            "backgroundColor": "#f8f9fa",
+                            "borderBottom": "1px solid #dee2e6"
+                        })
+                    ], style={"height": "50px", "flexShrink": "0"}),
+
+                    # SEC Report iframe
+                    html.Iframe(
+                        src=sec_url,
+                        style={
+                            "width": "100%",
+                            "height": "calc(100vh - 50px)",
+                            "border": "none",
+                            "display": "block",
+                            "overflow": "hidden"
+                        }
+                    )
+                ], style={
+                    "position": "fixed",
+                    "top": "0",
+                    "left": "220px",
+                    "right": "20px",
+                    "bottom": "0",
+                    "height": "100vh",
+                    "width": "calc(100vw - 240px)",
+                    "overflow": "hidden",
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "zIndex": "999"
+                })
+
             except Exception as e:
-                print(f"Error creating SEC embed: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"Error loading SEC report: {e}")
                 return html.Div([
-                    html.H2("SEC Report"),
                     dbc.Alert([
-                        html.P("Error loading SEC report"),
-                        html.P(str(e), className="font-monospace small")
+                        html.H5("Error Loading SEC Report"),
+                        html.P(f"Failed to load SEC report: {str(e)}")
                     ], color="danger")
                 ])
+
 
 
         # CLD Routes - Full screen, non-scrollable

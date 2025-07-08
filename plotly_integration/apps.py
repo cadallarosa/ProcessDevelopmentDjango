@@ -13,6 +13,9 @@ class PlotlyIntegrationConfig(AppConfig):
         def delayed_import():
             time.sleep(5)  # Delay import by 5 seconds
             try:
+                # New PD Dash App
+                import plotly_integration.pd_dashboard.main_app
+
                 import plotly_integration.process_development.downstream_processing.empower.create_report_app
                 import plotly_integration.homepage
                 import plotly_integration.process_development.downstream_processing.empower.database_manager
@@ -73,11 +76,11 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.lims.dn_assignment_app
                 import plotly_integration.process_development.lims.sample_analysis_app
                 import plotly_integration.process_development.lims.upstream_samples_app
-                import plotly_integration.process_development.lims.cld_samples_app
-                import plotly_integration.process_development.lims.cld_sample_manager.app
+                # import plotly_integration.process_development.lims.cld_samples_app
+                # import plotly_integration.process_development.lims.cld_sample_manager.app
 
-                import plotly_integration.process_development.lims.cld_dashboard.CLDDashboardApp2
-                import plotly_integration.cld_dashboard.main_app
+                # import plotly_integration.process_development.lims.cld_dashboard.CLDDashboardApp2
+                # import plotly_integration.cld_dashboard.main_app
 
                 #New PD Dash App
                 import plotly_integration.pd_dashboard.main_app
