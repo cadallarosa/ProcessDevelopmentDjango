@@ -65,6 +65,9 @@ def create_sample_set_detail_layout(query_params):
         # Store for tracking which analysis cards are expanded
         dcc.Store(id="expanded-analysis-cards", data=[]),
 
+        # Store for tracking previous n_clicks to detect new clicks
+        dcc.Store(id="previous-n-clicks", data={}),
+
         # Header
         dbc.Row([
             dbc.Col([
@@ -260,6 +263,42 @@ def create_sample_set_details_table():
         export_format="xlsx",
         export_headers="display"
     )
+
+
+# Additional improvements to add to the end of the file
+
+def create_empty_analysis_content(analysis_type):
+    """Create empty state content for analyses with no data"""
+    return dbc.Card([
+        dbc.CardBody([
+            html.Div([
+                html.I(className="fas fa-inbox fa-3x text-muted mb-3"),
+                html.H5("No Results Available", className="text-muted"),
+                html.P(f"No {analysis_type} analysis results found for this sample set.",
+                       className="text-muted"),
+                dbc.Button([
+                    html.I(className="fas fa-plus me-1"),
+                    f"Request {analysis_type} Analysis"
+                ],
+                    color="primary",
+                    size="sm",
+                    id={"type": "request-analysis-btn", "index": analysis_type.lower()})
+            ], className="text-center py-4")
+        ])
+    ], className="border-0 bg-light")
+
+
+def create_analysis_loading_spinner(analysis_type):
+    """Create a loading spinner for analysis content"""
+    return html.Div([
+        dbc.Spinner(
+            html.Div([
+                html.P(f"Loading {analysis_type} results...", className="mt-3")
+            ]),
+            color="primary",
+            spinner_style={"width": "3rem", "height": "3rem"}
+        )
+    ], className="text-center py-5")
 
 
 print("✅ Complete sample set details layout loaded - 2 tab structure")

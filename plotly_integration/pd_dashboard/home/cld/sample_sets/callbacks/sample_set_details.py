@@ -2,6 +2,7 @@
 # Complete callbacks file for the restructured 2-tab layout
 
 from dash import callback, Input, Output, State, no_update, html, ALL
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from datetime import datetime
 import json
@@ -267,6 +268,24 @@ def create_analysis_cards_container(sample_set_id):
         return dbc.Alert(f"Error loading analysis cards: {str(e)}", color="danger")
 
 
+# Store to track previous clicks
+@app.callback(
+    Output("previous-n-clicks", "data"),
+    Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks"),
+    State("previous-n-clicks", "data")
+)
+def update_previous_clicks(n_clicks_list, previous_clicks):
+    """Track previous click counts to detect new clicks"""
+    if not n_clicks_list:
+        return previous_clicks or {}
+
+    new_clicks = {}
+    for i, n_clicks in enumerate(n_clicks_list):
+        new_clicks[str(i)] = n_clicks or 0
+
+    return new_clicks
+
+
 # Callback to handle card expansion and load data
 @app.callback(
     [Output({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
@@ -274,46 +293,74 @@ def create_analysis_cards_container(sample_set_id):
      Output({"type": "analysis-card-toggle", "index": ALL}, "children")],
     [Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks")],
     [State({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
+     State({"type": "analysis-card-content", "index": ALL}, "children"),
      State("current-sample-set-id", "data"),
-     State({"type": "analysis-card-toggle", "index": ALL}, "id")]
+     State({"type": "analysis-card-toggle", "index": ALL}, "id"),
+     State("previous-n-clicks", "data")]
 )
-def toggle_analysis_cards(n_clicks_list, is_open_list, sample_set_id, button_ids):
+def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids, previous_clicks):
     """Handle card expansion and load data only when expanded"""
-    if not n_clicks_list or not any(n_clicks_list):
-        return is_open_list, [no_update] * len(is_open_list), [no_update] * len(is_open_list)
+    if not n_clicks_list:
+        raise PreventUpdate
 
-    # Find which card was clicked by comparing n_clicks values
+    # Get the number of cards
+    num_cards = len(n_clicks_list)
+
+    # Initialize lists if empty
+    if not is_open_list:
+        is_open_list = [False] * num_cards
+    if not current_content:
+        current_content = [no_update] * num_cards
+
+    # Find which card was actually clicked by comparing with previous clicks
     clicked_pos = None
-    for i, (n_clicks, prev_is_open) in enumerate(zip(n_clicks_list, is_open_list)):
-        if n_clicks and n_clicks > 0:
-            # This button might have been clicked - toggle it
-            # Note: This simple approach toggles any button that has n_clicks > 0
-            # In practice, you might want to store previous n_clicks to detect changes
+    previous_clicks = previous_clicks or {}
+
+    for i, n_clicks in enumerate(n_clicks_list):
+        current_clicks = n_clicks or 0
+        prev_clicks = previous_clicks.get(str(i), 0)
+
+        if current_clicks > prev_clicks:
             clicked_pos = i
             break
 
     if clicked_pos is None:
-        return is_open_list, [no_update] * len(is_open_list), [no_update] * len(is_open_list)
+        # No new clicks detected
+        return is_open_list, current_content, [
+            html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}")
+            for is_open in is_open_list
+        ]
 
-    # Get the card ID from button_ids
+    # Get the card ID
     clicked_index = button_ids[clicked_pos]["index"]
 
-    # Create new states
-    new_is_open = is_open_list.copy()
-    new_content = [no_update] * len(is_open_list)
-    new_icons = [no_update] * len(is_open_list)
+    # Create new states - only update the clicked card
+    new_is_open = list(is_open_list)
+    new_content = list(current_content)
+    new_icons = []
 
-    # Toggle the clicked card
+    # Toggle only the clicked card
     new_is_open[clicked_pos] = not is_open_list[clicked_pos]
 
-    # Update icon
-    new_icons[clicked_pos] = html.I(
-        className=f"fas fa-chevron-{'up' if new_is_open[clicked_pos] else 'down'}"
-    )
+    # Update all icons based on open state
+    for i, is_open in enumerate(new_is_open):
+        new_icons.append(html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}"))
 
-    # Load content if opening
+    # Load content only if opening and content hasn't been loaded yet
     if new_is_open[clicked_pos] and sample_set_id:
-        new_content[clicked_pos] = load_analysis_content(clicked_index, sample_set_id)
+        # Check if we need to load content
+        current_item = new_content[clicked_pos]
+
+        # Check if it's still the loading message
+        should_load = (
+                current_item == no_update or
+                (hasattr(current_item, '__class__') and current_item.__class__.__name__ == 'NoUpdate') or
+                "Loading" in str(current_item)
+        )
+
+        if should_load:
+            # Content hasn't been loaded yet, load it now
+            new_content[clicked_pos] = load_analysis_content(clicked_index, sample_set_id)
 
     return new_is_open, new_content, new_icons
 
@@ -354,6 +401,14 @@ def load_sec_content(sample_ids, sample_set_id):
             html.P("No SEC results found for this sample set.", className="text-muted text-center")
         ])
 
+    # Get the report ID from the first SEC result (or most recent)
+    report_id = None
+    if sec_results:
+        # Get the most recent report
+        result_with_report = sec_results.filter(report__isnull=False).first()
+        if result_with_report and result_with_report.report:
+            report_id = result_with_report.report.report_id
+
     # Create SEC content with action buttons and table
     return html.Div([
         # Action buttons
@@ -363,7 +418,10 @@ def load_sec_content(sample_ids, sample_set_id):
                     dbc.Button([
                         html.I(className="fas fa-chart-line me-1"),
                         "Open SEC App"
-                    ], href="#!/analytical/sec", color="primary", size="sm"),
+                    ],
+                        href=f"#!/analytical/sec/report?report_id={report_id}" if report_id else "#!/analytical/sec/report",
+                        color="primary",
+                        size="sm"),
                     dbc.Button([
                         html.I(className="fas fa-file-excel me-1"),
                         "Export Results"
