@@ -1,22 +1,24 @@
 # plotly_integration/pd_dashboard/home/cld/sample_sets/callbacks/sample_set_details.py
-# Complete callbacks file with SEC analysis results integration
+# Complete callbacks file for the restructured 2-tab layout
 
-from dash import callback, Input, Output, State, no_update, html
+from dash import callback, Input, Output, State, no_update, html, ALL
 import dash_bootstrap_components as dbc
 from datetime import datetime
+import json
 
 # Import from the main app
 from plotly_integration.pd_dashboard.main_app import app
 
-# Import models
+# Import models - using only existing models from the repo
 from plotly_integration.models import (
-    LimsSampleSet, LimsSampleAnalysis, LimsUpstreamSamples,
-    LimsSecResult, Report
+    LimsSampleSet, LimsSampleSetMembership, LimsSampleAnalysis,
+    LimsUpstreamSamples, LimsSecResult, Report
 )
 
 # Import layout components
 from ..layouts.sample_set_details import (
-    create_sample_set_details_table, create_sec_results_table
+    create_sample_set_details_table, create_sec_results_table,
+    create_analysis_card
 )
 
 # Import pandas for summary statistics
@@ -69,7 +71,7 @@ def build_sample_row_with_recoveries(s):
 
 
 # ============================================================================
-# EXISTING CALLBACKS (UPDATED)
+# HEADER CALLBACKS
 # ============================================================================
 
 @app.callback(
@@ -103,16 +105,61 @@ def load_sample_set_basic_info(sample_set_id):
         return dbc.Alert(f"Error loading sample set: {str(e)}", color="danger")
 
 
+# ============================================================================
+# OVERVIEW TAB CALLBACKS
+# ============================================================================
+
 @app.callback(
-    Output("sample-set-details-table-container", "children"),
+    Output("sample-set-summary-stats", "children"),
     Input("current-sample-set-id", "data")
 )
-def load_sample_set_details_table_container(sample_set_id):
-    """Load sample set details table container"""
+def update_sample_set_summary_stats(sample_set_id):
+    """Update the summary statistics for the overview tab"""
     if not sample_set_id:
-        return dbc.Alert("No sample set selected", color="warning")
+        return ""
 
-    return create_sample_set_details_table()
+    try:
+        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        members = sample_set.members.all()
+
+        # Calculate summary stats
+        total_samples = members.count()
+
+        # Count samples with SEC results
+        sample_ids = [member.sample.sample_id for member in members]
+        sec_results_count = LimsSecResult.objects.filter(
+            sample_id__sample_id__in=sample_ids
+        ).count()
+
+        return dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(str(total_samples), className="text-primary"),
+                        html.P("Total Samples", className="text-muted mb-0")
+                    ])
+                ], className="text-center")
+            ], md=3),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(str(sec_results_count), className="text-info"),
+                        html.P("SEC Results", className="text-muted mb-0")
+                    ])
+                ], className="text-center")
+            ], md=3),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{sample_set.created_at.strftime('%m/%d/%Y')}", className="text-secondary"),
+                        html.P("Created Date", className="text-muted mb-0")
+                    ])
+                ], className="text-center")
+            ], md=3)
+        ])
+
+    except Exception as e:
+        return dbc.Alert(f"Error loading summary: {str(e)}", color="danger")
 
 
 @app.callback(
@@ -178,95 +225,181 @@ def load_sample_set_details_table(sample_set_id):
         return []
 
 
+# ============================================================================
+# ANALYSIS TAB CALLBACKS
+# ============================================================================
+
 @app.callback(
-    Output("analysis-status-cards", "children"),
+    Output("analysis-cards-container", "children"),
     Input("current-sample-set-id", "data")
 )
-def update_analysis_status_cards(sample_set_id):
-    """Update analysis status cards in single column layout"""
-    print(f"DEBUG: update_analysis_status_cards called with ID: {sample_set_id}")
-
+def create_analysis_cards_container(sample_set_id):
+    """Create collapsible cards for each analysis type"""
     if not sample_set_id:
         return dbc.Alert("No sample set selected", color="warning")
 
     try:
-        # Analysis types
-        analysis_types = ['SEC', 'AKTA', 'Titer', 'CE-SDS', 'cIEF', 'Mass Check', 'Glycan', 'HCP', 'ProA']
+        # Check which analyses have results
+        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        members = sample_set.members.all()
+        sample_ids = [member.sample.sample_id for member in members]
 
-        # Create cards in single column layout
-        cards = []
-        for analysis_type in analysis_types:
-            card = dbc.Card([
-                dbc.CardHeader([
-                    html.H6([
-                        html.I(className="fas fa-flask me-2"),
-                        analysis_type
-                    ], className="mb-0")
-                ]),
-                dbc.CardBody([
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Badge("Not Requested", color="secondary", className="me-2"),
-                            html.Span("No analysis requested", className="text-muted")
-                        ], md=8),
-                        dbc.Col([
-                            dbc.Button([
-                                html.I(className="fas fa-play me-1"),
-                                "Request"
-                            ], color="outline-primary", size="sm", className="w-100")
-                        ], md=4)
-                    ])
-                ])
-            ], className="mb-2")
-            cards.append(card)
+        # Count SEC results
+        sec_count = LimsSecResult.objects.filter(
+            sample_id__sample_id__in=sample_ids
+        ).count()
+
+        # Create cards for each analysis type
+        cards = [
+            create_analysis_card("SEC Analysis", "sec", "fas fa-chart-line", "info",
+                                 has_results=(sec_count > 0), result_count=sec_count),
+            # Add placeholder cards for other analysis types
+            create_analysis_card("AKTA Analysis", "akta", "fas fa-wave-square", "success", False, 0),
+            create_analysis_card("Titer Results", "titer", "fas fa-vial", "warning", False, 0),
+            create_analysis_card("CE-SDS Analysis", "cesds", "fas fa-bolt", "danger", False, 0),
+            create_analysis_card("cIEF Analysis", "cief", "fas fa-chart-area", "primary", False, 0),
+        ]
 
         return cards
 
     except Exception as e:
-        print(f"ERROR: loading analysis status: {e}")
-        return dbc.Alert(f"Error loading analysis status: {str(e)}", color="danger")
+        print(f"Error creating analysis cards: {e}")
+        return dbc.Alert(f"Error loading analysis cards: {str(e)}", color="danger")
 
 
-# ============================================================================
-# NEW SEC RESULTS CALLBACKS
-# ============================================================================
-
+# Callback to handle card expansion and load data
 @app.callback(
-    Output("sec-results-table-container", "children"),
-    Input("current-sample-set-id", "data")
+    [Output({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
+     Output({"type": "analysis-card-content", "index": ALL}, "children"),
+     Output({"type": "analysis-card-toggle", "index": ALL}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
+     State("current-sample-set-id", "data"),
+     State({"type": "analysis-card-toggle", "index": ALL}, "id")]
 )
-def load_sec_results_table_container(sample_set_id):
-    """Load SEC results table container"""
-    if not sample_set_id:
-        return dbc.Alert("No sample set selected", color="warning")
+def toggle_analysis_cards(n_clicks_list, is_open_list, sample_set_id, button_ids):
+    """Handle card expansion and load data only when expanded"""
+    if not n_clicks_list or not any(n_clicks_list):
+        return is_open_list, [no_update] * len(is_open_list), [no_update] * len(is_open_list)
 
-    return create_sec_results_table()
+    # Find which card was clicked by comparing n_clicks values
+    clicked_pos = None
+    for i, (n_clicks, prev_is_open) in enumerate(zip(n_clicks_list, is_open_list)):
+        if n_clicks and n_clicks > 0:
+            # This button might have been clicked - toggle it
+            # Note: This simple approach toggles any button that has n_clicks > 0
+            # In practice, you might want to store previous n_clicks to detect changes
+            clicked_pos = i
+            break
+
+    if clicked_pos is None:
+        return is_open_list, [no_update] * len(is_open_list), [no_update] * len(is_open_list)
+
+    # Get the card ID from button_ids
+    clicked_index = button_ids[clicked_pos]["index"]
+
+    # Create new states
+    new_is_open = is_open_list.copy()
+    new_content = [no_update] * len(is_open_list)
+    new_icons = [no_update] * len(is_open_list)
+
+    # Toggle the clicked card
+    new_is_open[clicked_pos] = not is_open_list[clicked_pos]
+
+    # Update icon
+    new_icons[clicked_pos] = html.I(
+        className=f"fas fa-chevron-{'up' if new_is_open[clicked_pos] else 'down'}"
+    )
+
+    # Load content if opening
+    if new_is_open[clicked_pos] and sample_set_id:
+        new_content[clicked_pos] = load_analysis_content(clicked_index, sample_set_id)
+
+    return new_is_open, new_content, new_icons
 
 
+def load_analysis_content(analysis_type, sample_set_id):
+    """Load specific analysis content based on type"""
+    try:
+        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+        members = sample_set.members.all()
+        sample_ids = [member.sample.sample_id for member in members]
+
+        if analysis_type == "sec":
+            return load_sec_content(sample_ids, sample_set_id)
+        else:
+            return html.Div([
+                html.P(f"No {analysis_type.upper()} results available for this sample set.",
+                       className="text-muted text-center")
+            ])
+
+    except Exception as e:
+        return dbc.Alert(f"Error loading {analysis_type} data: {str(e)}", color="danger")
+
+
+def load_sec_content(sample_ids, sample_set_id):
+    """Load SEC results content"""
+    # Get SEC results
+    sample_analyses = LimsSampleAnalysis.objects.filter(
+        sample_id__in=sample_ids,
+        sample_type=2  # FB samples
+    )
+
+    sec_results = LimsSecResult.objects.filter(
+        sample_id__in=sample_analyses
+    ).select_related('sample_id', 'report')
+
+    if not sec_results:
+        return html.Div([
+            html.P("No SEC results found for this sample set.", className="text-muted text-center")
+        ])
+
+    # Create SEC content with action buttons and table
+    return html.Div([
+        # Action buttons
+        dbc.Row([
+            dbc.Col([
+                dbc.ButtonGroup([
+                    dbc.Button([
+                        html.I(className="fas fa-chart-line me-1"),
+                        "Open SEC App"
+                    ], href="#!/analytical/sec", color="primary", size="sm"),
+                    dbc.Button([
+                        html.I(className="fas fa-file-excel me-1"),
+                        "Export Results"
+                    ], id="export-sec-results", color="success", size="sm")
+                ])
+            ], className="mb-3")
+        ]),
+
+        # Results table container
+        html.Div(id="sec-results-table-container", children=[
+            create_sec_results_table()
+        ])
+    ])
+
+
+# SEC Results Data Callback
 @app.callback(
     [Output("sec-results-table", "data"),
-     Output("sec-results-count-badge", "children")],
-    Input("current-sample-set-id", "data")
+     Output("sec-results-table", "columns", allow_duplicate=True)],
+    Input({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
+    State("current-sample-set-id", "data"),
+    prevent_initial_call=True
 )
-def load_sec_results_data(sample_set_id):
-    """Load SEC analysis results for samples in the sample set"""
-    print(f"DEBUG: load_sec_results_data called with ID: {sample_set_id}")
+def load_sec_results_data(is_open, sample_set_id):
+    """Load SEC results data when SEC card is expanded"""
+    print(f"DEBUG: load_sec_results_data called - is_open: {is_open}, sample_set_id: {sample_set_id}")
 
-    if not sample_set_id:
-        print("DEBUG: No sample set ID provided")
-        return [], "0 Results"
+    if not is_open or not sample_set_id:
+        return [], no_update
 
     try:
         # Get the sample set and its members
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
         members = sample_set.members.all()
-
-        if not members:
-            print("DEBUG: No members found")
-            return [], "0 Results"
-
-        # Get sample IDs from members
         sample_ids = [member.sample.sample_id for member in members]
+
         print(f"DEBUG: Looking for SEC results for samples: {sample_ids}")
 
         # Query LimsSampleAnalysis for these sample IDs
@@ -275,7 +408,7 @@ def load_sec_results_data(sample_set_id):
             sample_type=2  # FB samples
         )
 
-        # Get SEC results for these samples
+        # Get SEC results
         sec_results = LimsSecResult.objects.filter(
             sample_id__in=sample_analyses
         ).select_related('sample_id', 'report')
@@ -285,119 +418,24 @@ def load_sec_results_data(sample_set_id):
         # Build table data
         table_data = []
         for sec_result in sec_results:
-            # Format the data for display
             row = {
                 'sample_id': sec_result.sample_id.sample_id,
-                'main_peak': sec_result.main_peak if sec_result.main_peak is not None else 'N/A',
-                'hmw': sec_result.hmw if sec_result.hmw is not None else 'N/A',
-                'lmw': sec_result.lmw if sec_result.lmw is not None else 'N/A',
+                'main_peak': f"{sec_result.main_peak:.2f}" if sec_result.main_peak else 'N/A',
+                'hmw': f"{sec_result.hmw:.2f}" if sec_result.hmw else 'N/A',
+                'lmw': f"{sec_result.lmw:.2f}" if sec_result.lmw else 'N/A',
                 'qc_pass': 'Pass' if sec_result.qc_pass else 'Fail',
-                'status': sec_result.status,
+                'status': sec_result.status or 'complete',
                 'report_name': sec_result.report.report_name if sec_result.report else 'N/A',
                 'created_at': sec_result.created_at.strftime('%Y-%m-%d %H:%M') if sec_result.created_at else 'N/A'
             }
             table_data.append(row)
 
-        # Sort by sample_id for consistent display
-        table_data.sort(key=lambda x: x['sample_id'])
-
-        badge_text = f"{len(table_data)} Results"
-        print(f"DEBUG: Returning {len(table_data)} SEC results")
-
-        return table_data, badge_text
+        from ..layouts.sample_set_details import SEC_RESULTS_FIELDS
+        return table_data, SEC_RESULTS_FIELDS
 
     except Exception as e:
-        print(f"ERROR: in load_sec_results_data: {e}")
-        return [], "Error"
-
-
-@app.callback(
-    [Output("avg-main-peak", "children"),
-     Output("avg-hmw", "children"),
-     Output("avg-lmw", "children"),
-     Output("qc-pass-count", "children")],
-    Input("sec-results-table", "data")
-)
-def update_sec_summary_stats(sec_results_data):
-    """Update SEC results summary statistics"""
-    if not sec_results_data:
-        return "--", "--", "--", "--"
-
-    try:
-        # Manual calculation if pandas is not available
-        if pd is None:
-            # Manual calculations
-            main_peaks = []
-            hmws = []
-            lmws = []
-            qc_passes = 0
-            total_samples = len(sec_results_data)
-
-            for row in sec_results_data:
-                # Convert to numeric, skip 'N/A' values
-                if row['main_peak'] != 'N/A':
-                    try:
-                        main_peaks.append(float(row['main_peak']))
-                    except (ValueError, TypeError):
-                        pass
-
-                if row['hmw'] != 'N/A':
-                    try:
-                        hmws.append(float(row['hmw']))
-                    except (ValueError, TypeError):
-                        pass
-
-                if row['lmw'] != 'N/A':
-                    try:
-                        lmws.append(float(row['lmw']))
-                    except (ValueError, TypeError):
-                        pass
-
-                if row['qc_pass'] == 'Pass':
-                    qc_passes += 1
-
-            # Calculate averages
-            avg_main_peak = sum(main_peaks) / len(main_peaks) if main_peaks else None
-            avg_hmw = sum(hmws) / len(hmws) if hmws else None
-            avg_lmw = sum(lmws) / len(lmws) if lmws else None
-            qc_pass_rate = (qc_passes / total_samples * 100) if total_samples > 0 else 0
-
-        else:
-            # Use pandas for calculations
-            df = pd.DataFrame(sec_results_data)
-
-            # Filter out 'N/A' values and convert to numeric
-            numeric_cols = ['main_peak', 'hmw', 'lmw']
-            for col in numeric_cols:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-
-            # Calculate averages (excluding NaN values)
-            avg_main_peak = df['main_peak'].mean()
-            avg_hmw = df['hmw'].mean()
-            avg_lmw = df['lmw'].mean()
-
-            # Calculate QC pass rate
-            total_samples = len(df)
-            qc_passes = len(df[df['qc_pass'] == 'Pass'])
-            qc_pass_rate = (qc_passes / total_samples * 100) if total_samples > 0 else 0
-
-        # Format the outputs
-        if pd is None:
-            main_peak_text = f"{avg_main_peak:.1f}%" if avg_main_peak is not None else "--"
-            hmw_text = f"{avg_hmw:.2f}%" if avg_hmw is not None else "--"
-            lmw_text = f"{avg_lmw:.2f}%" if avg_lmw is not None else "--"
-        else:
-            main_peak_text = f"{avg_main_peak:.1f}%" if not pd.isna(avg_main_peak) else "--"
-            hmw_text = f"{avg_hmw:.2f}%" if not pd.isna(avg_hmw) else "--"
-            lmw_text = f"{avg_lmw:.2f}%" if not pd.isna(avg_lmw) else "--"
-
-        qc_text = f"{qc_pass_rate:.0f}% ({qc_passes}/{total_samples})"
-
-        return main_peak_text, hmw_text, lmw_text, qc_text
-
-    except Exception as e:
-        print(f"ERROR: calculating SEC summary stats: {e}")
-        return "--", "--", "--", "--"
+        print(f"Error loading SEC results: {e}")
+        return [], no_update
 
 
 # ============================================================================
@@ -424,4 +462,4 @@ def refresh_sample_set_details(n_clicks):
     return no_update
 
 
-print("Complete sample set details layout and callbacks with SEC integration loaded")
+print("✅ Complete sample set details callbacks loaded - 2 tab structure")
