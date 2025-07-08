@@ -197,6 +197,7 @@ def create_sec_results_table():
             'border': '1px solid #dee2e6'
         },
         style_data_conditional=[
+            # Initial conditions - will be updated by callback
             {
                 'if': {'column_id': 'qc_pass', 'filter_query': '{qc_pass} = Pass'},
                 'backgroundColor': '#d4edda',
@@ -218,7 +219,13 @@ def create_sec_results_table():
         page_current=0,
         page_size=20,
         export_format="xlsx",
-        export_headers="display"
+        export_headers="display",
+        tooltip_data=[
+            {
+                'main_peak': {'value': 'Higher values (green) indicate better purity', 'type': 'text'}
+            }
+        ],
+        tooltip_duration=None
     )
 
 

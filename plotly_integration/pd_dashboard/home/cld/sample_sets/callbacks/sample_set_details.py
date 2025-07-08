@@ -251,18 +251,22 @@ def create_analysis_cards_container(sample_set_id):
         ).count()
 
         # Create cards for each analysis type
+        # IMPORTANT: Order matters! The position in this list determines which card opens
         cards = [
+            # Position 0: SEC Analysis (table view)
             create_analysis_card("SEC Analysis", "sec", "fas fa-chart-line", "info",
                                  has_results=(sec_count > 0), result_count=sec_count),
-            # NEW: Embedded SEC card
+            # Position 1: SEC Embedded
             create_analysis_card("SEC Analysis (Embedded)", "sec-embedded", "fas fa-chart-line", "primary",
                                  has_results=(sec_count > 0), result_count=sec_count),
-            # AKTA card with embedding
+            # Position 2: AKTA
             create_analysis_card("AKTA Analysis", "akta", "fas fa-wave-square", "success",
                                  has_results=False, result_count=0),
-            # Other placeholder cards
+            # Position 3: Titer
             create_analysis_card("Titer Results", "titer", "fas fa-vial", "warning", False, 0),
+            # Position 4: CE-SDS
             create_analysis_card("CE-SDS Analysis", "cesds", "fas fa-bolt", "danger", False, 0),
+            # Position 5: cIEF
             create_analysis_card("cIEF Analysis", "cief", "fas fa-chart-area", "primary", False, 0),
         ]
 
@@ -274,79 +278,283 @@ def create_analysis_cards_container(sample_set_id):
 
 
 # ============================================================================
-# CARD TOGGLE CALLBACK - OPTIMIZED VERSION
+# CARD TOGGLE CALLBACK - FIXED VERSION
 # ============================================================================
+
+# ============================================================================
+# INDIVIDUAL CARD TOGGLE CALLBACKS - SIMPLER APPROACH
+# ============================================================================
+
+# SEC Analysis Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "sec"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "sec"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "sec"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_sec_card(n_clicks, is_open, sample_set_id):
+    """Toggle SEC analysis card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("sec", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# SEC Embedded Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "sec-embedded"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "sec-embedded"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "sec-embedded"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "sec-embedded"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "sec-embedded"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_sec_embedded_card(n_clicks, is_open, sample_set_id):
+    """Toggle SEC embedded card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("sec-embedded", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# AKTA Analysis Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "akta"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "akta"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "akta"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "akta"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "akta"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_akta_card(n_clicks, is_open, sample_set_id):
+    """Toggle AKTA analysis card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("akta", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# Titer Results Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "titer"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "titer"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "titer"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "titer"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "titer"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_titer_card(n_clicks, is_open, sample_set_id):
+    """Toggle Titer results card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("titer", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# CE-SDS Analysis Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cesds"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "cesds"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "cesds"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cesds"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cesds"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_cesds_card(n_clicks, is_open, sample_set_id):
+    """Toggle CE-SDS analysis card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("cesds", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# cIEF Analysis Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cief"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "cief"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "cief"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cief"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cief"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_cief_card(n_clicks, is_open, sample_set_id):
+    """Toggle cIEF analysis card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("cief", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# AKTA Embedded Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "akta-embedded"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "akta-embedded"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "akta-embedded"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "akta-embedded"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "akta-embedded"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_akta_embedded_card(n_clicks, is_open, sample_set_id):
+    """Toggle AKTA embedded card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("akta-embedded", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# Titer Embedded Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "titer-embedded"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "titer-embedded"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "titer-embedded"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "titer-embedded"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "titer-embedded"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_titer_embedded_card(n_clicks, is_open, sample_set_id):
+    """Toggle Titer embedded card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("titer-embedded", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# CE-SDS Embedded Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cesds-embedded"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "cesds-embedded"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "cesds-embedded"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cesds-embedded"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cesds-embedded"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_cesds_embedded_card(n_clicks, is_open, sample_set_id):
+    """Toggle CE-SDS embedded card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("cesds-embedded", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# cIEF Embedded Card
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cief-embedded"}, "is_open"),
+     Output({"type": "analysis-card-content", "index": "cief-embedded"}, "children"),
+     Output({"type": "analysis-card-toggle", "index": "cief-embedded"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cief-embedded"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cief-embedded"}, "is_open"),
+     State("current-sample-set-id", "data")],
+    prevent_initial_call=True
+)
+def toggle_cief_embedded_card(n_clicks, is_open, sample_set_id):
+    """Toggle cIEF embedded card"""
+    if not n_clicks:
+        raise PreventUpdate
+
+    new_is_open = not is_open
+    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+
+    if new_is_open and sample_set_id:
+        content = load_analysis_content("cief-embedded", sample_set_id)
+        return new_is_open, content, new_icon
+
+    return new_is_open, no_update, new_icon
+
+
+# Comment out or remove the complex ALL pattern callback
+"""
+# Store to track previous n_clicks values
+@app.callback(
+    Output("previous-n-clicks", "data"),
+    Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks"),
+    State("previous-n-clicks", "data")
+)
+def update_previous_clicks(n_clicks_list, previous_clicks):
+    # ... existing code ...
 
 @app.callback(
     [Output({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
      Output({"type": "analysis-card-content", "index": ALL}, "children"),
      Output({"type": "analysis-card-toggle", "index": ALL}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
-     State({"type": "analysis-card-content", "index": ALL}, "children"),
-     State("current-sample-set-id", "data"),
-     State({"type": "analysis-card-toggle", "index": ALL}, "id")]
+    # ... rest of the complex callback ...
 )
-def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids):
-    """Handle card expansion and load data only when expanded"""
-    if not n_clicks_list:
-        raise PreventUpdate
-
-    # Initialize states if empty
-    num_cards = len(n_clicks_list)
-    if not is_open_list:
-        is_open_list = [False] * num_cards
-    if not current_content:
-        current_content = [no_update] * num_cards
-
-    # Check if this is initial load (all n_clicks are None or 0)
-    if all(not n for n in n_clicks_list):
-        raise PreventUpdate
-
-    # Find which button was clicked (most recently)
-    # We'll use a simple approach - the button with n_clicks > 0
-    clicked_pos = None
-    for i, n_clicks in enumerate(n_clicks_list):
-        if n_clicks and n_clicks > 0:
-            # This is a potential click - we'll use the last one found
-            clicked_pos = i
-
-    if clicked_pos is None:
-        raise PreventUpdate
-
-    # Get the card ID
-    clicked_id = button_ids[clicked_pos]["index"]
-
-    # Prepare outputs - use no_update for unchanged items
-    new_is_open = []
-    new_content = []
-    new_icons = []
-
-    for i in range(num_cards):
-        if i == clicked_pos:
-            # Toggle this card
-            is_open = not is_open_list[i]
-            new_is_open.append(is_open)
-
-            # Update icon
-            new_icons.append(html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}"))
-
-            # Load content if opening and not already loaded
-            if is_open and sample_set_id:
-                content_str = str(current_content[i])
-                if "Loading" in content_str or current_content[i] == no_update:
-                    new_content.append(load_analysis_content(clicked_id, sample_set_id))
-                else:
-                    new_content.append(no_update)
-            else:
-                new_content.append(no_update)
-        else:
-            # Keep other cards unchanged
-            new_is_open.append(no_update)
-            new_content.append(no_update)
-            new_icons.append(no_update)
-
-    return new_is_open, new_content, new_icons
+def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids, previous_clicks):
+    # ... existing code ...
+"""
 
 
 # ============================================================================
@@ -360,16 +568,57 @@ def load_analysis_content(analysis_type, sample_set_id):
         members = sample_set.members.all()
         sample_ids = [member.sample.sample_id for member in members]
 
+        from urllib.parse import urlencode
+
+        # SEC special cases with table view
         if analysis_type == "sec":
             return load_sec_content(sample_ids, sample_set_id)
         elif analysis_type == "sec-embedded":
             return load_sec_embedded_content(sample_ids, sample_set_id)
-        elif analysis_type == "akta":
-            return load_akta_embedded_content(sample_ids, sample_set_id)
+
+        # All other types - just show embedded iframe
         else:
+            # Build URL based on analysis type
+            if analysis_type in ["akta", "akta-embedded"]:
+                # AKTA uses FB IDs
+                fb_ids = []
+                for sample_id in sample_ids:
+                    if str(sample_id).startswith('FB'):
+                        fb_ids.append(str(sample_id))
+                    else:
+                        fb_ids.append(f"FB{sample_id}")
+                params = {'fb': ','.join(fb_ids), 'embed': 'true'}
+                url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?{urlencode(params)}"
+
+            elif analysis_type in ["titer", "titer-embedded"]:
+                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
+                url = f"/plotly_integration/dash-app/app/TiterReportApp/?{urlencode(params)}"
+
+            elif analysis_type in ["cesds", "cesds-embedded"]:
+                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
+                url = f"/plotly_integration/dash-app/app/CESDSReportViewerApp/?{urlencode(params)}"
+
+            elif analysis_type in ["cief", "cief-embedded"]:
+                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
+                url = f"/plotly_integration/dash-app/app/cIEFReportViewerApp/?{urlencode(params)}"
+
+            else:
+                return html.Div([
+                    html.P(f"No {analysis_type.upper()} results available for this sample set.",
+                           className="text-muted text-center")
+                ])
+
+            # Return iframe for all embedded views
             return html.Div([
-                html.P(f"No {analysis_type.upper()} results available for this sample set.",
-                       className="text-muted text-center")
+                html.Iframe(
+                    src=url,
+                    style={
+                        "width": "100%",
+                        "height": "800px",
+                        "border": "1px solid #dee2e6",
+                        "borderRadius": "0.25rem"
+                    }
+                )
             ])
 
     except Exception as e:
@@ -448,8 +697,8 @@ def load_sec_embedded_content(sample_ids, sample_set_id):
         if result_with_report and result_with_report.report:
             report_id = result_with_report.report.report_id
 
-    # Build the SEC URL
-    sec_url = f"/analytical/sec/report?report_id={report_id}" if report_id else "/analytical/sec/report"
+    # Build the SEC URL - use the actual app URL, not the hash route
+    sec_url = f"/plotly_integration/dash-app/app/SecReportEmbeddedApp/?report_id={report_id}" if report_id else "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
 
     # Create embedded iframe
     return html.Div([
@@ -467,21 +716,26 @@ def load_sec_embedded_content(sample_ids, sample_set_id):
 
 def load_akta_embedded_content(sample_ids, sample_set_id):
     """Load embedded AKTA app in iframe"""
-    # Clean FB sample IDs for AKTA (remove FB prefix)
-    clean_fb_numbers = []
+    # For AKTA, we need to pass the full FB IDs (e.g., FB1234)
+    # The AKTA app will handle parsing them
+    fb_ids = []
     for sample_id in sample_ids:
+        # Ensure we have the FB prefix
         if str(sample_id).startswith('FB'):
-            clean_fb_numbers.append(str(sample_id)[2:])  # Remove FB prefix
+            fb_ids.append(str(sample_id))
         else:
-            clean_fb_numbers.append(str(sample_id))
+            # Add FB prefix if missing
+            fb_ids.append(f"FB{sample_id}")
 
-    # Build AKTA URL with sample parameters
+    # Build AKTA URL with FB sample parameters
     from urllib.parse import urlencode
     params = {
-        'fb': ','.join(clean_fb_numbers),
+        'fb': ','.join(fb_ids),  # Pass full FB IDs
         'embed': 'true'
     }
     akta_url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?{urlencode(params)}"
+
+    print(f"DEBUG: AKTA URL with FB IDs: {akta_url}")
 
     # Create embedded iframe
     return html.Div([
