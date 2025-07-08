@@ -527,6 +527,34 @@ def create_page_router(app):
                     html.P(str(e), className="text-danger")
                 ])
 
+
+        # SEC Analysis Routes
+
+        elif pathname == "/analysis/sec/report":
+            try:
+                print(f"🔍 Routing to SEC embed with params: {query_params}")
+                from ..embedded_apps.sec_integration.sec_embedder import create_embedded_sec_report
+                return create_embedded_sec_report(query_params)
+            except ImportError as e:
+                print(f"Error importing sec_embedder: {e}")
+                return html.Div([
+                    html.H2("SEC Report"),
+                    html.P("Error loading SEC embedder module"),
+                    html.P(str(e), className="text-danger")
+                ])
+            except Exception as e:
+                print(f"Error creating SEC embed: {e}")
+                import traceback
+                traceback.print_exc()
+                return html.Div([
+                    html.H2("SEC Report"),
+                    dbc.Alert([
+                        html.P("Error loading SEC report"),
+                        html.P(str(e), className="font-monospace small")
+                    ], color="danger")
+                ])
+
+
         # CLD Routes - Full screen, non-scrollable
         elif pathname == "/cld/vicell":
             cld_vicell_url = "/plotly_integration/dash-app/app/ViCellReportApp/"
