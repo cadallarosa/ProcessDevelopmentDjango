@@ -211,6 +211,27 @@ def create_sec_results_table():
             {
                 'if': {'column_id': 'status', 'filter_query': '{status} = complete'},
                 'backgroundColor': '#d1ecf1'
+            },
+            # Color gradient for main_peak: <90 red, 90-95 orange, 95-98 yellow-green, >98 green
+            {
+                'if': {'column_id': 'main_peak', 'filter_query': '{main_peak} < 90'},
+                'backgroundColor': '#f8d7da',  # light red
+                'color': 'black'
+            },
+            {
+                'if': {'column_id': 'main_peak', 'filter_query': '{main_peak} >= 90 && {main_peak} < 95'},
+                'backgroundColor': '#fff3cd',  # light orange
+                'color': 'black'
+            },
+            {
+                'if': {'column_id': 'main_peak', 'filter_query': '{main_peak} >= 95 && {main_peak} < 98'},
+                'backgroundColor': '#d4edda',  # light green-yellow
+                'color': 'black'
+            },
+            {
+                'if': {'column_id': 'main_peak', 'filter_query': '{main_peak} >= 98'},
+                'backgroundColor': '#c3e6cb',  # strong green
+                'color': 'black'
             }
         ],
         sort_action="native",
