@@ -254,8 +254,13 @@ def create_analysis_cards_container(sample_set_id):
         cards = [
             create_analysis_card("SEC Analysis", "sec", "fas fa-chart-line", "info",
                                  has_results=(sec_count > 0), result_count=sec_count),
-            # Add placeholder cards for other analysis types
-            create_analysis_card("AKTA Analysis", "akta", "fas fa-wave-square", "success", False, 0),
+            # NEW: Embedded SEC card
+            create_analysis_card("SEC Analysis (Embedded)", "sec-embedded", "fas fa-chart-line", "primary",
+                                 has_results=(sec_count > 0), result_count=sec_count),
+            # AKTA card with embedding
+            create_analysis_card("AKTA Analysis", "akta", "fas fa-wave-square", "success",
+                                 has_results=False, result_count=0),
+            # Other placeholder cards
             create_analysis_card("Titer Results", "titer", "fas fa-vial", "warning", False, 0),
             create_analysis_card("CE-SDS Analysis", "cesds", "fas fa-bolt", "danger", False, 0),
             create_analysis_card("cIEF Analysis", "cief", "fas fa-chart-area", "primary", False, 0),
@@ -268,25 +273,10 @@ def create_analysis_cards_container(sample_set_id):
         return dbc.Alert(f"Error loading analysis cards: {str(e)}", color="danger")
 
 
-# Store to track previous clicks
-@app.callback(
-    Output("previous-n-clicks", "data"),
-    Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks"),
-    State("previous-n-clicks", "data")
-)
-def update_previous_clicks(n_clicks_list, previous_clicks):
-    """Track previous click counts to detect new clicks"""
-    if not n_clicks_list:
-        return previous_clicks or {}
+# ============================================================================
+# CARD TOGGLE CALLBACK - OPTIMIZED VERSION
+# ============================================================================
 
-    new_clicks = {}
-    for i, n_clicks in enumerate(n_clicks_list):
-        new_clicks[str(i)] = n_clicks or 0
-
-    return new_clicks
-
-
-# Callback to handle card expansion and load data
 @app.callback(
     [Output({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
      Output({"type": "analysis-card-content", "index": ALL}, "children"),
@@ -295,75 +285,73 @@ def update_previous_clicks(n_clicks_list, previous_clicks):
     [State({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
      State({"type": "analysis-card-content", "index": ALL}, "children"),
      State("current-sample-set-id", "data"),
-     State({"type": "analysis-card-toggle", "index": ALL}, "id"),
-     State("previous-n-clicks", "data")]
+     State({"type": "analysis-card-toggle", "index": ALL}, "id")]
 )
-def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids, previous_clicks):
+def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids):
     """Handle card expansion and load data only when expanded"""
     if not n_clicks_list:
         raise PreventUpdate
 
-    # Get the number of cards
+    # Initialize states if empty
     num_cards = len(n_clicks_list)
-
-    # Initialize lists if empty
     if not is_open_list:
         is_open_list = [False] * num_cards
     if not current_content:
         current_content = [no_update] * num_cards
 
-    # Find which card was actually clicked by comparing with previous clicks
+    # Check if this is initial load (all n_clicks are None or 0)
+    if all(not n for n in n_clicks_list):
+        raise PreventUpdate
+
+    # Find which button was clicked (most recently)
+    # We'll use a simple approach - the button with n_clicks > 0
     clicked_pos = None
-    previous_clicks = previous_clicks or {}
-
     for i, n_clicks in enumerate(n_clicks_list):
-        current_clicks = n_clicks or 0
-        prev_clicks = previous_clicks.get(str(i), 0)
-
-        if current_clicks > prev_clicks:
+        if n_clicks and n_clicks > 0:
+            # This is a potential click - we'll use the last one found
             clicked_pos = i
-            break
 
     if clicked_pos is None:
-        # No new clicks detected
-        return is_open_list, current_content, [
-            html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}")
-            for is_open in is_open_list
-        ]
+        raise PreventUpdate
 
     # Get the card ID
-    clicked_index = button_ids[clicked_pos]["index"]
+    clicked_id = button_ids[clicked_pos]["index"]
 
-    # Create new states - only update the clicked card
-    new_is_open = list(is_open_list)
-    new_content = list(current_content)
+    # Prepare outputs - use no_update for unchanged items
+    new_is_open = []
+    new_content = []
     new_icons = []
 
-    # Toggle only the clicked card
-    new_is_open[clicked_pos] = not is_open_list[clicked_pos]
+    for i in range(num_cards):
+        if i == clicked_pos:
+            # Toggle this card
+            is_open = not is_open_list[i]
+            new_is_open.append(is_open)
 
-    # Update all icons based on open state
-    for i, is_open in enumerate(new_is_open):
-        new_icons.append(html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}"))
+            # Update icon
+            new_icons.append(html.I(className=f"fas fa-chevron-{'up' if is_open else 'down'}"))
 
-    # Load content only if opening and content hasn't been loaded yet
-    if new_is_open[clicked_pos] and sample_set_id:
-        # Check if we need to load content
-        current_item = new_content[clicked_pos]
-
-        # Check if it's still the loading message
-        should_load = (
-                current_item == no_update or
-                (hasattr(current_item, '__class__') and current_item.__class__.__name__ == 'NoUpdate') or
-                "Loading" in str(current_item)
-        )
-
-        if should_load:
-            # Content hasn't been loaded yet, load it now
-            new_content[clicked_pos] = load_analysis_content(clicked_index, sample_set_id)
+            # Load content if opening and not already loaded
+            if is_open and sample_set_id:
+                content_str = str(current_content[i])
+                if "Loading" in content_str or current_content[i] == no_update:
+                    new_content.append(load_analysis_content(clicked_id, sample_set_id))
+                else:
+                    new_content.append(no_update)
+            else:
+                new_content.append(no_update)
+        else:
+            # Keep other cards unchanged
+            new_is_open.append(no_update)
+            new_content.append(no_update)
+            new_icons.append(no_update)
 
     return new_is_open, new_content, new_icons
 
+
+# ============================================================================
+# CONTENT LOADING FUNCTIONS
+# ============================================================================
 
 def load_analysis_content(analysis_type, sample_set_id):
     """Load specific analysis content based on type"""
@@ -374,6 +362,10 @@ def load_analysis_content(analysis_type, sample_set_id):
 
         if analysis_type == "sec":
             return load_sec_content(sample_ids, sample_set_id)
+        elif analysis_type == "sec-embedded":
+            return load_sec_embedded_content(sample_ids, sample_set_id)
+        elif analysis_type == "akta":
+            return load_akta_embedded_content(sample_ids, sample_set_id)
         else:
             return html.Div([
                 html.P(f"No {analysis_type.upper()} results available for this sample set.",
@@ -437,7 +429,78 @@ def load_sec_content(sample_ids, sample_set_id):
     ])
 
 
-# SEC Results Data Callback
+def load_sec_embedded_content(sample_ids, sample_set_id):
+    """Load embedded SEC app in iframe"""
+    # Get SEC results to find report ID
+    sample_analyses = LimsSampleAnalysis.objects.filter(
+        sample_id__in=sample_ids,
+        sample_type=2  # FB samples
+    )
+
+    sec_results = LimsSecResult.objects.filter(
+        sample_id__in=sample_analyses
+    ).select_related('sample_id', 'report')
+
+    # Get the report ID
+    report_id = None
+    if sec_results:
+        result_with_report = sec_results.filter(report__isnull=False).first()
+        if result_with_report and result_with_report.report:
+            report_id = result_with_report.report.report_id
+
+    # Build the SEC URL
+    sec_url = f"/analytical/sec/report?report_id={report_id}" if report_id else "/analytical/sec/report"
+
+    # Create embedded iframe
+    return html.Div([
+        html.Iframe(
+            src=sec_url,
+            style={
+                "width": "100%",
+                "height": "800px",
+                "border": "1px solid #dee2e6",
+                "borderRadius": "0.25rem"
+            }
+        )
+    ])
+
+
+def load_akta_embedded_content(sample_ids, sample_set_id):
+    """Load embedded AKTA app in iframe"""
+    # Clean FB sample IDs for AKTA (remove FB prefix)
+    clean_fb_numbers = []
+    for sample_id in sample_ids:
+        if str(sample_id).startswith('FB'):
+            clean_fb_numbers.append(str(sample_id)[2:])  # Remove FB prefix
+        else:
+            clean_fb_numbers.append(str(sample_id))
+
+    # Build AKTA URL with sample parameters
+    from urllib.parse import urlencode
+    params = {
+        'fb': ','.join(clean_fb_numbers),
+        'embed': 'true'
+    }
+    akta_url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?{urlencode(params)}"
+
+    # Create embedded iframe
+    return html.Div([
+        html.Iframe(
+            src=akta_url,
+            style={
+                "width": "100%",
+                "height": "800px",
+                "border": "1px solid #dee2e6",
+                "borderRadius": "0.25rem"
+            }
+        )
+    ])
+
+
+# ============================================================================
+# SEC RESULTS TABLE DATA CALLBACK
+# ============================================================================
+
 @app.callback(
     [Output("sec-results-table", "data"),
      Output("sec-results-table", "columns", allow_duplicate=True)],
