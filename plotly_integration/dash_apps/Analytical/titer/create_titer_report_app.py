@@ -8,12 +8,13 @@ import pandas as pd
 from django.utils.timezone import is_aware
 
 # Initialize the Dash app
-app = DjangoDash("ReportApp")
+app = DjangoDash("CreateTiterReportApp")
 
 
 def get_default_columns_and_data():
     default_columns = ["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"]
-    samples = SampleMetadata.objects.all()
+    # Filter for Titer samples only (sample_type = 2)
+    samples = SampleMetadata.objects.filter(sample_type=2)
     columns = [{"name": col.replace("_", " ").title(), "id": col} for col in default_columns]
 
     data = []
@@ -69,7 +70,7 @@ app.layout = html.Div(
     },
     children=[
         html.H1(
-            "Sample Report Submission",
+            "Titer Report Submission",
             style={
                 "textAlign": "center",
                 "color": "#0047b3",
@@ -77,23 +78,10 @@ app.layout = html.Div(
             }
         ),
 
-        # Filters Section
+        # Filters Section (without Analysis Type)
         html.Div(
             style={"marginBottom": "20px"},
             children=[
-                html.Label("Select Analysis Type:", style={"fontWeight": "bold"}),
-                dcc.Dropdown(
-                    id="analysis_type_filter",
-                    options=[
-                        {"label": "SEC", "value": "1"},
-                        {"label": "Titer", "value": "2"}
-                    ],
-                    placeholder="Select analysis type",
-                    multi=False,  # ✅ Only one option can be selected
-                    clearable=False,  # ✅ Forces selection (prevents blank state)
-                    style={"marginBottom": "10px"},
-                    value='1',
-                ),
                 html.Label("Filter by Sample Type:", style={"fontWeight": "bold"}),
                 dcc.Dropdown(
                     id="sample_type_filter",
@@ -336,24 +324,21 @@ app.layout = html.Div(
      Output("sample_table", "data")],
     [Input("sample_type_filter", "value"),
      Input("sample_set_name_filter", "value"),
-     Input("column_selection", "value"),
-     Input("analysis_type_filter", "value")]
+     Input("column_selection", "value")]
 )
-def update_table(sample_types, sample_set_names, selected_columns, analysis_type):
+def update_table(sample_types, sample_set_names, selected_columns):
     # Default columns
     if not selected_columns:
         selected_columns = ["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"]
 
     columns = [{"name": col.replace("_", " ").title(), "id": col} for col in selected_columns]
 
-    # Filter data
-    query = SampleMetadata.objects.all()
+    # Filter data - Always filter for Titer (sample_type=2)
+    query = SampleMetadata.objects.filter(sample_type=2)
     if sample_types:
         query = query.filter(sample_prefix__in=sample_types)
     if sample_set_names:
         query = query.filter(sample_set_name__in=sample_set_names)
-    if analysis_type:  # ✅ Apply filter based on selected Analysis Type
-        query = query.filter(sample_type=analysis_type)
 
     data = []
     for sample in query:
@@ -377,7 +362,7 @@ def update_table(sample_types, sample_set_names, selected_columns, analysis_type
 
         data.append(row)
 
-        # ✅ Sort by `date_acquired` (most recent first) after stripping timezone
+    # ✅ Sort by `date_acquired` (most recent first) after stripping timezone
     data = sorted(
         data,
         key=lambda x: x["date_acquired"] if x["date_acquired"] else datetime.min,
@@ -395,13 +380,11 @@ def update_table(sample_types, sample_set_names, selected_columns, analysis_type
 # Dynamically populate Sample Set Name options based on Sample Type
 @app.callback(
     Output("sample_set_name_filter", "options"),
-    Input("sample_type_filter", "value"),
-    Input("analysis_type_filter", "value")
+    Input("sample_type_filter", "value")
 )
-def update_sample_set_options(sample_types, analysis_type):
-    query = SampleMetadata.objects.all()
-    if analysis_type:  # ✅ Filter based on selected analysis type
-        query = query.filter(sample_type=analysis_type)
+def update_sample_set_options(sample_types):
+    # Always filter for Titer samples
+    query = SampleMetadata.objects.filter(sample_type=2)
     if sample_types:
         query = query.filter(sample_prefix__in=sample_types)
 
@@ -490,7 +473,6 @@ def populate_user_ids(selected_user_id):
 @app.callback(
     Output("submission_status", "children"),
     Input("submit_button", "n_clicks"),
-    Input("analysis_type_filter", "value"),
     [
         State("report_name_input", "value"),
         State("project_id_dropdown", "value"),
@@ -500,12 +482,10 @@ def populate_user_ids(selected_user_id):
         State("comments_input", "value"),
         State("sample_table", "data"),
         State("sample_table", "selected_rows"),
-
     ]
 )
-def submit_report(n_clicks, analysis_type, report_name, project_id, new_project_id, user_id, new_user_id, comments,
-                  table_data,
-                  selected_rows):
+def submit_report(n_clicks, report_name, project_id, new_project_id, user_id, new_user_id, comments,
+                  table_data, selected_rows):
     if n_clicks > 0:
         if not selected_rows:
             return "No rows selected. Please select rows to include in the report."
@@ -538,7 +518,7 @@ def submit_report(n_clicks, analysis_type, report_name, project_id, new_project_
         sample_names_str = ",".join(sorted_samples)
         result_ids_str = ",".join(sorted_result_ids)
 
-        # Store report with timestamp
+        # Store report with timestamp - Always save as Titer (analysis_type=2)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         Report.objects.create(
             report_name=report_name,
@@ -548,7 +528,7 @@ def submit_report(n_clicks, analysis_type, report_name, project_id, new_project_
             selected_samples=sample_names_str,
             selected_result_ids=result_ids_str,
             date_created=timestamp,
-            analysis_type=analysis_type,
+            analysis_type=2,  # Always 2 for Titer
             department=1
         )
 

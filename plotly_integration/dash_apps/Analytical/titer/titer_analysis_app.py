@@ -2,10 +2,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from django_plotly_dash import DjangoDash
 import dash
-from dash import dcc, html, Input, Output, State, dash_table, Dash, MATCH, callback_context
+from dash import dcc, html, Input, Output, State, dash_table, Dash, MATCH
 import pandas as pd
 from scipy.stats import linregress, t
-from plotly_integration.models import Report, SampleMetadata, PeakResults, TimeSeriesData
+from plotly_integration.models import Report, SampleMetadata, PeakResults, TimeSeriesData, LimsTiterResult, \
+    LimsSampleAnalysis
 import json
 import logging
 from openpyxl.workbook import Workbook
@@ -25,7 +26,6 @@ logging.basicConfig(filename='app_logs.log', level=logging.DEBUG,
 # Initialize the Dash app
 app = DjangoDash('TiterAnalysisApp')
 
-
 # Layout for the Dash app
 app.layout = html.Div([
 
@@ -42,228 +42,1084 @@ app.layout = html.Div([
                                                 }),
     dcc.Store(id='result-table-store', data=[]),
     dcc.Store(id='report-list-store', data=[]),
+    dcc.Store(id='current-plot-settings', data={}),
+    dcc.Store(id='settings-collapsed', data=False),
+    dcc.Store(id='url-params', data={}),
+    dcc.Store(id='embedded-mode', data=False),
     dcc.Interval(id="load-once", interval=1000, n_intervals=0, max_intervals=1),
+    dcc.Download(id="download-pdf-report"),
+    dcc.Location(id='url', refresh=False),
 
-    # # 🔹 Top-left Home Button
-    # html.Div(
-    #     html.Button("Home", id="home-btn", style={
-    #         'background-color': '#0056b3',
-    #         'color': 'white',
-    #         'border': 'none',
-    #         'padding': '10px 20px',
-    #         'font-size': '16px',
-    #         'cursor': 'pointer',
-    #         'border-radius': '5px'
-    #     }),
-    #     style={'margin': '10px'}
-    # ),
-
-    html.Div([  # Main layout with sidebar and content areas
-
-
-        html.Div([  # Main content container
-            dcc.Tabs(id="main-tabs", value="tab-1", children=[
-
-                dcc.Tab(label="Select Report", value="tab-1", children=[
-                    html.Div([
-                        html.H4("Select a Report", style={'textAlign': 'center', 'color': '#0056b3'}),
-                        dash_table.DataTable(
-                            id='report-selection-table',
-                            columns=[
-                                {"name": "Report ID", "id": "report_id"},
-                                {"name": "Report Name", "id": "report_name"},
-                                {"name": "Project ID", "id": "project_id"},
-                                {"name": "Created By", "id": "user_id"},
-                                {"name": "Date Created", "id": "date_created"},
-                            ],
-                            row_selectable="single",
-                            filter_action="native",
-                            sort_action="native",
-                            page_action="native",
-                            page_size=25,
-                            fixed_rows={'headers': True},
-                            style_table={'overflowX': 'auto'},
-                            style_cell={
-                                'textAlign': 'center',
-                                'padding': '5px',
-                                'minWidth': '100px',
-                                'maxWidth': '180px',
-                                'whiteSpace': 'normal'
-                            },
-
-                        )
-                    ], style={
-                        'width': '98%',
-                        'margin': 'auto',
-                        'padding': '10px',
-                        'border': '2px solid #0056b3',
-                        'border-radius': '5px',
-                        'background-color': '#f7f9fc',
-                        'margin-bottom': '10px'
-                    })
-                ]),
-
-                # 🔹 Tab 1: Sample Analysis
-                dcc.Tab(label="Sample Analysis", value="tab-2", children=[
-                    html.Div([
-                        html.Div(  # Plot area (90% width)
-                            id='plot-area',
-                            children=[
-                                html.H4("Titer Results", id="results-header",
-                                        style={'text-align': 'center', 'color': '#0056b3'}),
-                                dcc.Graph(id='time-series-graph')
-                            ],
-                            style={
-                                'width': '98%',  # ✅ Increased width to 90%
-                                'margin': 'auto',
-                                'padding': '10px',
-                                'border': '2px solid #0056b3',
-                                'border-radius': '5px',
-                                'background-color': '#f7f9fc',
-                                'margin-bottom': '10px'
-                            }
-                        ),
-
-                        html.Div(  # ✅ Plot settings moved below plot
-                            id='plot-settings',
-                            children=[
-                                html.H4("Plot Settings", style={'color': '#0056b3', 'text-align': 'center'}),
-                                dcc.RadioItems(  # ✅ Horizontal layout for radio buttons
-                                    id='channel-radio',
-                                    options=[
-                                        {'label': 'UV280', 'value': 'channel_1'},
-                                        {'label': 'UV260', 'value': 'channel_2'},
-                                        {'label': 'Pressure', 'value': 'channel_3'}
-                                    ],
-                                    value='channel_1',  # Default selection
-                                    labelStyle={'display': 'inline-block', 'margin-right': '15px'}
-                                    # ✅ Horizontal layout
-                                ),
-                                dcc.Dropdown(
-                                    id='plot-type-dropdown',
-                                    options=[
-                                        {'label': 'Plotly Graph', 'value': 'plotly'},
-                                        {'label': 'Subplots', 'value': 'subplots'}
-                                    ],
-                                    value='plotly',
-                                    style={'width': '100%', 'margin-top': '10px'}
-                                ),
-                            ],
-                            style={
-                                'width': '98%',  # ✅ Increased width to 90%
-                                'margin': 'auto',
-                                'padding': '10px',
-                                'background-color': '#f7f9fc',
-                                'border': '2px solid #0056b3',
-                                'border-radius': '5px',
-                                'margin-bottom': '10px'
-                            }
-                        ),
-
-                        html.Div(  # Titer Data Table
-                            id='titer-data',
-                            children=[
-                                html.H4("Titer Results", style={'text-align': 'center', 'color': '#0056b3'}),
-                                dash_table.DataTable(
-                                    id='result-table',
-                                    columns=[
-                                        {"name": "Sample Name", "id": "Sample Name"},
-                                        {"name": "Dilution Factor", "id": "Dilution Factor"},
-                                        {"name": "Peak Start", "id": "Peak Start"},
-                                        {"name": "Peak End", "id": "Peak End"},
-                                        {"name": "Main Peak Area", "id": "Main Peak Area"},
-                                        {"name": "Concentration (mg/mL)", "id": "Concentration"},
-                                        {"name": "Uncertainty", "id": "Uncertainty"},
-                                        {"name": "Injection Volume (uL)", "id": "Injection Volume"}
-                                    ],
-                                    data=[],
-                                    # row_selectable="single",  # ✅ Changed to single row selection
-                                    # selected_rows=[],
-                                    sort_action="native",
-                                    style_table={'overflowX': 'auto'},
-                                    style_cell={'textAlign': 'center', 'padding': '5px'},
-                                    style_header={'fontWeight': 'bold', 'backgroundColor': '#e9f1fb'}
-                                ),
-                                html.Button("Export to XLSX", id="export-button", style={  # ✅ Added back export button
-                                    'margin-top': '10px',
-                                    'background-color': '#0047b3',
-                                    'color': 'white',
-                                    'padding': '10px',
-                                    'border': 'none',
-                                    'border-radius': '5px',
-                                    'cursor': 'pointer'
-                                }),
-                                dcc.Download(id="download-result-data")
-                            ],
-                            style={
-                                'width': '98%',  # ✅ Increased width to 90%
-                                'margin': 'auto',
-                                'padding': '10px',
-                                'border': '2px solid #0056b3',
-                                'border-radius': '5px',
-                                'background-color': '#f7f9fc'
-                            }
-                        ),
-                    ])
-                ]),
-                # 🔹 Tab 2: Standard Analysis
-                dcc.Tab(label="Standard Analysis", value="tab-3", children=[
-                    html.Div(
-                        id='standard-analysis',
-                        children=[
-                            html.H4("Standard Analysis", style={'text-align': 'center', 'color': '#0056b3'}),
-                            dcc.Graph(id='standard-plot', style={'margin-top': '10px'}),
-
-                            html.Div(
-                                id='standard-analysis-content',
-                                children=[
-                                    dcc.Graph(id='regression-plot', style={'margin-top': '20px'}),
-                                    dash_table.DataTable(
-                                        id="standard-table",
-                                        columns=[
-                                            {"name": "Sample Name", "id": "Sample Name"},
-                                            {"name": "Injection Date", "id": "Injection Date"},
-                                            {"name": "Peak Start", "id": "Peak Start"},
-                                            {"name": "Peak End", "id": "Peak End"},
-                                            {"name": "Peak Area", "id": "Main Peak Area"},
-                                            {"name": "Concentration (mg/mL)", "id": "Concentration (mg/mL)"},
-                                            {"name": "Injection Volume (uL)", "id": "Injection Volume (uL)"}
-                                        ],
-                                        data=[],
-                                        row_selectable='multi',
-                                        selected_rows=[],
-                                        style_table={'overflowX': 'auto'},
-                                        style_cell={'textAlign': 'center', 'padding': '5px'},
-                                        style_header={'fontWeight': 'bold', 'backgroundColor': '#e9f1fb'}
-                                    )
-                                ],
-                                style={
-                                    'padding': '10px',
-                                    'border': '2px solid #0056b3',
-                                    'border-radius': '5px',
-                                    'background-color': '#f7f9fc',
-                                }
-                            ),
-
-                            html.P("Regression Equation: ", id="regression-equation"),
-                            html.P("R² Value: ", id="r-squared-value"),
-                        ],
+    # Modal for Create Report iframe
+    html.Div(
+        id="create-report-modal",
+        style={
+            "display": "none",
+            "position": "fixed",
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0, 0, 0, 0.5)",
+            "zIndex": "1000"
+        },
+        children=[
+            html.Div(
+                style={
+                    "position": "relative",
+                    "margin": "5% auto",
+                    "width": "1300px",
+                    "maxWidth": "90%",
+                    "height": "80%",
+                    "backgroundColor": "white",
+                    "borderRadius": "10px",
+                    "padding": "20px",
+                    "boxShadow": "0 5px 15px rgba(0,0,0,0.3)"
+                },
+                children=[
+                    html.Button(
+                        "✕",
+                        id="close-modal-btn",
                         style={
-                            'width': '95%',
-                            'margin-top': '20px',
-                            'padding': '10px',
-                            'border': '2px solid #0056b3',
-                            'border-radius': '5px',
-                            'background-color': '#f7f9fc'
+                            "position": "absolute",
+                            "top": "10px",
+                            "right": "10px",
+                            "fontSize": "24px",
+                            "border": "none",
+                            "backgroundColor": "transparent",
+                            "cursor": "pointer",
+                            "color": "#666",
+                            "hover": {"color": "#000"}
+                        }
+                    ),
+                    html.H3("Create New Report", style={"marginBottom": "20px", "color": "#0056b3"}),
+                    html.Iframe(
+                        src="/django_plotly_dash/app/CreateTiterReportApp/",
+                        style={
+                            "width": "100%",
+                            "height": "calc(100% - 60px)",
+                            "border": "none"
                         }
                     )
-                ])
-            ])
-        ], style={'width': '95%', 'padding': '10px', 'overflow-y': 'auto'})
-    ], style={'display': 'flex', 'flex-direction': 'row', 'gap': '10px'})
+                ]
+            )
+        ]
+    ),
+
+    # Modal for Select Report
+    html.Div(
+        id="select-report-modal",
+        style={
+            "display": "none",
+            "position": "fixed",
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0, 0, 0, 0.5)",
+            "zIndex": "1000"
+        },
+        children=[
+            html.Div(
+                style={
+                    "position": "relative",
+                    "margin": "2% auto",
+                    "width": "90%",
+                    "maxWidth": "1400px",
+                    "height": "85%",
+                    "backgroundColor": "white",
+                    "borderRadius": "10px",
+                    "padding": "20px",
+                    "boxShadow": "0 5px 15px rgba(0,0,0,0.3)",
+                    "display": "flex",
+                    "flexDirection": "column"
+                },
+                children=[
+                    html.Button(
+                        "✕",
+                        id="close-select-report-btn",
+                        style={
+                            "position": "absolute",
+                            "top": "10px",
+                            "right": "10px",
+                            "fontSize": "24px",
+                            "border": "none",
+                            "backgroundColor": "transparent",
+                            "cursor": "pointer",
+                            "color": "#666"
+                        }
+                    ),
+                    html.H3("Select a Report", style={
+                        "marginBottom": "20px",
+                        "color": "#0056b3",
+                        "textAlign": "center"
+                    }),
+                    html.Div(
+                        style={
+                            "flex": "1",
+                            "overflow": "auto",
+                            "marginBottom": "60px"
+                        },
+                        children=[
+                            dash_table.DataTable(
+                                id='report-selection-table',
+                                columns=[
+                                    {"name": "Report ID", "id": "report_id"},
+                                    {"name": "Report Name", "id": "report_name"},
+                                    {"name": "Project ID", "id": "project_id"},
+                                    {"name": "Created By", "id": "user_id"},
+                                    {"name": "Date Created", "id": "date_created"},
+                                ],
+                                row_selectable="single",
+                                filter_action="native",
+                                sort_action="native",
+                                page_action="native",
+                                page_size=20,
+                                style_table={
+                                    'overflowX': 'auto',
+                                    'borderRadius': '5px',
+                                    'height': '100%'
+                                },
+                                style_cell={
+                                    'textAlign': 'center',
+                                    'padding': '12px',
+                                    'fontSize': '14px',
+                                    'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                },
+                                style_header={
+                                    'backgroundColor': '#f8f9fa',
+                                    'fontWeight': '600',
+                                    'borderBottom': '2px solid #dee2e6',
+                                    'color': '#495057'
+                                },
+                                style_data={
+                                    'borderBottom': '1px solid #e9ecef',
+                                    'color': '#212529'
+                                },
+                                style_data_conditional=[
+                                    {
+                                        'if': {'row_index': 'odd'},
+                                        'backgroundColor': '#f8f9fa',
+                                    },
+                                    {
+                                        'if': {'state': 'selected'},
+                                        'backgroundColor': '#e3f2fd',
+                                        'border': '1px solid #0056b3',
+                                    }
+                                ],
+                                style_filter={
+                                    'backgroundColor': '#f8f9fa',
+                                }
+                            )
+                        ]
+                    ),
+                    html.Button("Select Report",
+                                id="confirm-report-selection",
+                                style={
+                                    'backgroundColor': '#0056b3',
+                                    'color': 'white',
+                                    'border': 'none',
+                                    'padding': '10px 30px',
+                                    'fontSize': '14px',
+                                    'cursor': 'pointer',
+                                    'borderRadius': '5px',
+                                    'fontWeight': '500',
+                                    'position': 'absolute',
+                                    'bottom': '20px',
+                                    'right': '20px',
+                                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                                }
+                                )
+                ]
+            )
+        ]
+    ),
+
+    # Top toolbar with action buttons
+    html.Div(
+        id='toolbar-container',
+        style={
+            'display': 'flex',
+            'justifyContent': 'space-between',
+            'alignItems': 'center',
+            'padding': '15px 20px',
+            'backgroundColor': '#f8f9fa',
+            'borderBottom': '1px solid #dee2e6',
+            'gap': '10px'
+        },
+        children=[
+            # Left side - Create Report button
+            html.Div(
+                id='left-toolbar',
+                style={'display': 'flex', 'gap': '10px', 'alignItems': 'center'},
+                children=[
+                    html.Button([
+                        html.Span("➕ ", style={'marginRight': '5px'}),
+                        "Create New Report"
+                    ], id="create-report-btn", style={
+                        'backgroundColor': '#0056b3',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Button([
+                        html.Span("📊 ", style={'marginRight': '5px'}),
+                        "Select Report"
+                    ], id="change-report-btn", style={
+                        'backgroundColor': '#6c757d',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Div([
+                        html.Span("Current Report: ", style={'fontWeight': '600', 'color': '#495057'}),
+                        html.Span("No report selected", id="current-report-text", style={'color': '#6c757d'})
+                    ], style={'marginLeft': '20px', 'fontSize': '14px'})
+                ]
+            ),
+
+            # Right side - Save buttons
+            html.Div(
+                style={'display': 'flex', 'gap': '10px'},
+                children=[
+                    html.Button([
+                        html.Span("💾 ", style={'marginRight': '5px'}),
+                        "Save Settings"
+                    ], id="save-settings-btn", style={
+                        'backgroundColor': '#28a745',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Button([
+                        html.Span("🔗 ", style={'marginRight': '5px'}),
+                        "Link Results"
+                    ], id="save-to-lims-btn", style={
+                        'backgroundColor': '#17a2b8',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Button([
+                        html.Span("📄 ", style={'marginRight': '5px'}),
+                        "Create PDF Report"
+                    ], id="create-pdf-btn", style={
+                        'backgroundColor': '#dc3545',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                ]
+            )
+        ]
+    ),
+
+    # Status messages
+    html.Div(id="status-message", style={
+        'padding': '15px',
+        'margin': '10px 20px',
+        'borderRadius': '5px',
+        'display': 'none',
+        'fontSize': '14px',
+        'fontWeight': '500',
+        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+    }),
+
+    # Main content area
+    html.Div(
+        style={
+            'padding': '20px',
+            'backgroundColor': '#f5f5f5',
+            'minHeight': 'calc(100vh - 200px)'
+        },
+        children=[
+            dcc.Tabs(id="main-tabs", value="tab-1", style={'backgroundColor': 'white', 'borderRadius': '5px'},
+                     children=[
+
+                         dcc.Tab(label="📈 Sample Analysis", value="tab-1",
+                                 style={'padding': '10px', 'fontWeight': '500'},
+                                 selected_style={'padding': '10px', 'fontWeight': '600', 'backgroundColor': '#e3f2fd'},
+                                 children=[
+                                     html.Div([
+                                         # Container for plot and settings side by side
+                                         html.Div(
+                                             style={
+                                                 'display': 'flex',
+                                                 'gap': '20px',
+                                                 'marginTop': '20px',
+                                                 'marginBottom': '20px'
+                                             },
+                                             children=[
+                                                 # Plot area (left side)
+                                                 html.Div(
+                                                     id='plot-area',
+                                                     children=[
+                                                         html.H4("Titer Results", id="results-header",
+                                                                 style={'textAlign': 'center', 'color': '#0056b3',
+                                                                        'fontWeight': '500'}),
+                                                         dcc.Graph(id='time-series-graph', style={'height': '500px'})
+                                                     ],
+                                                     style={
+                                                         'backgroundColor': 'white',
+                                                         'padding': '20px',
+                                                         'borderRadius': '8px',
+                                                         'boxShadow': '0 2px 4px rgba(0,0,0,0.08)',
+                                                         'flex': '1'
+                                                     }
+                                                 ),
+
+                                                 # Plot settings (right side - collapsible)
+                                                 html.Div(
+                                                     id='plot-settings-container',
+                                                     style={
+                                                         'width': '300px',
+                                                         'transition': 'width 0.3s ease',
+                                                         'position': 'relative'
+                                                     },
+                                                     children=[
+                                                         html.Div(
+                                                             id='plot-settings',
+                                                             children=[
+                                                                 html.Div(
+                                                                     style={
+                                                                         'display': 'flex',
+                                                                         'alignItems': 'center',
+                                                                         'height': '100%',
+                                                                         'position': 'relative'
+                                                                     },
+                                                                     children=[
+                                                                         html.Button(
+                                                                             "◀",
+                                                                             id="toggle-settings-btn",
+                                                                             style={
+                                                                                 'position': 'absolute',
+                                                                                 'left': '10px',
+                                                                                 'top': '50%',
+                                                                                 'transform': 'translateY(-50%)',
+                                                                                 'backgroundColor': '#0056b3',
+                                                                                 'border': 'none',
+                                                                                 'fontSize': '16px',
+                                                                                 'cursor': 'pointer',
+                                                                                 'color': 'white',
+                                                                                 'padding': '5px 10px',
+                                                                                 'borderRadius': '3px',
+                                                                                 'zIndex': '10'
+                                                                             }
+                                                                         ),
+                                                                         html.Div(
+                                                                             id='settings-inner-content',
+                                                                             style={'width': '100%',
+                                                                                    'paddingLeft': '40px'},
+                                                                             children=[
+                                                                                 html.H4("Plot Settings",
+                                                                                         id='settings-title',
+                                                                                         style={
+                                                                                             'color': '#0056b3',
+                                                                                             'margin': '0 0 20px 0',
+                                                                                             'fontWeight': '500',
+                                                                                             'textAlign': 'center'
+                                                                                         }
+                                                                                         ),
+                                                                                 html.Div(
+                                                                                     id='settings-content',
+                                                                                     children=[
+                                                                                         html.Label(
+                                                                                             "Channel Selection:",
+                                                                                             style={'fontWeight': '600',
+                                                                                                    'marginBottom': '10px'}),
+                                                                                         dcc.RadioItems(
+                                                                                             id='channel-radio',
+                                                                                             options=[
+                                                                                                 {'label': ' UV280',
+                                                                                                  'value': 'channel_1'},
+                                                                                                 {'label': ' UV260',
+                                                                                                  'value': 'channel_2'},
+                                                                                                 {'label': ' Pressure',
+                                                                                                  'value': 'channel_3'}
+                                                                                             ],
+                                                                                             value='channel_1',
+                                                                                             labelStyle={
+                                                                                                 'display': 'block',
+                                                                                                 'marginBottom': '10px',
+                                                                                                 'cursor': 'pointer',
+                                                                                                 'padding': '5px',
+                                                                                                 'borderRadius': '3px',
+                                                                                                 'transition': 'all 0.3s ease'
+                                                                                             },
+                                                                                             inputStyle={
+                                                                                                 "marginRight": "5px"}
+                                                                                         ),
+                                                                                         html.Hr(style={
+                                                                                             'margin': '20px 0'}),
+                                                                                         html.Label("Plot View:",
+                                                                                                    style={
+                                                                                                        'fontWeight': '600',
+                                                                                                        'marginBottom': '10px'}),
+                                                                                         dcc.Dropdown(
+                                                                                             id='plot-type-dropdown',
+                                                                                             options=[
+                                                                                                 {
+                                                                                                     'label': 'Single Plot View',
+                                                                                                     'value': 'plotly'},
+                                                                                                 {
+                                                                                                     'label': 'Subplot View',
+                                                                                                     'value': 'subplots'}
+                                                                                             ],
+                                                                                             value='plotly',
+                                                                                             style={'width': '100%'}
+                                                                                         ),
+                                                                                     ]
+                                                                                 )
+                                                                             ]
+                                                                         ),
+                                                                         # Vertical title for collapsed state
+                                                                         html.Div(
+                                                                             id='vertical-title',
+                                                                             style={
+                                                                                 'position': 'absolute',
+                                                                                 'left': '15px',
+                                                                                 'top': '50%',
+                                                                                 'transform': 'translateY(-50%) rotate(-90deg)',
+                                                                                 'transformOrigin': 'center',
+                                                                                 'whiteSpace': 'nowrap',
+                                                                                 'color': '#0056b3',
+                                                                                 'fontWeight': '500',
+                                                                                 'fontSize': '16px',
+                                                                                 'display': 'none'
+                                                                             },
+                                                                             children="Plot Settings"
+                                                                         )
+                                                                     ]
+                                                                 )
+                                                             ],
+                                                             style={
+                                                                 'backgroundColor': 'white',
+                                                                 'padding': '20px',
+                                                                 'borderRadius': '8px',
+                                                                 'boxShadow': '0 2px 4px rgba(0,0,0,0.08)',
+                                                                 'height': '100%',
+                                                                 'minHeight': '400px'
+                                                             }
+                                                         )
+                                                     ]
+                                                 )
+                                             ]
+                                         ),
+
+                                         # Results table
+                                         html.Div(
+                                             id='titer-data',
+                                             children=[
+                                                 html.Div(
+                                                     style={'display': 'flex', 'justifyContent': 'space-between',
+                                                            'alignItems': 'center', 'marginBottom': '20px'},
+                                                     children=[
+                                                         html.H4("Analysis Results",
+                                                                 style={'color': '#0056b3', 'margin': '0',
+                                                                        'fontWeight': '500'}),
+                                                         html.Button([
+                                                             html.Span("📥 ", style={'marginRight': '5px'}),
+                                                             "Export to Excel"
+                                                         ], id="export-button", style={
+                                                             'backgroundColor': '#6c757d',
+                                                             'color': 'white',
+                                                             'padding': '8px 16px',
+                                                             'border': 'none',
+                                                             'borderRadius': '5px',
+                                                             'cursor': 'pointer',
+                                                             'fontSize': '14px',
+                                                             'fontWeight': '500',
+                                                             'transition': 'all 0.3s ease'
+                                                         }),
+                                                     ]
+                                                 ),
+                                                 dash_table.DataTable(
+                                                     id='result-table',
+                                                     columns=[
+                                                         {"name": "Sample Name", "id": "Sample Name"},
+                                                         {"name": "Dilution Factor", "id": "Dilution Factor"},
+                                                         {"name": "Peak Start", "id": "Peak Start", "type": "numeric",
+                                                          "format": {"specifier": ".2f"}},
+                                                         {"name": "Peak End", "id": "Peak End", "type": "numeric",
+                                                          "format": {"specifier": ".2f"}},
+                                                         {"name": "Main Peak Area", "id": "Main Peak Area",
+                                                          "type": "numeric", "format": {"specifier": ".0f"}},
+                                                         {"name": "Concentration (mg/mL)", "id": "Concentration",
+                                                          "type": "numeric", "format": {"specifier": ".3f"}},
+                                                         {"name": "Uncertainty", "id": "Uncertainty"},
+                                                         {"name": "Injection Volume (µL)", "id": "Injection Volume"},
+                                                         {"name": "LIMS Status", "id": "LIMS Status"}
+                                                     ],
+                                                     data=[],
+                                                     sort_action="native",
+                                                     fixed_rows={'headers': True},
+                                                     style_table={
+                                                         'overflowX': 'auto',
+                                                         'overflowY': 'auto',
+                                                         'maxHeight': '500px',
+                                                         'borderRadius': '5px'
+                                                     },
+                                                     style_cell={
+                                                         'textAlign': 'center',
+                                                         'padding': '12px',
+                                                         'fontSize': '14px',
+                                                         'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                     },
+                                                     style_header={
+                                                         'backgroundColor': '#0056b3',
+                                                         'fontWeight': '600',
+                                                         'color': 'white',
+                                                         'borderBottom': '2px solid #004494'
+                                                     },
+                                                     style_data={
+                                                         'borderBottom': '1px solid #e9ecef',
+                                                         'color': '#212529'
+                                                     },
+                                                     style_data_conditional=[
+                                                         {
+                                                             'if': {'row_index': 'odd'},
+                                                             'backgroundColor': '#f8f9fa',
+                                                         },
+                                                         {
+                                                             'if': {'column_id': 'LIMS Status',
+                                                                    'filter_query': '{LIMS Status} = "Saved"'},
+                                                             'backgroundColor': '#d4edda',
+                                                             'color': '#155724',
+                                                             'fontWeight': '600'
+                                                         },
+                                                         {
+                                                             'if': {'column_id': 'Concentration'},
+                                                             'fontWeight': '600'
+                                                         }
+                                                     ]
+                                                 ),
+                                                 dcc.Download(id="download-result-data")
+                                             ],
+                                             style={
+                                                 'backgroundColor': 'white',
+                                                 'padding': '20px',
+                                                 'borderRadius': '8px',
+                                                 'boxShadow': '0 2px 4px rgba(0,0,0,0.08)'
+                                             }
+                                         ),
+                                     ])
+                                 ]),
+
+                         dcc.Tab(label="🔬 Standard Analysis", value="tab-2",
+                                 style={'padding': '10px', 'fontWeight': '500'},
+                                 selected_style={'padding': '10px', 'fontWeight': '600', 'backgroundColor': '#e3f2fd'},
+                                 children=[
+                                     html.Div(
+                                         id='standard-analysis',
+                                         children=[
+                                             html.Div(
+                                                 style={
+                                                     'backgroundColor': 'white',
+                                                     'padding': '20px',
+                                                     'borderRadius': '8px',
+                                                     'boxShadow': '0 2px 4px rgba(0,0,0,0.08)',
+                                                     'marginTop': '20px',
+                                                     'marginBottom': '20px'
+                                                 },
+                                                 children=[
+                                                     html.H4("Standard Curve Analysis", style={
+                                                         'textAlign': 'center',
+                                                         'color': '#0056b3',
+                                                         'marginBottom': '20px',
+                                                         'fontWeight': '500'
+                                                     }),
+                                                     dcc.Graph(id='standard-plot', style={'height': '400px'}),
+                                                 ]
+                                             ),
+
+                                             html.Div(
+                                                 id='standard-analysis-content',
+                                                 children=[
+                                                     html.Div(
+                                                         style={'marginBottom': '20px'},
+                                                         children=[
+                                                             dcc.Graph(id='regression-plot', style={'height': '400px'}),
+                                                         ]
+                                                     ),
+                                                     html.Div(
+                                                         style={
+                                                             'display': 'flex',
+                                                             'gap': '20px',
+                                                             'marginBottom': '20px'
+                                                         },
+                                                         children=[
+                                                             html.Div(
+                                                                 style={
+                                                                     'flex': '1',
+                                                                     'backgroundColor': '#e3f2fd',
+                                                                     'padding': '15px',
+                                                                     'borderRadius': '5px',
+                                                                     'textAlign': 'center'
+                                                                 },
+                                                                 children=[
+                                                                     html.P("Regression Equation",
+                                                                            style={'margin': '0', 'fontWeight': '600',
+                                                                                   'color': '#0056b3'}),
+                                                                     html.P(id="regression-equation",
+                                                                            style={'margin': '5px 0',
+                                                                                   'fontSize': '16px'})
+                                                                 ]
+                                                             ),
+                                                             html.Div(
+                                                                 style={
+                                                                     'flex': '1',
+                                                                     'backgroundColor': '#e8f5e9',
+                                                                     'padding': '15px',
+                                                                     'borderRadius': '5px',
+                                                                     'textAlign': 'center'
+                                                                 },
+                                                                 children=[
+                                                                     html.P("R² Value",
+                                                                            style={'margin': '0', 'fontWeight': '600',
+                                                                                   'color': '#2e7d32'}),
+                                                                     html.P(id="r-squared-value",
+                                                                            style={'margin': '5px 0',
+                                                                                   'fontSize': '16px'})
+                                                                 ]
+                                                             )
+                                                         ]
+                                                     ),
+                                                     dash_table.DataTable(
+                                                         id="standard-table",
+                                                         columns=[
+                                                             {"name": "Sample Name", "id": "Sample Name"},
+                                                             {"name": "Injection Date", "id": "Injection Date"},
+                                                             {"name": "Peak Start", "id": "Peak Start",
+                                                              "type": "numeric", "format": {"specifier": ".2f"}},
+                                                             {"name": "Peak End", "id": "Peak End", "type": "numeric",
+                                                              "format": {"specifier": ".2f"}},
+                                                             {"name": "Peak Area", "id": "Main Peak Area",
+                                                              "type": "numeric", "format": {"specifier": ".0f"}},
+                                                             {"name": "Concentration (mg/mL)",
+                                                              "id": "Concentration (mg/mL)", "type": "numeric",
+                                                              "format": {"specifier": ".3f"}},
+                                                             {"name": "Injection Volume (µL)",
+                                                              "id": "Injection Volume (uL)"}
+                                                         ],
+                                                         data=[],
+                                                         row_selectable='multi',
+                                                         selected_rows=[],
+                                                         style_table={
+                                                             'overflowX': 'auto',
+                                                             'borderRadius': '5px'
+                                                         },
+                                                         style_cell={
+                                                             'textAlign': 'center',
+                                                             'padding': '12px',
+                                                             'fontSize': '14px',
+                                                             'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                         },
+                                                         style_header={
+                                                             'backgroundColor': '#f8f9fa',
+                                                             'fontWeight': '600',
+                                                             'borderBottom': '2px solid #dee2e6',
+                                                             'color': '#495057'
+                                                         },
+                                                         style_data={
+                                                             'borderBottom': '1px solid #e9ecef',
+                                                             'color': '#212529'
+                                                         },
+                                                         style_data_conditional=[
+                                                             {
+                                                                 'if': {'row_index': 'odd'},
+                                                                 'backgroundColor': '#f8f9fa',
+                                                             },
+                                                             {
+                                                                 'if': {'state': 'selected'},
+                                                                 'backgroundColor': '#e3f2fd',
+                                                                 'border': '1px solid #0056b3',
+                                                             }
+                                                         ]
+                                                     )
+                                                 ],
+                                                 style={
+                                                     'backgroundColor': 'white',
+                                                     'padding': '20px',
+                                                     'borderRadius': '8px',
+                                                     'boxShadow': '0 2px 4px rgba(0,0,0,0.08)'
+                                                 }
+                                             ),
+                                         ],
+                                     )
+                                 ])
+                     ])
+        ]
+    )
 ])
 
 
+# Parse URL parameters
+@app.callback(
+    [Output('url-params', 'data'),
+     Output('embedded-mode', 'data'),
+     Output('selected-report', 'data', allow_duplicate=True)],
+    [Input('url', 'search')],
+    prevent_initial_call='initial_duplicate'
+)
+def parse_url_params(search):
+    if not search:
+        return {}, False, None
+
+    # Parse query parameters
+    from urllib.parse import parse_qs
+    params = parse_qs(search.lstrip('?'))
+
+    # Extract parameters
+    url_params = {}
+    embedded = False
+    report_id = None
+
+    if 'embedded' in params:
+        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
+        url_params['embedded'] = embedded
+
+    if 'report_id' in params:
+        try:
+            report_id = int(params['report_id'][0])
+            url_params['report_id'] = report_id
+        except:
+            pass
+
+    return url_params, embedded, report_id
+
+
+# Update toolbar visibility based on embedded mode
+@app.callback(
+    [Output('create-report-btn', 'style'),
+     Output('change-report-btn', 'style')],
+    [Input('embedded-mode', 'data')],
+    prevent_initial_call=False
+)
+def update_toolbar_visibility(embedded):
+    if embedded:
+        # Hide buttons in embedded mode
+        hidden_style = {'display': 'none'}
+        return hidden_style, hidden_style
+    else:
+        # Show buttons in normal mode
+        create_btn_style = {
+            'backgroundColor': '#0056b3',
+            'color': 'white',
+            'border': 'none',
+            'padding': '10px 20px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '5px',
+            'fontWeight': '500',
+            'transition': 'all 0.3s ease',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+        }
+
+        select_btn_style = {
+            'backgroundColor': '#6c757d',
+            'color': 'white',
+            'border': 'none',
+            'padding': '10px 20px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '5px',
+            'fontWeight': '500',
+            'transition': 'all 0.3s ease',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+        }
+
+        return create_btn_style, select_btn_style
+
+
+# Callback to show/hide Create Report modal
+@app.callback(
+    Output("create-report-modal", "style"),
+    [Input("create-report-btn", "n_clicks"),
+     Input("close-modal-btn", "n_clicks")],
+    [State("create-report-modal", "style")],
+    prevent_initial_call=True
+)
+def toggle_modal(open_clicks, close_clicks, current_style):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return current_style
+
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    if button_id == "create-report-btn":
+        return {**current_style, "display": "block"}
+    elif button_id == "close-modal-btn":
+        return {**current_style, "display": "none"}
+
+    return current_style
+
+
+# Callback to show/hide Select Report modal
+@app.callback(
+    [Output("select-report-modal", "style"),
+     Output("current-report-text", "children")],
+    [Input("change-report-btn", "n_clicks"),
+     Input("close-select-report-btn", "n_clicks"),
+     Input("confirm-report-selection", "n_clicks"),
+     Input("load-once", "n_intervals"),
+     Input("url-params", "data")],
+    [State("select-report-modal", "style"),
+     State("selected-report", "data"),
+     State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data"),
+     State("embedded-mode", "data")],
+    prevent_initial_call=False
+)
+def toggle_select_report_modal(change_clicks, close_clicks, confirm_clicks, load_interval,
+                               url_params, current_style, selected_report, selected_rows,
+                               table_data, embedded):
+    ctx = dash.callback_context
+
+    # Get the ID of the component that triggered the callback
+    if not ctx.triggered:
+        triggered_id = None
+    else:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Check if report_id is provided in URL
+    if triggered_id == "url-params" and url_params.get('report_id'):
+        report_id = url_params['report_id']
+        report = Report.objects.filter(report_id=report_id).first()
+        if report:
+            return current_style, f"{report.project_id} - {report.report_name}"
+
+    # Check if no report is selected on initial load (but not in embedded mode)
+    if triggered_id == "load-once" and not selected_report and not embedded:
+        return {**current_style, "display": "block"}, "No report selected"
+
+    if not ctx.triggered:
+        return current_style, "No report selected"
+
+    if triggered_id == "change-report-btn":
+        return {**current_style, "display": "block"}, dash.no_update
+    elif triggered_id == "close-select-report-btn":
+        return {**current_style, "display": "none"}, dash.no_update
+    elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
+        # Get selected report info
+        selected = table_data[selected_rows[0]]
+        report_text = f"{selected['project_id']} - {selected['report_name']}"
+        return {**current_style, "display": "none"}, report_text
+
+    # Update report text if report is selected
+    if selected_report:
+        report = Report.objects.filter(report_id=selected_report).first()
+        if report:
+            return current_style, f"{report.project_id} - {report.report_name}"
+
+    return current_style, "No report selected"
+
+
+# Callback to save plot settings
+@app.callback(
+    [Output("status-message", "children"),
+     Output("status-message", "style")],
+    [Input("save-settings-btn", "n_clicks")],
+    [State("selected-report", "data"),
+     State("channel-radio", "value"),
+     State("plot-type-dropdown", "value"),
+     State("standard-table", "selected_rows"),
+     State("regression-parameters", "data")],
+    prevent_initial_call=True
+)
+def save_plot_settings(n_clicks, report_id, channel, plot_type, selected_std_rows, regression_params):
+    if not report_id:
+        return "⚠️ No report selected!", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+    try:
+        report = Report.objects.get(report_id=report_id)
+
+        # Prepare settings to save
+        plot_settings = {
+            "channel": channel,
+            "plot_type": plot_type,
+            "selected_standard_rows": selected_std_rows,
+            "regression_parameters": regression_params,
+            "saved_at": datetime.now().isoformat()
+        }
+
+        # Save to report's plot_settings field
+        report.plot_settings = plot_settings
+        report.save()
+
+        return "✅ Plot settings saved successfully!", {
+            "display": "block",
+            "backgroundColor": "#d4edda",
+            "color": "#155724",
+            "border": "1px solid #c3e6cb"
+        }
+
+    except Exception as e:
+        return f"❌ Error saving settings: {str(e)}", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+
+# Callback to save results to LIMS
+@app.callback(
+    [Output("result-table", "data", allow_duplicate=True),
+     Output("status-message", "children", allow_duplicate=True),
+     Output("status-message", "style", allow_duplicate=True)],
+    [Input("save-to-lims-btn", "n_clicks")],
+    [State("result-table", "data"),
+     State("selected-report", "data")],
+    prevent_initial_call=True
+)
+def save_to_lims(n_clicks, table_data, report_id):
+    if not table_data or not report_id:
+        return table_data, "⚠️ No data to link!", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+    try:
+        # Get report info for project_id
+        report = Report.objects.get(report_id=report_id)
+        project_id = report.project_id
+
+        saved_count = 0
+        errors = []
+
+        for row in table_data:
+            sample_name = row.get("Sample Name")
+            concentration = row.get("Concentration")
+
+            # Skip if already saved or no concentration
+            if row.get("LIMS Status") == "Saved" or not concentration:
+                continue
+
+            try:
+                # Extract sample type from sample name prefix
+                sample_type = None
+                if sample_name.startswith("UP"):
+                    sample_type = 1  # UP
+                elif sample_name.startswith("FB"):
+                    sample_type = 2  # FB
+                elif sample_name.startswith("PD"):
+                    sample_type = 3  # PD
+                else:
+                    # Try to get from SampleMetadata
+                    sample_meta = SampleMetadata.objects.filter(sample_name=sample_name).first()
+                    if sample_meta and sample_meta.sample_prefix:
+                        if sample_meta.sample_prefix == "UP":
+                            sample_type = 1
+                        elif sample_meta.sample_prefix == "FB":
+                            sample_type = 2
+                        elif sample_meta.sample_prefix == "PD":
+                            sample_type = 3
+
+                if not sample_type:
+                    errors.append(f"{sample_name}: Unable to determine sample type")
+                    continue
+
+                # Create or update LIMS sample analysis
+                lims_sample, created = LimsSampleAnalysis.objects.update_or_create(
+                    sample_id=sample_name,
+                    defaults={
+                        'sample_type': sample_type,
+                        'project_id': project_id,
+                        'analyst': report.user_id or 'Unknown',
+                        'sample_date': datetime.now().date(),
+                        'description': f'Titer analysis from report {report.report_name}'
+                    }
+                )
+
+                # Create or update titer result
+                titer_result, created = LimsTiterResult.objects.update_or_create(
+                    sample_id=lims_sample,
+                    defaults={
+                        'titer': concentration,
+                        'qc_pass': True,
+                        'status': 'completed'
+                    }
+                )
+
+                # Update the relationship in LimsSampleAnalysis
+                lims_sample.titer_result = titer_result
+                lims_sample.save()
+
+                # Update row status
+                row["LIMS Status"] = "Saved"
+                saved_count += 1
+
+            except Exception as e:
+                errors.append(f"{sample_name}: {str(e)}")
+
+        if errors:
+            message = f"⚠️ Linked {saved_count} results. Errors: {'; '.join(errors[:3])}"  # Show first 3 errors
+            if len(errors) > 3:
+                message += f" and {len(errors) - 3} more..."
+            style = {
+                "display": "block",
+                "backgroundColor": "#fff3cd",
+                "color": "#856404",
+                "border": "1px solid #ffeeba"
+            }
+        else:
+            message = f"✅ Successfully linked {saved_count} results to LIMS!"
+            style = {
+                "display": "block",
+                "backgroundColor": "#d4edda",
+                "color": "#155724",
+                "border": "1px solid #c3e6cb"
+            }
+
+        return table_data, message, style
+
+    except Exception as e:
+        return table_data, f"❌ Error linking to LIMS: {str(e)}", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+
+# Populate report table
 @app.callback(
     Output("report-selection-table", "data"),
     Input("load-once", "n_intervals")
@@ -286,32 +1142,24 @@ def populate_report_table(active_tab):
     return data
 
 
+# Store selected report
 @app.callback(
     Output("selected-report", "data"),
-    Input("report-selection-table", "selected_rows"),
-    State("report-selection-table", "data"),
+    [Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
     prevent_initial_call=True
 )
-def store_selected_report(selected_rows, table_data):
-    if not selected_rows:
+def store_selected_report(confirm_clicks, selected_rows, table_data):
+    if not selected_rows or not confirm_clicks:
         return dash.no_update
     selected_row = table_data[selected_rows[0]]
     return selected_row["report_id"]
 
-# @app.callback(
-#     Output("report-selection-table", "selected_rows"),
-#     Input("report-selection-table", "data"),
-#     prevent_initial_call=True
-# )
-# def auto_select_first_row(data):
-#     # Only trigger on first table load
-#     if data and len(data) > 0:
-#         return [0]
-#     return []
 
-
+# Update results header
 @app.callback(
-    Output("results-header", "children"),  # Update the SEC Results header
+    Output("results-header", "children"),
     [Input("selected-report", "data")],
     prevent_initial_call=True
 )
@@ -319,72 +1167,14 @@ def update_results_header(selected_report):
     report_name = selected_report
 
     if not report_name:
-        print("🚨 No report selected.")
-        return go.Figure()
+        return "Titer Results"
 
-    # ✅ Retrieve selected report
     report = Report.objects.filter(report_id=report_name).first()
 
     if not report:
         return "Report Not Found"
 
-    # Format the SEC Results text
     return f"{report.project_id} - {report.report_name}"
-
-
-@app.callback(
-    Output("sample-details-table", "data"),
-    Input("selected-report", "data"),
-    prevent_initial_call=True
-)
-def update_sample_and_std_details(selected_report):
-    # Default table data
-    default_data = [
-        {"field": "Sample Set Name", "value": ""},
-        {"field": "Column Name", "value": ""},
-        {"field": "Column Serial Number", "value": ""},
-        {"field": "System Name", "value": ""},
-        {"field": "Instrument Method Name", "value": ""},
-    ]
-
-    report_name = selected_report
-
-    if not report_name:
-        print("🚨 No report selected.")
-        return go.Figure()
-
-    # ✅ Retrieve selected report
-    report = Report.objects.filter(report_id=report_name).first()
-
-    if not report:
-        return default_data
-
-    # Fetch the first sample name from the report's selected samples
-    selected_result_ids = [sample.strip() for sample in report.selected_result_ids.split(",") if sample.strip()]
-    if not selected_result_ids:
-        return default_data
-
-    first_sample_name = selected_result_ids[0]
-    sample_metadata = SampleMetadata.objects.filter(result_id=first_sample_name).first()
-
-    if not sample_metadata:
-        return default_data
-
-    # Extract details from the `SampleMetadata` model
-    sample_set_name = sample_metadata.sample_set_name or "N/A"
-    column_name = sample_metadata.column_name or "N/A"
-    column_serial_number = sample_metadata.column_serial_number or "N/A"
-    system_name = sample_metadata.system_name or "N/A"
-    instrument_method_name = sample_metadata.instrument_method_name or "N/A"
-
-    # Return table data
-    return [
-        {"field": "Sample Set Name", "value": sample_set_name},
-        {"field": "Column Name", "value": column_name},
-        {"field": "Column Serial Number", "value": column_serial_number},
-        {"field": "System Name", "value": system_name},
-        {"field": "Instrument Method Name", "value": instrument_method_name},
-    ]
 
 
 def extract_concentration(sample_name):
@@ -393,12 +1183,11 @@ def extract_concentration(sample_name):
     return float(match.group(1)) if match else None
 
 
+# Plot standard time series
 @app.callback(
-    Output("standard-plot", "figure"),  # ✅ Time series data for standards
-    [
-        Input("selected-report", "data")  # ✅ Trigger on report click
-    ],
-    [State("selected-report", "data")],  # ✅ Use the stored selected report
+    Output("standard-plot", "figure"),
+    [Input("selected-report", "data")],
+    [State("selected-report", "data")],
     prevent_initial_call=True
 )
 def plot_standard_time_series(report_clicks, selected_report):
@@ -406,27 +1195,18 @@ def plot_standard_time_series(report_clicks, selected_report):
     report_name = selected_report
 
     if not report_name:
-        print("🚨 No report selected.")
         return go.Figure()
 
-    # ✅ Retrieve selected report
     report = Report.objects.filter(report_id=report_name).first()
 
     if not report:
-        print(f"🚨 Report not found: {report_name}")
         return go.Figure()
 
-    # ✅ Extract samples from the selected report
     selected_samples = [s.strip() for s in report.selected_samples.split(",") if s.strip()]
 
     if not selected_samples:
-        print(f"🚨 No samples found in report: {report_name}")
         return go.Figure()
 
-    print(f"✅ Selected Report: {report_name}")
-    print(f"📢 Found Samples: {selected_samples}")
-
-    # ✅ Extract standard samples from the selected report
     result_ids = [r.strip() for r in report.selected_result_ids.split(",") if r.strip()]
 
     # Step 1: Retrieve sample_set_ids associated with these result_ids
@@ -439,12 +1219,10 @@ def plot_standard_time_series(report_clicks, selected_report):
         sample_name__contains="Std_"
     ).values("sample_name", "injection_volume", "result_id")
 
-    # ✅ If enough found, skip fallback
+    # If not enough standards found, use fallback logic
     if len(std_samples) < 3:
-        # ✅ Step 1: Use project_id from report (drop "SI-" prefix)
         project_prefix = report.project_id.replace("SI-", "")
 
-        # ✅ Step 2: Get median acquisition time for report samples
         sample_times = SampleMetadata.objects.filter(
             result_id__in=result_ids
         ).values_list("date_acquired", flat=True)
@@ -452,7 +1230,6 @@ def plot_standard_time_series(report_clicks, selected_report):
         if sample_times:
             median_time = sorted(sample_times)[len(sample_times) // 2]
 
-            # ✅ Step 3: Query fallback standard samples by project
             candidate_stds = SampleMetadata.objects.filter(
                 sample_name__startswith=project_prefix,
                 sample_name__contains="Std_"
@@ -460,7 +1237,6 @@ def plot_standard_time_series(report_clicks, selected_report):
                 "sample_name", "injection_volume", "result_id", "sample_set_id", "date_acquired"
             )
 
-            # ✅ Step 4: Group by sample_set_id and find closest in time
             grouped_by_set = defaultdict(list)
             for std in candidate_stds:
                 grouped_by_set[std["sample_set_id"]].append(std)
@@ -481,56 +1257,320 @@ def plot_standard_time_series(report_clicks, selected_report):
             std_samples = best_group if best_group else []
 
     if not std_samples:
-        print(f"🚨 No standard samples found in report: {report_name}")
         return go.Figure()
 
-    print(f"✅ Found Standard Samples: {[s['sample_name'] for s in std_samples]}")
-
-    # ✅ Initialize Plotly Figure
     fig = go.Figure()
 
-    # ✅ Retrieve Time Series Data for Each Standard Sample
     for std in std_samples:
         result_id = std["result_id"]
         sample_name = std["sample_name"]
 
-        # ✅ Fetch Time Series Data from `TimeSeriesData`
         time_series = TimeSeriesData.objects.filter(result_id=result_id).values("time", "channel_1")
 
-        df = pd.DataFrame(list(time_series))  # Convert to DataFrame
+        df = pd.DataFrame(list(time_series))
 
         if df.empty:
-            print(f"⚠️ No Time Series Data for: {sample_name}")
             continue
 
-        # ✅ Add Trace to the Plot
         fig.add_trace(go.Scatter(
             x=df["time"],
             y=df["channel_1"],
             mode="lines",
-            name=sample_name
+            name=sample_name,
+            line=dict(width=2)
         ))
 
-    # ✅ Update Plot Layout
     fig.update_layout(
         title="Time Series Data for Standards",
-        xaxis_title="Time",
+        xaxis_title="Time (min)",
         yaxis_title="Signal Intensity",
-        template="plotly_white"
+        template="plotly_white",
+        hovermode='x unified',
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.01
+        )
     )
 
     return fig
 
 
+# Toggle plot settings collapse/expand
 @app.callback(
-    [
-        Output("standard-table", "data"),  # ✅ Populate the table
-        Output("standard-table", "selected_rows")  # ✅ Default: Select first 5 rows
-    ],
-    [
-        Input("selected-report", "data")  # ✅ Trigger on report selection
-    ],
-    [State("selected-report", "data")],  # ✅ Use stored selected report
+    [Output("plot-settings-container", "style"),
+     Output("toggle-settings-btn", "children"),
+     Output("settings-collapsed", "data"),
+     Output("settings-inner-content", "style"),
+     Output("vertical-title", "style"),
+     Output("toggle-settings-btn", "style")],
+    [Input("toggle-settings-btn", "n_clicks")],
+    [State("settings-collapsed", "data")],
+    prevent_initial_call=True
+)
+def toggle_settings(n_clicks, is_collapsed):
+    if is_collapsed:
+        # Expand
+        container_style = {'width': '300px', 'transition': 'width 0.3s ease', 'position': 'relative'}
+        content_style = {'width': '100%', 'paddingLeft': '40px', 'display': 'block'}
+        vertical_title_style = {'display': 'none'}
+        button_style = {
+            'position': 'absolute',
+            'left': '10px',
+            'top': '50%',
+            'transform': 'translateY(-50%)',
+            'backgroundColor': '#0056b3',
+            'border': 'none',
+            'fontSize': '16px',
+            'cursor': 'pointer',
+            'color': 'white',
+            'padding': '5px 10px',
+            'borderRadius': '3px',
+            'zIndex': '10'
+        }
+        return container_style, "◀", False, content_style, vertical_title_style, button_style
+    else:
+        # Collapse
+        container_style = {'width': '50px', 'transition': 'width 0.3s ease', 'overflow': 'hidden',
+                           'position': 'relative'}
+        content_style = {'display': 'none'}
+        vertical_title_style = {
+            'position': 'absolute',
+            'left': '25px',
+            'top': '50%',
+            'transform': 'translateY(-50%) rotate(-90deg)',
+            'transformOrigin': 'center',
+            'whiteSpace': 'nowrap',
+            'color': '#0056b3',
+            'fontWeight': '500',
+            'fontSize': '16px',
+            'display': 'block'
+        }
+        button_style = {
+            'position': 'absolute',
+            'left': '10px',
+            'top': '10px',
+            'backgroundColor': '#0056b3',
+            'border': 'none',
+            'fontSize': '16px',
+            'cursor': 'pointer',
+            'color': 'white',
+            'padding': '5px 10px',
+            'borderRadius': '3px',
+            'zIndex': '10'
+        }
+        return container_style, "▶", True, content_style, vertical_title_style, button_style
+
+
+# Create PDF Report
+@app.callback(
+    [Output("download-pdf-report", "data"),
+     Output("status-message", "children", allow_duplicate=True),
+     Output("status-message", "style", allow_duplicate=True)],
+    [Input("create-pdf-btn", "n_clicks")],
+    [State("selected-report", "data"),
+     State("time-series-graph", "figure"),
+     State("result-table", "data"),
+     State("regression-plot", "figure"),
+     State("standard-table", "data"),
+     State("regression-equation", "children"),
+     State("r-squared-value", "children")],
+    prevent_initial_call=True
+)
+def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regression_fig,
+                      standard_data, regression_eq, r_squared):
+    if not n_clicks:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    if not report_id:
+        return dash.no_update, "⚠️ No report selected!", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+    try:
+        import io
+        import base64
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        import plotly.io as pio
+
+        # Get report info
+        report = Report.objects.get(report_id=report_id)
+
+        # Create PDF buffer
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#0056b3'),
+            spaceAfter=30,
+            alignment=1  # Center alignment
+        )
+        story.append(Paragraph("Titer Analysis Report", title_style))
+        story.append(Spacer(1, 12))
+
+        # Report info
+        info_style = ParagraphStyle(
+            'Info',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=6
+        )
+        story.append(Paragraph(f"<b>Project ID:</b> {report.project_id}", info_style))
+        story.append(Paragraph(f"<b>Report Name:</b> {report.report_name}", info_style))
+        story.append(Paragraph(f"<b>Date Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
+        story.append(Spacer(1, 20))
+
+        # Section 1: Chromatogram
+        story.append(Paragraph("Chromatogram", styles['Heading2']))
+        story.append(Spacer(1, 12))
+
+        # Convert plotly figure to image
+        if chromatogram_fig:
+            img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400)
+            img_buffer = io.BytesIO(img_bytes)
+            img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
+            story.append(img)
+
+        story.append(Spacer(1, 20))
+
+        # Section 2: Analysis Results Table
+        story.append(Paragraph("Analysis Results", styles['Heading2']))
+        story.append(Spacer(1, 12))
+
+        if result_data:
+            # Create table data
+            table_data = [["Sample Name", "Dilution", "Concentration\n(mg/mL)", "Uncertainty", "LIMS Status"]]
+            for row in result_data:
+                if "Std_" not in row.get("Sample Name", ""):  # Exclude standards
+                    table_data.append([
+                        row.get("Sample Name", ""),
+                        str(row.get("Dilution Factor", "")),
+                        str(row.get("Concentration", "")),
+                        row.get("Uncertainty", ""),
+                        row.get("LIMS Status", "")
+                    ])
+
+            # Create table
+            t = Table(table_data, colWidths=[2 * inch, 0.8 * inch, 1.2 * inch, 1.5 * inch, 1 * inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ]))
+            story.append(t)
+
+        story.append(PageBreak())
+
+        # Section 3: Standard Analysis
+        story.append(Paragraph("Standard Analysis", styles['Heading2']))
+        story.append(Spacer(1, 12))
+
+        # Add regression equation and R²
+        story.append(Paragraph(f"<b>Regression Equation:</b> {regression_eq}", info_style))
+        story.append(Paragraph(f"<b>R² Value:</b> {r_squared}", info_style))
+        story.append(Spacer(1, 12))
+
+        # Add regression plot
+        if regression_fig:
+            img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400)
+            img_buffer = io.BytesIO(img_bytes)
+            img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
+            story.append(img)
+
+        story.append(Spacer(1, 20))
+
+        # Standards table
+        if standard_data:
+            story.append(Paragraph("Standards Data", styles['Heading3']))
+            story.append(Spacer(1, 12))
+
+            table_data = [["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]]
+            for row in standard_data:
+                table_data.append([
+                    row.get("Sample Name", ""),
+                    str(row.get("Concentration (mg/mL)", "")),
+                    str(row.get("Main Peak Area", ""))
+                ])
+
+            t = Table(table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ]))
+            story.append(t)
+
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Create filename
+        filename = f"{datetime.now().strftime('%Y%m%d')}_{report.project_id}_{report.report_name}_Analysis.pdf"
+
+        return dcc.send_bytes(buffer.read(), filename), \
+            "✅ PDF report generated successfully!", \
+            {
+                "display": "block",
+                "backgroundColor": "#d4edda",
+                "color": "#155724",
+                "border": "1px solid #c3e6cb"
+            }
+
+    except ImportError:
+        return dash.no_update, \
+            "❌ Error: reportlab library not installed. Please install with: pip install reportlab", \
+            {
+                "display": "block",
+                "backgroundColor": "#f8d7da",
+                "color": "#721c24",
+                "border": "1px solid #f5c6cb"
+            }
+    except Exception as e:
+        return dash.no_update, \
+            f"❌ Error generating PDF: {str(e)}", \
+            {
+                "display": "block",
+                "backgroundColor": "#f8d7da",
+                "color": "#721c24",
+                "border": "1px solid #f5c6cb"
+            }
+
+
+# Update standard table
+@app.callback(
+    [Output("standard-table", "data"),
+     Output("standard-table", "selected_rows")],
+    [Input("selected-report", "data")],
+    [State("selected-report", "data")],
     prevent_initial_call=True
 )
 def update_standard_table(report_clicks, selected_report):
@@ -540,30 +1580,23 @@ def update_standard_table(report_clicks, selected_report):
     if not report_name:
         return [], []
 
-    # ✅ Retrieve selected report
     report = Report.objects.filter(report_id=report_name).first()
     if not report:
         return [], []
 
-    # ✅ Extract standard samples from the selected report
     result_ids = [r.strip() for r in report.selected_result_ids.split(",") if r.strip()]
 
-    # Step 1: Retrieve sample_set_ids associated with these result_ids
     sample_set_ids = SampleMetadata.objects.filter(result_id__in=result_ids).values_list("sample_set_id",
                                                                                          flat=True).distinct()
 
-    # Step 2: Filter standard samples within the identified sample_set_ids
     std_samples = SampleMetadata.objects.filter(
         sample_set_id__in=sample_set_ids,
         sample_name__contains="Std_"
     ).values("sample_name", "injection_volume", "result_id", "date_acquired")
 
-    # ✅ If enough found, skip fallback
     if len(std_samples) < 3:
-        # ✅ Step 1: Use project_id from report (drop "SI-" prefix)
         project_prefix = report.project_id.replace("SI-", "")
 
-        # ✅ Step 2: Get median acquisition time for report samples
         sample_times = SampleMetadata.objects.filter(
             result_id__in=result_ids
         ).values_list("date_acquired", flat=True)
@@ -571,7 +1604,6 @@ def update_standard_table(report_clicks, selected_report):
         if sample_times:
             median_time = sorted(sample_times)[len(sample_times) // 2]
 
-            # ✅ Step 3: Query fallback standard samples by project
             candidate_stds = SampleMetadata.objects.filter(
                 sample_name__startswith=project_prefix,
                 sample_name__contains="Std_"
@@ -579,7 +1611,6 @@ def update_standard_table(report_clicks, selected_report):
                 "sample_name", "injection_volume", "result_id", "sample_set_id", "date_acquired"
             )
 
-            # ✅ Step 4: Group by sample_set_id and find closest in time
             grouped_by_set = defaultdict(list)
             for std in candidate_stds:
                 grouped_by_set[std["sample_set_id"]].append(std)
@@ -609,12 +1640,9 @@ def update_standard_table(report_clicks, selected_report):
         result_id = std["result_id"]
 
         dt = std["date_acquired"]
-        # Convert to datetime object and remove timezone
         dt = dt.replace(tzinfo=None)
-        # Format to readable string
-        injection_date = dt.strftime("%b %d, %Y %I:%M %p")  # e.g., "Apr 10, 2025 09:41 PM"
+        injection_date = dt.strftime("%b %d, %Y %I:%M %p")
 
-        # ✅ Fetch Peak Area, Peak Start, and Peak End from PeakResults Table
         peak_result = (PeakResults.objects.filter(result_id=result_id).order_by("-height")
                        .values("area", "peak_start_time", "peak_end_time").first())
 
@@ -633,28 +1661,21 @@ def update_standard_table(report_clicks, selected_report):
                 "Injection Volume (uL)": injection_volume
             })
 
-    # ✅ Sort table by concentration (lowest to highest)
     table_data = sorted(table_data, key=lambda x: x["Concentration (mg/mL)"])
 
-    # ✅ Select all rows by default
-    selected_rows = list(range(len(table_data)))  # ✅ Select all rows
+    selected_rows = list(range(len(table_data)))
 
     return table_data, selected_rows
 
 
+# Update regression plot
 @app.callback(
-    [
-        Output("regression-equation", "children"),
-        Output("r-squared-value", "children"),
-        Output("regression-plot", "figure"),  # ✅ Regression Plot
-        Output("regression-parameters", "data")  # Store slope & intercept for calculations
-    ],
-    [
-        Input("standard-table", "selected_rows")  # ✅ Trigger on row selection
-    ],
-    [
-        State("standard-table", "data")  # ✅ Use existing table data
-    ],
+    [Output("regression-equation", "children"),
+     Output("r-squared-value", "children"),
+     Output("regression-plot", "figure"),
+     Output("regression-parameters", "data")],
+    [Input("standard-table", "selected_rows")],
+    [State("standard-table", "data")],
     prevent_initial_call=True
 )
 def update_regression_plot(selected_rows, table_data):
@@ -663,80 +1684,69 @@ def update_regression_plot(selected_rows, table_data):
     if not table_data or not selected_rows:
         return "No Standard Data Selected", "N/A", go.Figure(), {"slope": None, "intercept": None}
 
-    # ✅ Filter selected rows
     selected_data = [table_data[i] for i in selected_rows if i < len(table_data)]
     selected_df = pd.DataFrame(selected_data)
 
     if selected_df.empty:
         return "No Standard Data Selected", "N/A", go.Figure(), {"slope": None, "intercept": None}
 
-    # ✅ Extract x (concentration) and y (peak area)
     concentrations = selected_df["Concentration (mg/mL)"].astype(float)
     peak_areas = selected_df["Main Peak Area"].astype(float)
 
-    # ✅ Perform Linear Regression
     try:
-        slope, intercept, r_value, _, std_err = linregress(concentrations, peak_areas)  # ✅ std_err = standard deviation
+        slope, intercept, r_value, _, std_err = linregress(concentrations, peak_areas)
     except Exception as e:
-        print(f"Regression error: {e}")
         return "Regression Failed", "N/A", go.Figure(), {"slope": None, "intercept": None, "std_dev": None}
 
-    # ✅ Generate Regression Line
     x_vals = np.linspace(concentrations.min(), concentrations.max(), 100)
     y_vals = slope * x_vals + intercept
 
-    # ✅ Compute Prediction Interval
-
-    n = len(concentrations)  # Number of data points
+    n = len(concentrations)
     mean_x = np.mean(concentrations)
     sum_x_sq = np.sum((concentrations - mean_x) ** 2)
 
-    # ✅ t-score for 95% confidence
-    t_score = t.ppf(0.975, df=n - 2)  # Two-tailed 95% confidence
+    t_score = t.ppf(0.975, df=n - 2)
 
-    print(std_err)
-    print(n)
-    print(mean_x)
-    print(sum_x_sq)
-
-    # ✅ Create Plotly Figure for Regression
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=concentrations,
         y=peak_areas,
         mode="markers",
         name="Standard Data",
-        marker=dict(size=8, color="blue")
+        marker=dict(size=10, color="#0056b3", line=dict(width=1, color='DarkSlateGrey'))
     ))
     fig.add_trace(go.Scatter(
         x=x_vals,
         y=y_vals,
         mode="lines",
         name="Regression Line",
-        line=dict(color="red", dash="dash")
+        line=dict(color="#dc3545", width=3, dash="dash")
     ))
 
-    # ✅ Add annotations for each data point
     for i, (x, y) in enumerate(zip(concentrations, peak_areas)):
         fig.add_annotation(
             x=x, y=y,
             text=f"{x:.3f} mg/mL",
             showarrow=True,
             arrowhead=2,
-            ax=0, ay=-20
+            ax=0, ay=-30,
+            bgcolor="white",
+            bordercolor="#0056b3",
+            borderwidth=1
         )
 
     fig.update_layout(
         title="Regression Analysis: Concentration vs Peak Area",
         xaxis_title="Concentration (mg/mL)",
         yaxis_title="Peak Area",
-        template="plotly_white"
+        template="plotly_white",
+        hovermode='x unified'
     )
 
     return (
         f"y = {slope:.4f}x + {intercept:.4f}",
-        f"R² = {r_value ** 2:.4f}",
-        fig,  # ✅ Regression plot updates dynamically
+        f"{r_value ** 2:.4f}",
+        fig,
         {"slope": slope,
          "intercept": intercept,
          "std_err": std_err,
@@ -748,16 +1758,13 @@ def update_regression_plot(selected_rows, table_data):
     )
 
 
+# Update result table
 @app.callback(
-    [
-        Output("result-table", "columns"),  # ✅ Table column structure
-        Output("result-table", "data")  # ✅ Populate the result table
-    ],
-    [
-        Input("selected-report", "data"),  # ✅ Trigger on report selection
-        Input("regression-parameters", "data")  # ✅ Trigger when regression parameters change
-    ],
-    [State("selected-report", "data")],  # ✅ Use stored selected report
+    [Output("result-table", "columns"),
+     Output("result-table", "data")],
+    [Input("selected-report", "data"),
+     Input("regression-parameters", "data")],
+    [State("selected-report", "data")],
     prevent_initial_call=True
 )
 def update_result_table(report_clicks, regression_params, selected_report):
@@ -765,26 +1772,20 @@ def update_result_table(report_clicks, regression_params, selected_report):
     report_name = selected_report
 
     if not report_name:
-        print("⚠️ No report found or selected. Returning empty table.")
-        return [], [], None
+        return [], []
 
-    # ✅ Retrieve selected report
     report = Report.objects.filter(report_id=report_name).first()
     if not report:
-        print(f"⚠️ Report '{report_name}' not found in database.")
-        return [], [], report_name
+        return [], []
 
-    # ✅ Extract all samples from the report
     all_samples = [s.strip() for s in report.selected_result_ids.split(",") if s.strip()]
     report_samples = SampleMetadata.objects.filter(result_id__in=all_samples).values(
         "sample_name", "injection_volume", "result_id", "system_name", "date_acquired"
     )
 
     if not report_samples:
-        print(f"⚠️ No samples found in report '{report_name}'.")
-        return [], [], report_name
+        return [], []
 
-    # ✅ Extract regression parameters
     slope = regression_params.get("slope")
     intercept = regression_params.get("intercept")
     std_err = regression_params.get("std_err")
@@ -793,7 +1794,6 @@ def update_result_table(report_clicks, regression_params, selected_report):
     mean_x = regression_params.get("mean_x")
     sum_x_sq = regression_params.get("sum_x_sq")
 
-    # ✅ Initialize result data list
     result_data = []
 
     for i, sample in enumerate(report_samples):
@@ -803,20 +1803,13 @@ def update_result_table(report_clicks, regression_params, selected_report):
         system_name = sample["system_name"]
         date_acquired = sample["date_acquired"]
         dt = sample["date_acquired"]
-        # Convert to datetime object and remove timezone
         dt = dt.replace(tzinfo=None)
-        # Format to readable string
-        injection_date = dt.strftime("%b %d, %Y %I:%M %p")  # e.g., "Apr 10, 2025 09:41 PM"
+        injection_date = dt.strftime("%b %d, %Y %I:%M %p")
 
-        # Retrieve the SampleMetadata instance for the given result_id
         sample_metadata = SampleMetadata.objects.filter(result_id=result_id).first()
 
-        # Check if the instance exists and retrieve dilution, default to 1 if None
         dilution_factor = sample_metadata.dilution if sample_metadata and sample_metadata.dilution is not None else 1
 
-        print(dilution_factor)  # ✅ Check the output
-
-        # ✅ Fetch Peak Area, Peak Start, and Peak End from PeakResults Table, choosing the row with the largest peak height
         peak_result = PeakResults.objects.filter(result_id=result_id, channel_name='DAD.0.0').order_by(
             "-height").values(
             "area", "peak_start_time", "peak_end_time", "height").first()
@@ -825,27 +1818,31 @@ def update_result_table(report_clicks, regression_params, selected_report):
         peak_start = peak_result["peak_start_time"] if peak_result else None
         peak_end = peak_result["peak_end_time"] if peak_result else None
 
-        # ✅ Calculate concentration using regression parameters (if available)
         calculated_concentration = None
-        uncertainty = None  # Prediction interval uncertainty
+        uncertainty = None
 
         if peak_area and slope is not None and intercept is not None:
             calculated_concentration = round(((peak_area - intercept) / slope) * dilution_factor, 3) if slope else None
 
-            # ✅ Compute uncertainty using the prediction interval
             if calculated_concentration is not None and slope is not None and intercept is not None:
-                # Use the correct prediction interval equation
                 uncertainty = t_score * std_err * np.sqrt(
                     1 + (1 / n) + ((calculated_concentration - mean_x) ** 2 / sum_x_sq))
 
-                # Convert peak area uncertainty into concentration uncertainty
-                uncertainty /= abs(slope)  # ✅ Divide by the absolute slope
+                uncertainty /= abs(slope)
 
-                # ✅ Round values for better display
                 calculated_concentration = round(calculated_concentration, 3)
                 uncertainty = round(uncertainty, 3)
 
-        # ✅ Append sample to results table
+        lims_status = "Not Saved"
+        try:
+            lims_sample = LimsSampleAnalysis.objects.filter(sample_name=sample_name).first()
+            if lims_sample:
+                titer_result = LimsTiterResult.objects.filter(sample_id=lims_sample).first()
+                if titer_result:
+                    lims_status = "Saved"
+        except:
+            pass
+
         result_data.append({
             "Sample Name": sample_name,
             "System Name": system_name,
@@ -854,147 +1851,161 @@ def update_result_table(report_clicks, regression_params, selected_report):
             "Peak Start": peak_start,
             "Peak End": peak_end,
             "Main Peak Area": peak_area,
-            "Concentration (mg/mL)": calculated_concentration,
+            "Concentration": calculated_concentration,
             "Uncertainty": f"{calculated_concentration:.3f} ± {uncertainty:.3f}" if calculated_concentration and uncertainty else None,
-            "Injection Volume (uL)": injection_volume,
-            "Result ID": result_id  # ✅ Store `Result ID` for sorting later
+            "Injection Volume": injection_volume,
+            "Result ID": result_id,
+            "LIMS Status": lims_status
         })
 
-    # ✅ Sort non-Std_ samples by `Result ID`, keeping `Std_` samples at the end
     result_data_sorted = sorted(
         result_data,
         key=lambda x: ("Std_" in x["Sample Name"], x["Result ID"])
     )
 
-    # ✅ Define table columns dynamically
     table_columns = [
         {"name": "Sample Name", "id": "Sample Name"},
         {"name": "Injection Date", "id": "Injection Date"},
         {"name": "System Name", "id": "System Name"},
         {"name": "Dilution Factor", "id": "Dilution Factor"},
-        {"name": "Peak Start", "id": "Peak Start"},
-        {"name": "Peak End", "id": "Peak End"},
-        {"name": "Main Peak Area", "id": "Main Peak Area"},
-        {"name": "Concentration (mg/mL)", "id": "Concentration (mg/mL)"},
+        {"name": "Peak Start", "id": "Peak Start", "type": "numeric", "format": {"specifier": ".2f"}},
+        {"name": "Peak End", "id": "Peak End", "type": "numeric", "format": {"specifier": ".2f"}},
+        {"name": "Main Peak Area", "id": "Main Peak Area", "type": "numeric", "format": {"specifier": ".0f"}},
+        {"name": "Concentration (mg/mL)", "id": "Concentration", "type": "numeric", "format": {"specifier": ".3f"}},
         {"name": "Uncertainty", "id": "Uncertainty"},
-        {"name": "Injection Volume (uL)", "id": "Injection Volume (uL)"},
+        {"name": "Injection Volume (µL)", "id": "Injection Volume"},
+        {"name": "LIMS Status", "id": "LIMS Status"}
     ]
 
     return table_columns, result_data_sorted
 
 
+# Load saved plot settings
+@app.callback(
+    [Output("channel-radio", "value"),
+     Output("plot-type-dropdown", "value")],
+    [Input("selected-report", "data")],
+    prevent_initial_call=True
+)
+def load_plot_settings(report_id):
+    if not report_id:
+        return "channel_1", "plotly"
+
+    try:
+        report = Report.objects.get(report_id=report_id)
+        if report.plot_settings:
+            settings = report.plot_settings
+            return (
+                settings.get("channel", "channel_1"),
+                settings.get("plot_type", "plotly")
+            )
+    except:
+        pass
+
+    return "channel_1", "plotly"
+
+
+# Export to Excel
 @app.callback(
     [Output("download-result-data", "data")],
-    [
-        Input("export-button", "n_clicks"),
-    ],
-    [
-        State("result-table", "data"),
-        State('selected-report', 'data')
-    ],  # Use the stored selected report
+    [Input("export-button", "n_clicks")],
+    [State("result-table", "data"),
+     State('selected-report', 'data')],
     prevent_initial_call=True
 )
 def export_to_xlsx(n_clicks, table_data, selected_report):
     if not table_data:
-        return dash.no_update  # Do nothing if the table is empty
+        return [dash.no_update]
 
     report = Report.objects.filter(report_id=int(selected_report)).first()
-    # print(report)
-    # print(report.project_id)
-    # print(report.report_name)
 
     if not report:
-        return dash.no_update
+        return [dash.no_update]
 
-    # Get current date
     current_date = datetime.now().strftime("%Y%m%d")
 
-    # Build the file name
     file_name = f"{current_date}-{report.project_id}-{report.report_name}.xlsx"
-    # print(file_name)
 
-    # Convert table data to a pandas DataFrame
     df = pd.DataFrame(table_data)
 
-    # Use Dash's `send_data_frame` to export the DataFrame as an XLSX file
     return [dcc.send_data_frame(df.to_excel, file_name, index=False)]
 
 
+# Plot time series graph
 @app.callback(
-    Output("time-series-graph", "figure"),  # ✅ Time series data for standards
-    [
-        Input("selected-report", "data")  # ✅ Trigger on report click
-    ],
-    [State("selected-report", "data")],  # ✅ Use the stored selected report
+    Output("time-series-graph", "figure"),
+    [Input("selected-report", "data"),
+     Input("channel-radio", "value")],
+    [State("selected-report", "data")],
     prevent_initial_call=True
 )
-def plot_standard_time_series(report_clicks, selected_report):
-    """Fetch time series data for standard samples in the selected report and plot it."""
+def plot_sample_time_series(report_clicks, channel, selected_report):
+    """Fetch time series data for samples in the selected report and plot it."""
     report_name = selected_report
 
     if not report_name:
-        print("🚨 No report selected.")
         return go.Figure()
 
-    # ✅ Retrieve selected report
     report = Report.objects.filter(report_id=report_name).first()
 
     if not report:
-        print(f"🚨 Report not found: {report_name}")
         return go.Figure()
 
-    # ✅ Extract standard samples from the selected report
     selected_samples = [s.strip() for s in report.selected_samples.split(",") if s.strip()]
 
     if not selected_samples:
-        print(f"🚨 No samples found in report: {report_name}")
         return go.Figure()
 
-    print(f"✅ Selected Report: {report_name}")
-    print(f"📢 Found Samples: {selected_samples}")
-
-    # ✅ Retrieve non-standard samples (Exclude "Std_") and sort by result_id
     non_std_samples = SampleMetadata.objects.filter(
         sample_name__in=selected_samples
-    ).exclude(sample_name__contains="Std_").order_by("result_id")  # ✅ Sort by result_id
+    ).exclude(sample_name__contains="Std_").order_by("result_id")
 
     if not non_std_samples:
-        print(f"🚨 No samples found in report: {report_name}")
         return go.Figure()
 
-    print(f"✅ Found Samples: {[s.sample_name for s in non_std_samples]}")
-
-    # ✅ Initialize Plotly Figure
     fig = go.Figure()
 
-    # ✅ Retrieve Time Series Data for Each Standard Sample
-    for sample in non_std_samples:
-        result_id = sample.result_id  # ✅ Correct way to access model attributes
+    channel_labels = {
+        'channel_1': 'UV280',
+        'channel_2': 'UV260',
+        'channel_3': 'Pressure'
+    }
+
+    colors = ['#0056b3', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6610f2', '#e83e8c', '#fd7e14']
+
+    for idx, sample in enumerate(non_std_samples):
+        result_id = sample.result_id
         sample_name = sample.sample_name
 
-        # ✅ Fetch Time Series Data from `TimeSeriesData`
-        time_series = TimeSeriesData.objects.filter(result_id=result_id).values("time", "channel_1")
+        time_series = TimeSeriesData.objects.filter(result_id=result_id).values("time", channel)
 
-        df = pd.DataFrame(list(time_series))  # Convert to DataFrame
+        df = pd.DataFrame(list(time_series))
 
         if df.empty:
-            print(f"⚠️ No Time Series Data for: {sample_name}")
             continue
 
-        # ✅ Add Trace to the Plot
         fig.add_trace(go.Scatter(
             x=df["time"],
-            y=df["channel_1"],
+            y=df[channel],
             mode="lines",
-            name=sample_name
+            name=sample_name,
+            line=dict(width=2, color=colors[idx % len(colors)])
         ))
 
-    # ✅ Update Plot Layout
     fig.update_layout(
-        title="Time Series Data for Standards",
+        title=f"Time Series Data for Samples - {channel_labels.get(channel, channel)}",
         xaxis_title="Time (min)",
-        yaxis_title="UV280",
-        template="plotly_white"
+        yaxis_title=channel_labels.get(channel, channel),
+        template="plotly_white",
+        hovermode='x unified',
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.01
+        )
     )
 
     return fig

@@ -1,0 +1,15 @@
+1. Report ID Parameter
+
+Use ?report_id=123 to load a specific report directly
+Example: /django_plotly_dash/app/TiterAnalysisApp/?report_id=42
+
+2. Embedded Mode Parameter
+
+Use ?embedded=true to hide the Create Report and Select Report buttons
+Also prevents the Select Report modal from auto-opening
+Example: /django_plotly_dash/app/TiterAnalysisApp/?embedded=true
+
+3. Combined Parameters
+
+You can use both parameters together
+Example: /django_plotly_dash/app/TiterAnalysisApp/?report_id=42&embedded=true
