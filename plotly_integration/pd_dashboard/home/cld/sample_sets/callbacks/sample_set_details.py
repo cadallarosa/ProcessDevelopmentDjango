@@ -580,15 +580,18 @@ def load_analysis_content(analysis_type, sample_set_id):
         else:
             # Build URL based on analysis type
             if analysis_type in ["akta", "akta-embedded"]:
-                # AKTA uses FB IDs
-                fb_ids = []
+                # AKTA expects just numbers, not FB prefixes
+                fb_numbers = []
                 for sample_id in sample_ids:
                     if str(sample_id).startswith('FB'):
-                        fb_ids.append(str(sample_id))
+                        fb_numbers.append(str(sample_id)[2:])  # Remove 'FB' prefix
                     else:
-                        fb_ids.append(f"FB{sample_id}")
-                params = {'fb': ','.join(fb_ids), 'embed': 'true'}
-                url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?{urlencode(params)}"
+                        fb_numbers.append(str(sample_id))
+
+                # Build URL with just the numbers
+                fb_param = ','.join(fb_numbers)
+                print(f'DEBUG: AKTA URL with FB numbers: {fb_param}')
+                url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?fb={fb_param}&embed=true"
 
             elif analysis_type in ["titer", "titer-embedded"]:
                 params = {'samples': ','.join(sample_ids), 'embed': 'true'}
@@ -714,28 +717,27 @@ def load_sec_embedded_content(sample_ids, sample_set_id):
     ])
 
 
+
 def load_akta_embedded_content(sample_ids, sample_set_id):
     """Load embedded AKTA app in iframe"""
-    # For AKTA, we need to pass the full FB IDs (e.g., FB1234)
-    # The AKTA app will handle parsing them
-    fb_ids = []
+    # For AKTA, we need to extract just the numbers from FB IDs
+    # The AKTA app expects just the numbers without the FB prefix
+    fb_numbers = []
     for sample_id in sample_ids:
-        # Ensure we have the FB prefix
+        # Extract just the number part
         if str(sample_id).startswith('FB'):
-            fb_ids.append(str(sample_id))
+            fb_numbers.append(str(sample_id)[2:])  # Remove 'FB' prefix
         else:
-            # Add FB prefix if missing
-            fb_ids.append(f"FB{sample_id}")
+            # Assume it's already just a number
+            fb_numbers.append(str(sample_id))
 
-    # Build AKTA URL with FB sample parameters
-    from urllib.parse import urlencode
-    params = {
-        'fb': ','.join(fb_ids),  # Pass full FB IDs
-        'embed': 'true'
-    }
-    akta_url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?{urlencode(params)}"
+    # Build AKTA URL with just the numbers
+    fb_param = ','.join(fb_numbers)
+    print(f'{fb_param}')
+    akta_url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?fb={fb_param}&embed=true"
 
-    print(f"DEBUG: AKTA URL with FB IDs: {akta_url}")
+
+    print(f"DEBUG: AKTA URL with FB numbers: {akta_url}")
 
     # Create embedded iframe
     return html.Div([
@@ -749,7 +751,6 @@ def load_akta_embedded_content(sample_ids, sample_set_id):
             }
         )
     ])
-
 
 # ============================================================================
 # SEC RESULTS TABLE DATA CALLBACK
