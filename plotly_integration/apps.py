@@ -16,6 +16,9 @@ class PlotlyIntegrationConfig(AppConfig):
                 # New PD Dash App
                 import plotly_integration.pd_dashboard.main_app
 
+                #Analytical Apps
+                import plotly_integration.dash_apps.Analytical.create_report.create_report_app
+
                 import plotly_integration.process_development.downstream_processing.empower.create_report_app
                 import plotly_integration.homepage
                 import plotly_integration.process_development.downstream_processing.empower.database_manager
