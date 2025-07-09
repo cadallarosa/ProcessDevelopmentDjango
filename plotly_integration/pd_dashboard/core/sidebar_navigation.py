@@ -78,6 +78,7 @@ def create_sidebar_navigation():
             'icon': 'fa-microscope',
             'color': '#9b59b6',
             'items': [
+                {'name': ' Create Report', 'href': '#!/analytical/report', 'icon': 'fa-chart-area'},
                 {'name': 'SEC', 'href': '#!/analytical/sec', 'icon': 'fa-chart-area'},
                 {'name': 'Titer', 'href': '#!/analytical/titer', 'icon': 'fa-vial'},
                 {'name': 'CE SDS', 'href': '#!/analytical/ce-sds', 'icon': 'fa-wave-square'},
@@ -187,15 +188,15 @@ def create_sidebar_navigation():
         # Navigation items
         html.Div(nav_items),
 
-        # User info at bottom
-        html.Div([
-            html.Hr(style={'borderColor': '#4a5a6a', 'margin': '20px 0'}),
-            html.Div([
-                html.I(className="fas fa-user-circle",
-                       style={'fontSize': '16px', 'color': SIDEBAR_CONFIG['text_muted'], 'marginRight': '8px'}),
-                html.Span("User", style=get_user_text_style())
-            ], style=get_user_area_style())
-        ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'}),
+        # # User info at bottom
+        # html.Div([
+        #     html.Hr(style={'borderColor': '#4a5a6a', 'margin': '20px 0'}),
+        #     html.Div([
+        #         html.I(className="fas fa-user-circle",
+        #                style={'fontSize': '16px', 'color': SIDEBAR_CONFIG['text_muted'], 'marginRight': '8px'}),
+        #         html.Span("User", style=get_user_text_style())
+        #     ], style=get_user_area_style())
+        # ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'}),
 
         # Add CSS for hover effects
         html.Div([
