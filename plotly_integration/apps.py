@@ -19,6 +19,13 @@ class PlotlyIntegrationConfig(AppConfig):
                 #Analytical Apps
                 import plotly_integration.dash_apps.Analytical.create_report.create_report_app
 
+                #Titer Apps
+                import plotly_integration.dash_apps.Analytical.titer.titer_analysis_app
+                import plotly_integration.dash_apps.Analytical.titer.create_titer_report_app
+
+
+                # import plotly_integration.dash_apps.Analytical.create_report.create_report_app
+
                 import plotly_integration.process_development.downstream_processing.empower.create_report_app
                 import plotly_integration.homepage
                 import plotly_integration.process_development.downstream_processing.empower.database_manager
