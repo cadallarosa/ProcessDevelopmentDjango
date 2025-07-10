@@ -94,7 +94,7 @@ app.layout = html.Div([
                     ),
                     html.H3("Create New Report", style={"marginBottom": "20px", "color": "#0056b3"}),
                     html.Iframe(
-                        src="/django_plotly_dash/app/CreateTiterReportApp/",
+                        src="/plotly_integration/dash-app/app/CreateTiterReportApp/",
                         style={
                             "width": "100%",
                             "height": "calc(100% - 60px)",
@@ -339,6 +339,7 @@ app.layout = html.Div([
                         'transition': 'all 0.3s ease',
                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
+
                 ]
             )
         ]
@@ -1976,9 +1977,14 @@ def plot_sample_time_series(report_clicks, channel, selected_report):
         return go.Figure()
 
     selected_samples = [s.strip() for s in report.selected_samples.split(",") if s.strip()]
+    selected_result_ids = [s.strip() for s in report.selected_result_ids.split(",") if s.strip()]
 
     if not selected_samples:
         return go.Figure()
+
+    samples = SampleMetadata.objects.filter(
+        result_id__in=selected_result_ids
+    ).order_by("sample_name")
 
     non_std_samples = SampleMetadata.objects.filter(
         sample_name__in=selected_samples
@@ -1997,7 +2003,7 @@ def plot_sample_time_series(report_clicks, channel, selected_report):
 
     colors = ['#0056b3', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6610f2', '#e83e8c', '#fd7e14']
 
-    for idx, sample in enumerate(non_std_samples):
+    for idx, sample in enumerate(samples):
         result_id = sample.result_id
         sample_name = sample.sample_name
 
