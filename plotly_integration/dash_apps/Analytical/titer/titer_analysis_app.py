@@ -43,7 +43,7 @@ app.layout = html.Div([
     dcc.Store(id='result-table-store', data=[]),
     dcc.Store(id='report-list-store', data=[]),
     dcc.Store(id='current-plot-settings', data={}),
-    dcc.Store(id='settings-collapsed', data=True),  # Collapsed by default
+    # dcc.Store(id='settings-collapsed', data=True),  # Collapsed by default
     dcc.Store(id='url-params', data={}),
     dcc.Store(id='embedded-mode', data=False),
     dcc.Interval(id="load-once", interval=1000, n_intervals=0, max_intervals=1),
@@ -372,7 +372,6 @@ app.layout = html.Div([
                                  selected_style={'padding': '10px', 'fontWeight': '600', 'backgroundColor': '#e3f2fd'},
                                  children=[
                                      html.Div([
-                                         # Container for plot and settings side by side
                                          html.Div(
                                              style={
                                                  'display': 'flex',
@@ -399,125 +398,61 @@ app.layout = html.Div([
                                                      }
                                                  ),
 
-                                                 # Plot settings (right side - collapsible)
+                                                 # Plot settings (right side - stationary)
                                                  html.Div(
-                                                     id='plot-settings-container',
+                                                     id='plot-settings',
                                                      style={
-                                                         'width': '50px',  # Start collapsed
-                                                         'transition': 'width 0.3s ease',
-                                                         'position': 'relative',
-                                                         'overflow': 'hidden'
+                                                         'backgroundColor': 'white',
+                                                         'padding': '20px',
+                                                         'borderRadius': '8px',
+                                                         'boxShadow': '0 2px 4px rgba(0,0,0,0.08)',
+                                                         'width': '300px',
+                                                         'minHeight': '400px'
                                                      },
                                                      children=[
-                                                         html.Div(
-                                                             id='plot-settings',
-                                                             style={
-                                                                 'backgroundColor': 'white',
-                                                                 'padding': '20px',
-                                                                 'borderRadius': '8px',
-                                                                 'boxShadow': '0 2px 4px rgba(0,0,0,0.08)',
-                                                                 'height': '100%',
-                                                                 'minHeight': '400px',
-                                                                 'position': 'relative'
-                                                             },
-                                                             children=[
-                                                                 # Toggle button
-                                                                 html.Button(
-                                                                     "▶",  # Start with expand arrow
-                                                                     id="toggle-settings-btn",
-                                                                     style={
-                                                                         'position': 'absolute',
-                                                                         'left': '10px',
-                                                                         'top': '10px',
-                                                                         'backgroundColor': '#0056b3',
-                                                                         'border': 'none',
-                                                                         'fontSize': '16px',
-                                                                         'cursor': 'pointer',
-                                                                         'color': 'white',
-                                                                         'padding': '5px 10px',
-                                                                         'borderRadius': '3px',
-                                                                         'zIndex': '10'
-                                                                     }
-                                                                 ),
-                                                                 # Content wrapper
-                                                                 html.Div(
-                                                                     id='settings-inner-content',
-                                                                     style={'display': 'none'},  # Hidden by default
-                                                                     children=[
-                                                                         html.H4("Plot Settings",
-                                                                                 style={
-                                                                                     'color': '#0056b3',
-                                                                                     'margin': '0 0 20px 40px',
-                                                                                     'fontWeight': '500',
-                                                                                     'textAlign': 'left'
-                                                                                 }
-                                                                                 ),
-                                                                         html.Div(
-                                                                             style={'paddingLeft': '40px'},
-                                                                             children=[
-                                                                                 html.Label("Channel Selection:",
-                                                                                            style={'fontWeight': '600',
-                                                                                                   'marginBottom': '10px'}),
-                                                                                 dcc.RadioItems(
-                                                                                     id='channel-radio',
-                                                                                     options=[
-                                                                                         {'label': ' UV280',
-                                                                                          'value': 'channel_1'},
-                                                                                         {'label': ' UV260',
-                                                                                          'value': 'channel_2'},
-                                                                                         {'label': ' Pressure',
-                                                                                          'value': 'channel_3'}
-                                                                                     ],
-                                                                                     value='channel_1',
-                                                                                     labelStyle={
-                                                                                         'display': 'block',
-                                                                                         'marginBottom': '10px',
-                                                                                         'cursor': 'pointer',
-                                                                                         'padding': '5px',
-                                                                                         'borderRadius': '3px',
-                                                                                         'transition': 'all 0.3s ease'
-                                                                                     },
-                                                                                     inputStyle={"marginRight": "5px"}
-                                                                                 ),
-                                                                                 html.Hr(style={'margin': '20px 0'}),
-                                                                                 html.Label("Plot View:",
-                                                                                            style={'fontWeight': '600',
-                                                                                                   'marginBottom': '10px'}),
-                                                                                 dcc.Dropdown(
-                                                                                     id='plot-type-dropdown',
-                                                                                     options=[
-                                                                                         {'label': 'Single Plot View',
-                                                                                          'value': 'plotly'},
-                                                                                         {'label': 'Subplot View',
-                                                                                          'value': 'subplots'}
-                                                                                     ],
-                                                                                     value='plotly',
-                                                                                     style={'width': '90%'}
-                                                                                 ),
-                                                                             ]
-                                                                         )
-                                                                     ]
-                                                                 ),
-                                                                 # Vertical title (visible when collapsed)
-                                                                 html.Div(
-                                                                     id='vertical-title',
-                                                                     style={
-                                                                         'position': 'absolute',
-                                                                         'left': '50%',
-                                                                         'top': '50%',
-                                                                         'transform': 'translate(-50%, -50%) rotate(-90deg)',
-                                                                         'transformOrigin': 'center',
-                                                                         'whiteSpace': 'nowrap',
-                                                                         'color': '#0056b3',
-                                                                         'fontWeight': '600',
-                                                                         'fontSize': '18px',
-                                                                         'display': 'block'
-                                                                         # Visible by default (collapsed state)
-                                                                     },
-                                                                     children="Plot Settings"
-                                                                 )
-                                                             ]
-                                                         )
+                                                         html.H4("Plot Settings",
+                                                                 style={
+                                                                     'color': '#0056b3',
+                                                                     'marginBottom': '20px',
+                                                                     'fontWeight': '500',
+                                                                     'textAlign': 'center'
+                                                                 }),
+                                                         html.Div([
+                                                             html.Label("Channel Selection:",
+                                                                        style={'fontWeight': '600',
+                                                                               'marginBottom': '10px'}),
+                                                             dcc.RadioItems(
+                                                                 id='channel-radio',
+                                                                 options=[
+                                                                     {'label': ' UV280', 'value': 'channel_1'},
+                                                                     {'label': ' UV260', 'value': 'channel_2'},
+                                                                     {'label': ' Pressure', 'value': 'channel_3'}
+                                                                 ],
+                                                                 value='channel_1',
+                                                                 labelStyle={
+                                                                     'display': 'block',
+                                                                     'marginBottom': '10px',
+                                                                     'cursor': 'pointer',
+                                                                     'padding': '5px',
+                                                                     'borderRadius': '3px',
+                                                                     'transition': 'all 0.3s ease'
+                                                                 },
+                                                                 inputStyle={"marginRight": "5px"}
+                                                             ),
+                                                             html.Hr(style={'margin': '20px 0'}),
+                                                             html.Label("Plot View:",
+                                                                        style={'fontWeight': '600',
+                                                                               'marginBottom': '10px'}),
+                                                             dcc.Dropdown(
+                                                                 id='plot-type-dropdown',
+                                                                 options=[
+                                                                     {'label': 'Single Plot View', 'value': 'plotly'},
+                                                                     {'label': 'Subplot View', 'value': 'subplots'}
+                                                                 ],
+                                                                 value='plotly',
+                                                                 style={'width': '100%'}
+                                                             ),
+                                                         ])
                                                      ]
                                                  )
                                              ]
@@ -1286,73 +1221,22 @@ def plot_standard_time_series(report_clicks, selected_report):
     return fig
 
 
-# Toggle plot settings collapse/expand
-@app.callback(
-    [Output("plot-settings-container", "style"),
-     Output("toggle-settings-btn", "children"),
-     Output("settings-collapsed", "data"),
-     Output("settings-inner-content", "style"),
-     Output("vertical-title", "style"),
-     Output("toggle-settings-btn", "style")],
-    [Input("toggle-settings-btn", "n_clicks")],
-    [State("settings-collapsed", "data")],
-    prevent_initial_call=True
-)
-def toggle_settings(n_clicks, is_collapsed):
-    if is_collapsed:
-        # Expand
-        container_style = {'width': '300px', 'transition': 'width 0.3s ease', 'position': 'relative',
-                           'overflow': 'visible'}
-        content_style = {'display': 'block'}
-        vertical_title_style = {'display': 'none'}
-        button_style = {
-            'position': 'absolute',
-            'left': '10px',
-            'top': '10px',
-            'backgroundColor': '#0056b3',
-            'border': 'none',
-            'fontSize': '16px',
-            'cursor': 'pointer',
-            'color': 'white',
-            'padding': '5px 10px',
-            'borderRadius': '3px',
-            'zIndex': '10'
-        }
-        return container_style, "◀", False, content_style, vertical_title_style, button_style
-    else:
-        # Collapse
-        container_style = {'width': '50px', 'transition': 'width 0.3s ease', 'overflow': 'hidden',
-                           'position': 'relative'}
-        content_style = {'display': 'none'}
-        vertical_title_style = {
-            'position': 'absolute',
-            'left': '50%',
-            'top': '50%',
-            'transform': 'translate(-50%, -50%) rotate(-90deg)',
-            'transformOrigin': 'center',
-            'whiteSpace': 'nowrap',
-            'color': '#0056b3',
-            'fontWeight': '600',
-            'fontSize': '18px',
-            'display': 'block'
-        }
-        button_style = {
-            'position': 'absolute',
-            'left': '10px',
-            'top': '10px',
-            'backgroundColor': '#0056b3',
-            'border': 'none',
-            'fontSize': '16px',
-            'cursor': 'pointer',
-            'color': 'white',
-            'padding': '5px 10px',
-            'borderRadius': '3px',
-            'zIndex': '10'
-        }
-        return container_style, "▶", True, content_style, vertical_title_style, button_style
-
-
 # Create PDF Report
+# Add these imports at the top of your file with other imports
+import io
+import base64
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+import plotly.io as pio
+
+# Configure plotly to use kaleido for static image export
+pio.kaleido.scope.mathjax = None  # Disable mathjax for faster rendering
+
+
+# Replace your existing create_pdf_report callback with this:
 @app.callback(
     [Output("download-pdf-report", "data"),
      Output("status-message", "children", allow_duplicate=True),
@@ -1369,54 +1253,38 @@ def toggle_settings(n_clicks, is_collapsed):
 )
 def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regression_fig,
                       standard_data, regression_eq, r_squared):
-    print(f"PDF Report Debug - n_clicks: {n_clicks}")
-    print(f"PDF Report Debug - report_id: {report_id}")
-    print(f"PDF Report Debug - has chromatogram: {chromatogram_fig is not None}")
-    print(f"PDF Report Debug - result_data length: {len(result_data) if result_data else 0}")
-
     if not n_clicks:
-        print("PDF Report Debug - No clicks, returning")
         return dash.no_update, dash.no_update, dash.no_update
 
     if not report_id:
-        print("PDF Report Debug - No report ID")
         return dash.no_update, "⚠️ No report selected!", {
             "display": "block",
             "backgroundColor": "#f8d7da",
             "color": "#721c24",
-            "border": "1px solid #f5c6cb"
+            "border": "1px solid #f5c6cb",
+            "padding": "15px",
+            "margin": "10px 20px",
+            "borderRadius": "5px",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
         }
 
     try:
-        import io
-        import base64
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-
-        print("PDF Report Debug - ReportLab imported successfully")
-
-        try:
-            import plotly.io as pio
-            print("PDF Report Debug - Plotly.io imported successfully")
-        except ImportError as e:
-            print(f"PDF Report Debug - Plotly.io import error: {e}")
-            # Try alternative approach
-            pass
-
         # Get report info
         report = Report.objects.get(report_id=report_id)
-        print(f"PDF Report Debug - Report found: {report.report_name}")
 
         # Create PDF buffer
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        doc = SimpleDocTemplate(buffer, pagesize=letter,
+                                topMargin=0.5 * inch,
+                                bottomMargin=0.5 * inch,
+                                leftMargin=0.75 * inch,
+                                rightMargin=0.75 * inch)
         story = []
         styles = getSampleStyleSheet()
 
-        # Title
+        # Custom styles
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
@@ -1425,137 +1293,209 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
             spaceAfter=30,
             alignment=1  # Center alignment
         )
-        story.append(Paragraph("Titer Analysis Report", title_style))
-        story.append(Spacer(1, 12))
 
-        # Report info
+        heading2_style = ParagraphStyle(
+            'CustomHeading2',
+            parent=styles['Heading2'],
+            fontSize=16,
+            textColor=colors.HexColor('#0056b3'),
+            spaceAfter=12,
+            spaceBefore=20
+        )
+
         info_style = ParagraphStyle(
             'Info',
             parent=styles['Normal'],
             fontSize=12,
             spaceAfter=6
         )
-        story.append(Paragraph(f"<b>Project ID:</b> {report.project_id}", info_style))
-        story.append(Paragraph(f"<b>Report Name:</b> {report.report_name}", info_style))
-        story.append(Paragraph(f"<b>Date Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
-        story.append(Spacer(1, 20))
 
-        # Section 1: Chromatogram
-        story.append(Paragraph("Chromatogram", styles['Heading2']))
+        # Title page
+        story.append(Paragraph("Titer Analysis Report", title_style))
         story.append(Spacer(1, 12))
 
-        # Convert plotly figure to image
+        # Report info table
+        info_data = [
+            ['Project ID:', report.project_id],
+            ['Report Name:', report.report_name],
+            ['Created By:', report.user_id or 'N/A'],
+            ['Date Generated:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+        ]
+
+        info_table = Table(info_data, colWidths=[2 * inch, 4 * inch])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 30))
+
+        # Section 1: Chromatogram
+        story.append(Paragraph("Chromatogram", heading2_style))
+
         if chromatogram_fig:
             try:
-                print("PDF Report Debug - Attempting to convert chromatogram to image")
-                img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400)
+                # Method 1: Try using kaleido (recommended)
+                img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400, scale=2)
                 img_buffer = io.BytesIO(img_bytes)
                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
                 story.append(img)
-                print("PDF Report Debug - Chromatogram added successfully")
             except Exception as e:
-                print(f"PDF Report Debug - Error converting chromatogram: {e}")
-                story.append(Paragraph("Chromatogram could not be rendered", styles['Normal']))
+                # Method 2: Fallback to base64 if available
+                try:
+                    import plotly.graph_objects as go
+                    # Create a simpler version of the plot
+                    simple_fig = go.Figure(chromatogram_fig)
+                    simple_fig.update_layout(
+                        width=700,
+                        height=400,
+                        margin=dict(l=50, r=50, t=50, b=50)
+                    )
+                    img_bytes = simple_fig.to_image(format='png')
+                    img_buffer = io.BytesIO(img_bytes)
+                    img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
+                    story.append(img)
+                except:
+                    # If image conversion fails, add a placeholder
+                    story.append(Paragraph(
+                        "[Chromatogram visualization - Please view in the application]",
+                        styles['Italic']
+                    ))
 
         story.append(Spacer(1, 20))
 
-        # Section 2: Analysis Results Table
-        story.append(Paragraph("Analysis Results", styles['Heading2']))
-        story.append(Spacer(1, 12))
+        # Section 2: Analysis Results
+        story.append(Paragraph("Analysis Results", heading2_style))
 
         if result_data:
-            print(f"PDF Report Debug - Creating table with {len(result_data)} rows")
-            # Create table data
-            table_data = [["Sample Name", "Dilution", "Concentration\n(mg/mL)", "Uncertainty", "LIMS Status"]]
+            # Filter out standards and prepare table data
+            table_headers = ["Sample Name", "Dilution\nFactor", "Concentration\n(mg/mL)",
+                             "Uncertainty", "LIMS Status"]
+            table_data = [table_headers]
+
             for row in result_data:
                 if "Std_" not in row.get("Sample Name", ""):  # Exclude standards
                     table_data.append([
-                        row.get("Sample Name", ""),
+                        Paragraph(row.get("Sample Name", ""), styles['Normal']),
                         str(row.get("Dilution Factor", "")),
                         str(row.get("Concentration", "")),
                         row.get("Uncertainty", ""),
                         row.get("LIMS Status", "")
                     ])
 
-            print(f"PDF Report Debug - Table has {len(table_data)} rows (including header)")
+            if len(table_data) > 1:  # Only create table if there's data
+                t = Table(table_data, colWidths=[2.2 * inch, 0.8 * inch, 1.2 * inch, 1.3 * inch, 1 * inch])
+                t.setStyle(TableStyle([
+                    # Header styling
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0056b3')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 11),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('TOPPADDING', (0, 0), (-1, 0), 12),
+                    # Data styling
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 10),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+                    ('TOPPADDING', (0, 1), (-1, -1), 8),
+                    # Special formatting for LIMS Status
+                    ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # Left align sample names
+                ]))
 
-            # Create table
-            t = Table(table_data, colWidths=[2 * inch, 0.8 * inch, 1.2 * inch, 1.5 * inch, 1 * inch])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ]))
-            story.append(t)
+                # Color code LIMS status
+                for i in range(1, len(table_data)):
+                    if table_data[i][4] == "Saved":
+                        t.setStyle(TableStyle([
+                            ('BACKGROUND', (4, i), (4, i), colors.HexColor('#d4edda')),
+                            ('TEXTCOLOR', (4, i), (4, i), colors.HexColor('#155724')),
+                            ('FONTNAME', (4, i), (4, i), 'Helvetica-Bold'),
+                        ]))
+
+                story.append(t)
+            else:
+                story.append(Paragraph("No sample data available", styles['Italic']))
 
         story.append(PageBreak())
 
         # Section 3: Standard Analysis
-        story.append(Paragraph("Standard Analysis", styles['Heading2']))
-        story.append(Spacer(1, 12))
+        story.append(Paragraph("Standard Analysis", heading2_style))
 
-        # Add regression equation and R²
-        story.append(Paragraph(f"<b>Regression Equation:</b> {regression_eq}", info_style))
-        story.append(Paragraph(f"<b>R² Value:</b> {r_squared}", info_style))
-        story.append(Spacer(1, 12))
+        # Add regression info box
+        if regression_eq and r_squared:
+            regression_data = [
+                ['Regression Equation:', regression_eq],
+                ['R² Value:', r_squared]
+            ]
+            regression_table = Table(regression_data, colWidths=[2 * inch, 4 * inch])
+            regression_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e3f2fd')),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#0056b3')),
+            ]))
+            story.append(regression_table)
+            story.append(Spacer(1, 20))
 
         # Add regression plot
         if regression_fig:
             try:
-                print("PDF Report Debug - Attempting to convert regression plot to image")
-                img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400)
+                img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400, scale=2)
                 img_buffer = io.BytesIO(img_bytes)
                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
                 story.append(img)
-                print("PDF Report Debug - Regression plot added successfully")
-            except Exception as e:
-                print(f"PDF Report Debug - Error converting regression plot: {e}")
-                story.append(Paragraph("Regression plot could not be rendered", styles['Normal']))
+            except:
+                story.append(Paragraph(
+                    "[Regression plot - Please view in the application]",
+                    styles['Italic']
+                ))
 
         story.append(Spacer(1, 20))
 
         # Standards table
         if standard_data:
-            story.append(Paragraph("Standards Data", styles['Heading3']))
-            story.append(Spacer(1, 12))
+            story.append(Paragraph("Standards Data", heading2_style))
 
-            table_data = [["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]]
+            std_headers = ["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]
+            std_table_data = [std_headers]
+
             for row in standard_data:
-                table_data.append([
+                std_table_data.append([
                     row.get("Sample Name", ""),
-                    str(row.get("Concentration (mg/mL)", "")),
-                    str(row.get("Main Peak Area", ""))
+                    f"{float(row.get('Concentration (mg/mL)', 0)):.3f}",
+                    f"{int(float(row.get('Main Peak Area', 0))):,}"
                 ])
 
-            t = Table(table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ]))
-            story.append(t)
+            if len(std_table_data) > 1:
+                std_table = Table(std_table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
+                std_table.setStyle(TableStyle([
+                    # Header styling
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 11),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    # Data styling
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 10),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+                ]))
+                story.append(std_table)
 
         # Build PDF
-        print("PDF Report Debug - Building PDF document")
         doc.build(story)
         buffer.seek(0)
 
         # Create filename
         filename = f"{datetime.now().strftime('%Y%m%d')}_{report.project_id}_{report.report_name}_Analysis.pdf"
-        print(f"PDF Report Debug - PDF created successfully, filename: {filename}")
 
         return dcc.send_bytes(buffer.read(), filename), \
             "✅ PDF report generated successfully!", \
@@ -1563,30 +1503,50 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
                 "display": "block",
                 "backgroundColor": "#d4edda",
                 "color": "#155724",
-                "border": "1px solid #c3e6cb"
+                "border": "1px solid #c3e6cb",
+                "padding": "15px",
+                "margin": "10px 20px",
+                "borderRadius": "5px",
+                "fontSize": "14px",
+                "fontWeight": "500",
+                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
             }
 
     except ImportError as e:
-        print(f"PDF Report Debug - Import error: {e}")
+        missing_lib = str(e).split("'")[1] if "'" in str(e) else "required libraries"
         return dash.no_update, \
-            "❌ Error: reportlab library not installed. Please install with: pip install reportlab plotly kaleido", \
+            f"❌ Missing library: {missing_lib}. Install with: pip install reportlab plotly kaleido", \
             {
                 "display": "block",
                 "backgroundColor": "#f8d7da",
                 "color": "#721c24",
-                "border": "1px solid #f5c6cb"
+                "border": "1px solid #f5c6cb",
+                "padding": "15px",
+                "margin": "10px 20px",
+                "borderRadius": "5px",
+                "fontSize": "14px",
+                "fontWeight": "500",
+                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
             }
+
     except Exception as e:
-        print(f"PDF Report Debug - General error: {e}")
         import traceback
-        traceback.print_exc()
+        error_details = traceback.format_exc()
+        print(f"PDF Generation Error: {error_details}")
+
         return dash.no_update, \
             f"❌ Error generating PDF: {str(e)}", \
             {
                 "display": "block",
                 "backgroundColor": "#f8d7da",
                 "color": "#721c24",
-                "border": "1px solid #f5c6cb"
+                "border": "1px solid #f5c6cb",
+                "padding": "15px",
+                "margin": "10px 20px",
+                "borderRadius": "5px",
+                "fontSize": "14px",
+                "fontWeight": "500",
+                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
             }
 
 

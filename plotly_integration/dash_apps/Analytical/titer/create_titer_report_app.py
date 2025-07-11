@@ -102,6 +102,24 @@ app.layout = html.Div(
                     placeholder="Select sample set name",
                     multi=True,
                     style={"marginBottom": "20px"}
+                ),
+
+                # Add Refresh Button
+                html.Button(
+                    "🔄 Refresh Data",
+                    id="refresh_button",
+                    n_clicks=0,
+                    style={
+                        "marginBottom": "20px",
+                        "backgroundColor": "#28a745",
+                        "color": "white",
+                        "padding": "8px 16px",
+                        "border": "none",
+                        "borderRadius": "5px",
+                        "cursor": "pointer",
+                        "fontSize": "14px",
+                        "fontWeight": "500"
+                    }
                 )
             ]
         ),
@@ -318,15 +336,16 @@ app.layout = html.Div(
 )
 
 
-# Dynamically update table data based on filters
+# Dynamically update table data based on filters and refresh button
 @app.callback(
     [Output("sample_table", "columns"),
      Output("sample_table", "data")],
     [Input("sample_type_filter", "value"),
      Input("sample_set_name_filter", "value"),
-     Input("column_selection", "value")]
+     Input("column_selection", "value"),
+     Input("refresh_button", "n_clicks")]
 )
-def update_table(sample_types, sample_set_names, selected_columns):
+def update_table(sample_types, sample_set_names, selected_columns, n_clicks):
     # Default columns
     if not selected_columns:
         selected_columns = ["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"]
@@ -377,12 +396,13 @@ def update_table(sample_types, sample_set_names, selected_columns):
     return columns, data
 
 
-# Dynamically populate Sample Set Name options based on Sample Type
+# Dynamically populate Sample Set Name options based on Sample Type (also refreshed by refresh button)
 @app.callback(
     Output("sample_set_name_filter", "options"),
-    Input("sample_type_filter", "value")
+    [Input("sample_type_filter", "value"),
+     Input("refresh_button", "n_clicks")]
 )
-def update_sample_set_options(sample_types):
+def update_sample_set_options(sample_types, n_clicks):
     # Always filter for Titer samples
     query = SampleMetadata.objects.filter(sample_type=2)
     if sample_types:
@@ -407,16 +427,33 @@ def update_sample_set_options(sample_types):
     return [{"label": name, "value": name} for name in sample_set_names_sorted if name]
 
 
-# Select All Button
+# Updated Select All Button callback to handle filtered rows
 @app.callback(
     Output("sample_table", "selected_rows"),
-    Input("select_all_button", "n_clicks"),
-    State("sample_table", "data")
+    [Input("select_all_button", "n_clicks")],
+    [State("sample_table", "data"),
+     State("sample_table", "derived_virtual_data"),
+     State("sample_table", "derived_virtual_indices"),
+     State("sample_table", "selected_rows")]
 )
-def select_all_rows(n_clicks, data):
-    if n_clicks % 2 == 1:
-        return list(range(len(data)))  # Select all rows
-    return []  # Deselect all rows
+def select_all_rows(n_clicks, all_data, filtered_data, filtered_indices, current_selected):
+    if n_clicks == 0:
+        return []
+
+    # If there's filtered data, use the filtered indices
+    if filtered_indices is not None:
+        # Toggle behavior: if all filtered rows are selected, deselect all; otherwise select all filtered
+        if set(filtered_indices) == set(current_selected or []):
+            return []  # Deselect all
+        else:
+            return filtered_indices  # Select all filtered rows
+    else:
+        # No filter applied, work with all data
+        all_indices = list(range(len(all_data)))
+        if set(all_indices) == set(current_selected or []):
+            return []  # Deselect all
+        else:
+            return all_indices  # Select all rows
 
 
 @app.callback(
