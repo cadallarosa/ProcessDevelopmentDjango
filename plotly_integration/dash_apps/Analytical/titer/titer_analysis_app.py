@@ -930,6 +930,7 @@ def save_plot_settings(n_clicks, report_id, channel, plot_type, selected_std_row
     prevent_initial_call=True
 )
 def save_to_lims(n_clicks, table_data, report_id):
+    print('Triggering save to LIMS callback')
     if not table_data or not report_id:
         return table_data, "⚠️ No data to link!", {
             "display": "block",
@@ -1044,9 +1045,11 @@ def save_to_lims(n_clicks, table_data, report_id):
 # Populate report table
 @app.callback(
     Output("report-selection-table", "data"),
-    Input("load-once", "n_intervals")
+    [Input("load-once", "n_intervals"),
+     Input("change-report-btn", "n_clicks")]  # Added this input
 )
-def populate_report_table(active_tab):
+def populate_report_table(load_interval, change_btn_clicks):
+    """Populate the report selection table on initial load and when modal is opened."""
     reports = Report.objects.filter(analysis_type=2).order_by('-date_created').values(
         "report_id", "report_name", "project_id", "user_id", "date_created"
     )
@@ -1468,7 +1471,7 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
     prevent_initial_call=True
 )
 def update_standard_table(report_clicks, selected_report):
-    """Populate standard-table when a report is selected, and set default selected rows."""
+    """Populate standard-table when a report is selected, and load saved selected rows from plot settings."""
     report_name = selected_report
 
     if not report_name:
@@ -1557,10 +1560,23 @@ def update_standard_table(report_clicks, selected_report):
 
     table_data = sorted(table_data, key=lambda x: x["Concentration (mg/mL)"])
 
-    selected_rows = list(range(len(table_data)))
+    # Load saved selected rows from plot settings
+    selected_rows = list(range(len(table_data)))  # Default: select all rows
+
+    try:
+        if report.plot_settings:
+            settings = report.plot_settings
+            saved_standard_rows = settings.get("selected_standard_rows", [])
+
+            # Validate that saved rows are still valid indices
+            if saved_standard_rows:
+                valid_rows = [row for row in saved_standard_rows if row < len(table_data)]
+                if valid_rows:
+                    selected_rows = valid_rows
+    except Exception as e:
+        print(f"Error loading saved standard selection: {e}")
 
     return table_data, selected_rows
-
 
 # Update regression plot
 @app.callback(
@@ -1777,11 +1793,12 @@ def update_result_table(report_clicks, regression_params, selected_report):
 # Load saved plot settings
 @app.callback(
     [Output("channel-radio", "value"),
-     Output("plot-type-dropdown", "value")],
+     Output("plot-type-dropdown", "value"),],
     [Input("selected-report", "data")],
     prevent_initial_call=True
 )
 def load_plot_settings(report_id):
+    """Load saved plot settings including channel, plot type, and regression parameters."""
     if not report_id:
         return "channel_1", "plotly"
 
@@ -1789,15 +1806,19 @@ def load_plot_settings(report_id):
         report = Report.objects.get(report_id=report_id)
         if report.plot_settings:
             settings = report.plot_settings
-            return (
-                settings.get("channel", "channel_1"),
-                settings.get("plot_type", "plotly")
-            )
-    except:
-        pass
 
+            # Get saved values or defaults
+            channel = settings.get("channel", "channel_1")
+            plot_type = settings.get("plot_type", "plotly")
+
+
+            return channel, plot_type
+
+    except Exception as e:
+        print(f"Error loading plot settings: {e}")
+
+    # Return defaults if no settings found or error occurred
     return "channel_1", "plotly"
-
 
 # Export to Excel
 @app.callback(

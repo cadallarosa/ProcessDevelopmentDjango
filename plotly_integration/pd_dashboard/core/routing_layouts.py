@@ -253,7 +253,7 @@ def create_page_router(app):
 
         # Analytical Titer Route - Full screen, non-scrollable
         elif pathname == "/analytical/titer":
-            titer_url = "/plotly_integration/dash-app/app/TiterReportApp/"
+            titer_url = "/plotly_integration/dash-app/app/TiterAnalysisApp/"
 
             return html.Div([
                 html.Div([

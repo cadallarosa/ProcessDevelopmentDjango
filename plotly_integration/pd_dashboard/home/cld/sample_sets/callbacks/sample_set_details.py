@@ -595,7 +595,7 @@ def load_analysis_content(analysis_type, sample_set_id):
 
             elif analysis_type in ["titer", "titer-embedded"]:
                 params = {'samples': ','.join(sample_ids), 'embed': 'true'}
-                url = f"/plotly_integration/dash-app/app/TiterReportApp/?{urlencode(params)}"
+                url = f"/plotly_integration/dash-app/app/TiterAnalysisApp/?{urlencode(params)}"
 
             elif analysis_type in ["cesds", "cesds-embedded"]:
                 params = {'samples': ','.join(sample_ids), 'embed': 'true'}
