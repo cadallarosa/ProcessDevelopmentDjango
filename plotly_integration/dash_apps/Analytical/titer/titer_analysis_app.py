@@ -1222,21 +1222,7 @@ def plot_standard_time_series(report_clicks, selected_report):
 
 
 # Create PDF Report
-# Add these imports at the top of your file with other imports
-import io
-import base64
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-import plotly.io as pio
-
-# Configure plotly to use kaleido for static image export
-pio.kaleido.scope.mathjax = None  # Disable mathjax for faster rendering
-
-
-# Replace your existing create_pdf_report callback with this:
+# Create PDF Report
 @app.callback(
     [Output("download-pdf-report", "data"),
      Output("status-message", "children", allow_duplicate=True),
@@ -1253,38 +1239,54 @@ pio.kaleido.scope.mathjax = None  # Disable mathjax for faster rendering
 )
 def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regression_fig,
                       standard_data, regression_eq, r_squared):
+    print(f"PDF Report Debug - n_clicks: {n_clicks}")
+    print(f"PDF Report Debug - report_id: {report_id}")
+    print(f"PDF Report Debug - has chromatogram: {chromatogram_fig is not None}")
+    print(f"PDF Report Debug - result_data length: {len(result_data) if result_data else 0}")
+
     if not n_clicks:
+        print("PDF Report Debug - No clicks, returning")
         return dash.no_update, dash.no_update, dash.no_update
 
     if not report_id:
+        print("PDF Report Debug - No report ID")
         return dash.no_update, "⚠️ No report selected!", {
             "display": "block",
             "backgroundColor": "#f8d7da",
             "color": "#721c24",
-            "border": "1px solid #f5c6cb",
-            "padding": "15px",
-            "margin": "10px 20px",
-            "borderRadius": "5px",
-            "fontSize": "14px",
-            "fontWeight": "500",
-            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+            "border": "1px solid #f5c6cb"
         }
 
     try:
+        import io
+        import base64
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+
+        print("PDF Report Debug - ReportLab imported successfully")
+
+        try:
+            import plotly.io as pio
+            print("PDF Report Debug - Plotly.io imported successfully")
+        except ImportError as e:
+            print(f"PDF Report Debug - Plotly.io import error: {e}")
+            # Try alternative approach
+            pass
+
         # Get report info
         report = Report.objects.get(report_id=report_id)
+        print(f"PDF Report Debug - Report found: {report.report_name}")
 
         # Create PDF buffer
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter,
-                                topMargin=0.5 * inch,
-                                bottomMargin=0.5 * inch,
-                                leftMargin=0.75 * inch,
-                                rightMargin=0.75 * inch)
+        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
         story = []
         styles = getSampleStyleSheet()
 
-        # Custom styles
+        # Title
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
@@ -1293,209 +1295,137 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
             spaceAfter=30,
             alignment=1  # Center alignment
         )
+        story.append(Paragraph("Titer Analysis Report", title_style))
+        story.append(Spacer(1, 12))
 
-        heading2_style = ParagraphStyle(
-            'CustomHeading2',
-            parent=styles['Heading2'],
-            fontSize=16,
-            textColor=colors.HexColor('#0056b3'),
-            spaceAfter=12,
-            spaceBefore=20
-        )
-
+        # Report info
         info_style = ParagraphStyle(
             'Info',
             parent=styles['Normal'],
             fontSize=12,
             spaceAfter=6
         )
-
-        # Title page
-        story.append(Paragraph("Titer Analysis Report", title_style))
-        story.append(Spacer(1, 12))
-
-        # Report info table
-        info_data = [
-            ['Project ID:', report.project_id],
-            ['Report Name:', report.report_name],
-            ['Created By:', report.user_id or 'N/A'],
-            ['Date Generated:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        ]
-
-        info_table = Table(info_data, colWidths=[2 * inch, 4 * inch])
-        info_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        story.append(info_table)
-        story.append(Spacer(1, 30))
+        story.append(Paragraph(f"<b>Project ID:</b> {report.project_id}", info_style))
+        story.append(Paragraph(f"<b>Report Name:</b> {report.report_name}", info_style))
+        story.append(Paragraph(f"<b>Date Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
+        story.append(Spacer(1, 20))
 
         # Section 1: Chromatogram
-        story.append(Paragraph("Chromatogram", heading2_style))
+        story.append(Paragraph("Chromatogram", styles['Heading2']))
+        story.append(Spacer(1, 12))
 
+        # Convert plotly figure to image
         if chromatogram_fig:
             try:
-                # Method 1: Try using kaleido (recommended)
-                img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400, scale=2)
+                print("PDF Report Debug - Attempting to convert chromatogram to image")
+                img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400)
                 img_buffer = io.BytesIO(img_bytes)
                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
                 story.append(img)
+                print("PDF Report Debug - Chromatogram added successfully")
             except Exception as e:
-                # Method 2: Fallback to base64 if available
-                try:
-                    import plotly.graph_objects as go
-                    # Create a simpler version of the plot
-                    simple_fig = go.Figure(chromatogram_fig)
-                    simple_fig.update_layout(
-                        width=700,
-                        height=400,
-                        margin=dict(l=50, r=50, t=50, b=50)
-                    )
-                    img_bytes = simple_fig.to_image(format='png')
-                    img_buffer = io.BytesIO(img_bytes)
-                    img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
-                    story.append(img)
-                except:
-                    # If image conversion fails, add a placeholder
-                    story.append(Paragraph(
-                        "[Chromatogram visualization - Please view in the application]",
-                        styles['Italic']
-                    ))
+                print(f"PDF Report Debug - Error converting chromatogram: {e}")
+                story.append(Paragraph("Chromatogram could not be rendered", styles['Normal']))
 
         story.append(Spacer(1, 20))
 
-        # Section 2: Analysis Results
-        story.append(Paragraph("Analysis Results", heading2_style))
+        # Section 2: Analysis Results Table
+        story.append(Paragraph("Analysis Results", styles['Heading2']))
+        story.append(Spacer(1, 12))
 
         if result_data:
-            # Filter out standards and prepare table data
-            table_headers = ["Sample Name", "Dilution\nFactor", "Concentration\n(mg/mL)",
-                             "Uncertainty", "LIMS Status"]
-            table_data = [table_headers]
-
+            print(f"PDF Report Debug - Creating table with {len(result_data)} rows")
+            # Create table data
+            table_data = [["Sample Name", "Dilution", "Concentration\n(mg/mL)", "Uncertainty", "LIMS Status"]]
             for row in result_data:
                 if "Std_" not in row.get("Sample Name", ""):  # Exclude standards
                     table_data.append([
-                        Paragraph(row.get("Sample Name", ""), styles['Normal']),
+                        row.get("Sample Name", ""),
                         str(row.get("Dilution Factor", "")),
                         str(row.get("Concentration", "")),
                         row.get("Uncertainty", ""),
                         row.get("LIMS Status", "")
                     ])
 
-            if len(table_data) > 1:  # Only create table if there's data
-                t = Table(table_data, colWidths=[2.2 * inch, 0.8 * inch, 1.2 * inch, 1.3 * inch, 1 * inch])
-                t.setStyle(TableStyle([
-                    # Header styling
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0056b3')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 11),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    ('TOPPADDING', (0, 0), (-1, 0), 12),
-                    # Data styling
-                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 10),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
-                    ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-                    ('TOPPADDING', (0, 1), (-1, -1), 8),
-                    # Special formatting for LIMS Status
-                    ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # Left align sample names
-                ]))
+            print(f"PDF Report Debug - Table has {len(table_data)} rows (including header)")
 
-                # Color code LIMS status
-                for i in range(1, len(table_data)):
-                    if table_data[i][4] == "Saved":
-                        t.setStyle(TableStyle([
-                            ('BACKGROUND', (4, i), (4, i), colors.HexColor('#d4edda')),
-                            ('TEXTCOLOR', (4, i), (4, i), colors.HexColor('#155724')),
-                            ('FONTNAME', (4, i), (4, i), 'Helvetica-Bold'),
-                        ]))
-
-                story.append(t)
-            else:
-                story.append(Paragraph("No sample data available", styles['Italic']))
+            # Create table
+            t = Table(table_data, colWidths=[2 * inch, 0.8 * inch, 1.2 * inch, 1.5 * inch, 1 * inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ]))
+            story.append(t)
 
         story.append(PageBreak())
 
         # Section 3: Standard Analysis
-        story.append(Paragraph("Standard Analysis", heading2_style))
+        story.append(Paragraph("Standard Analysis", styles['Heading2']))
+        story.append(Spacer(1, 12))
 
-        # Add regression info box
-        if regression_eq and r_squared:
-            regression_data = [
-                ['Regression Equation:', regression_eq],
-                ['R² Value:', r_squared]
-            ]
-            regression_table = Table(regression_data, colWidths=[2 * inch, 4 * inch])
-            regression_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e3f2fd')),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#0056b3')),
-            ]))
-            story.append(regression_table)
-            story.append(Spacer(1, 20))
+        # Add regression equation and R²
+        story.append(Paragraph(f"<b>Regression Equation:</b> {regression_eq}", info_style))
+        story.append(Paragraph(f"<b>R² Value:</b> {r_squared}", info_style))
+        story.append(Spacer(1, 12))
 
         # Add regression plot
         if regression_fig:
             try:
-                img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400, scale=2)
+                print("PDF Report Debug - Attempting to convert regression plot to image")
+                img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400)
                 img_buffer = io.BytesIO(img_bytes)
                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
                 story.append(img)
-            except:
-                story.append(Paragraph(
-                    "[Regression plot - Please view in the application]",
-                    styles['Italic']
-                ))
+                print("PDF Report Debug - Regression plot added successfully")
+            except Exception as e:
+                print(f"PDF Report Debug - Error converting regression plot: {e}")
+                story.append(Paragraph("Regression plot could not be rendered", styles['Normal']))
 
         story.append(Spacer(1, 20))
 
         # Standards table
         if standard_data:
-            story.append(Paragraph("Standards Data", heading2_style))
+            story.append(Paragraph("Standards Data", styles['Heading3']))
+            story.append(Spacer(1, 12))
 
-            std_headers = ["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]
-            std_table_data = [std_headers]
-
+            table_data = [["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]]
             for row in standard_data:
-                std_table_data.append([
+                table_data.append([
                     row.get("Sample Name", ""),
-                    f"{float(row.get('Concentration (mg/mL)', 0)):.3f}",
-                    f"{int(float(row.get('Main Peak Area', 0))):,}"
+                    str(row.get("Concentration (mg/mL)", "")),
+                    str(row.get("Main Peak Area", ""))
                 ])
 
-            if len(std_table_data) > 1:
-                std_table = Table(std_table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
-                std_table.setStyle(TableStyle([
-                    # Header styling
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 11),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    # Data styling
-                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 10),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
-                ]))
-                story.append(std_table)
+            t = Table(table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ]))
+            story.append(t)
 
         # Build PDF
+        print("PDF Report Debug - Building PDF document")
         doc.build(story)
         buffer.seek(0)
 
         # Create filename
         filename = f"{datetime.now().strftime('%Y%m%d')}_{report.project_id}_{report.report_name}_Analysis.pdf"
+        print(f"PDF Report Debug - PDF created successfully, filename: {filename}")
 
         return dcc.send_bytes(buffer.read(), filename), \
             "✅ PDF report generated successfully!", \
@@ -1503,52 +1433,31 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
                 "display": "block",
                 "backgroundColor": "#d4edda",
                 "color": "#155724",
-                "border": "1px solid #c3e6cb",
-                "padding": "15px",
-                "margin": "10px 20px",
-                "borderRadius": "5px",
-                "fontSize": "14px",
-                "fontWeight": "500",
-                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                "border": "1px solid #c3e6cb"
             }
 
     except ImportError as e:
-        missing_lib = str(e).split("'")[1] if "'" in str(e) else "required libraries"
+        print(f"PDF Report Debug - Import error: {e}")
         return dash.no_update, \
-            f"❌ Missing library: {missing_lib}. Install with: pip install reportlab plotly kaleido", \
+            "❌ Error: reportlab library not installed. Please install with: pip install reportlab plotly kaleido", \
             {
                 "display": "block",
                 "backgroundColor": "#f8d7da",
                 "color": "#721c24",
-                "border": "1px solid #f5c6cb",
-                "padding": "15px",
-                "margin": "10px 20px",
-                "borderRadius": "5px",
-                "fontSize": "14px",
-                "fontWeight": "500",
-                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                "border": "1px solid #f5c6cb"
             }
-
     except Exception as e:
+        print(f"PDF Report Debug - General error: {e}")
         import traceback
-        error_details = traceback.format_exc()
-        print(f"PDF Generation Error: {error_details}")
-
+        traceback.print_exc()
         return dash.no_update, \
             f"❌ Error generating PDF: {str(e)}", \
             {
                 "display": "block",
                 "backgroundColor": "#f8d7da",
                 "color": "#721c24",
-                "border": "1px solid #f5c6cb",
-                "padding": "15px",
-                "margin": "10px 20px",
-                "borderRadius": "5px",
-                "fontSize": "14px",
-                "fontWeight": "500",
-                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                "border": "1px solid #f5c6cb"
             }
-
 
 # Update standard table
 @app.callback(
