@@ -171,6 +171,8 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
             row=row,
             col=col
         )
+    height = 350 * rows
+    print('Height of the figure:', height)
     fig.update_layout(
         height=350 * rows,
         margin=dict(l=10, r=10, t=50, b=10),
@@ -319,7 +321,7 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
     elif plot_type == 'subplots':
         if not hmw_table_data:
             print("⚠️ No HMW table data provided.")
-            return go.Figure().update_layout(title="No HMW Data"), {'display': 'block'}
+            return go.Figure().update_layout(title="No HMW Data"), {'display': 'block'}, {}
 
         slope = regression_params.get('slope', 0)
         intercept = regression_params.get('intercept', 0)
@@ -352,5 +354,3 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
                     }})
 
     return go.Figure(), {'display': 'block'}, {}
-
-

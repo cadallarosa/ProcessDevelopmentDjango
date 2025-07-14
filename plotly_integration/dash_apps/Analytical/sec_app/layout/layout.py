@@ -163,6 +163,7 @@ app_layout = html.Div([
                                         style={'text-align': 'center', 'color': '#0056b3'}),
                                 dcc.Graph(
                                     id='time-series-graph',
+
                                     figure=go.Figure(
                                         data=[go.Scatter(
                                             x=[],

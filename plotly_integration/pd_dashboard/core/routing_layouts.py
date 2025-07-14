@@ -124,7 +124,7 @@ def create_page_router(app):
         # Analytical SEC Route - Full screen, non-scrollable
         elif pathname == "/analytical/sec":
             # Display full SEC app taking up entire viewport
-            sec_url = "/plotly_integration/dash-app/app/SecReportApp2/"
+            sec_url = "/plotly_integration/dash-app/app/SecReportApp/"
 
             # Return a special full-screen layout that bypasses normal content container
             return html.Div([
