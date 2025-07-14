@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="ae188e8e-a106-4312-8373-afa1e33d9252" name="DjangoServer" url="http://10.0.0.235">
-        <fileTransfer rootFolder="/home/cdallarosa/" accessType="SFTP" host="django.systimmune.net" port="22" sshConfigId="41f3ff38-e376-42c6-8950-6bff77998c7e" sshConfig="cdallarosa@django.systimmune.net:22 password">
+        <fileTransfer accessType="SFTP" host="django.systimmune.net" port="22" sshConfigId="fececf86-2e20-48d3-b873-dc0ea357559d" sshConfig="cdallarosa@django.systimmune.net:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

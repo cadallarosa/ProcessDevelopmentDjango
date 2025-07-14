@@ -4,12 +4,86 @@ import pandas as pd
 import base64
 import io
 import xlrd
+from django_plotly_dash import DjangoDash
 from datetime import datetime
 import plotly.graph_objects as go
-from django_plotly_dash import DjangoDash
+import numpy as np
 
 # Initialize the Dash app
 app = DjangoDash('OctetImportApp')
+
+
+# Function to parse octet data with proper column mapping
+def parse_octet_data(file_buffer):
+    """
+    Parse octet data from Excel file with proper column handling
+    """
+    # First, try to read the Excel file and check available sheets
+    excel_file = pd.ExcelFile(file_buffer)
+
+    # Look for Result sheet (case-insensitive)
+    sheet_names = excel_file.sheet_names
+    result_sheet = None
+
+    for sheet in sheet_names:
+        if 'result' in sheet.lower():
+            result_sheet = sheet
+            break
+
+    # If no Result sheet found, use the first sheet
+    if result_sheet is None:
+        result_sheet = sheet_names[0]
+
+    # Read from the Result sheet
+    df = pd.read_excel(file_buffer, sheet_name=result_sheet)
+
+    # Define expected octet columns
+    octet_columns = [
+        'Index', 'Flip Alert', 'Plate', 'Sensor', 'Sample',
+        'Sample ID', 'Type', 'Binding Rate', 'Known Conc. (µg/ml)',
+        'Well Conc.', 'Dilution Factor', 'Calc Conc.', 'Residual(%)',
+        'R2', 'Information', 'Sensor Type', 'Replicate Group',
+        'BR Avg', 'BR SD', 'BR CV', 'Conc. Avg', 'Conc. SD', 'Conc. CV',
+        'Lot Number'
+    ]
+
+    # Check if we need to reformat the data
+    if len(df.columns) < len(octet_columns):
+        # Try to parse the data manually if columns don't match
+        file_buffer.seek(0)
+        raw_df = pd.read_excel(file_buffer, sheet_name=result_sheet, header=None)
+
+        # Find the header row (contains "Index" or "Binding Rate")
+        header_row = 0
+        for idx, row in raw_df.iterrows():
+            if 'Index' in str(row.values) or 'Binding Rate' in str(row.values):
+                header_row = idx
+                break
+
+        # Reconstruct the dataframe with proper columns
+        if header_row > 0:
+            df = pd.read_excel(file_buffer, sheet_name=result_sheet, skiprows=header_row)
+
+    # Clean up column names
+    df.columns = df.columns.str.strip()
+
+    # Handle special cases in octet data
+    # Convert scientific notation
+    numeric_columns = ['Binding Rate', 'Well Conc.', 'Calc Conc.', 'R2',
+                       'BR Avg', 'BR SD', 'BR CV', 'Conc. Avg', 'Conc. SD', 'Conc. CV']
+
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Handle 'Too High' and 'Too Low' values
+    if 'Well Conc.' in df.columns:
+        df['Well Conc.'] = df['Well Conc.'].replace({'Too High': np.inf, 'Too Low': -np.inf})
+    if 'Calc Conc.' in df.columns:
+        df['Calc Conc.'] = df['Calc Conc.'].replace({'Too High': np.inf, 'Too Low': -np.inf})
+
+    return df
+
 
 # Define the app layout
 app.layout = html.Div([
@@ -94,8 +168,22 @@ def update_output(contents, clear_clicks, filename, date):
     try:
         # Read Excel file
         if 'xls' in filename:
-            # Try to read as standard Excel first
-            df = pd.read_excel(io.BytesIO(decoded))
+            # Check for sheet names
+            excel_file = pd.ExcelFile(io.BytesIO(decoded))
+            sheet_names = excel_file.sheet_names
+
+            # Look for Result sheet
+            result_sheet = None
+            for sheet in sheet_names:
+                if 'result' in sheet.lower():
+                    result_sheet = sheet
+                    break
+
+            # Use Result sheet if found, otherwise use first sheet
+            sheet_to_read = result_sheet if result_sheet else sheet_names[0]
+
+            # Read from the appropriate sheet
+            df = pd.read_excel(io.BytesIO(decoded), sheet_name=sheet_to_read)
 
             # Check if this is octet data by looking for specific columns
             octet_indicators = ['Binding Rate', 'Sensor Type', 'Well Conc.', 'Calc Conc.']
@@ -113,6 +201,7 @@ def update_output(contents, clear_clicks, filename, date):
         # Create upload confirmation message
         upload_message = html.Div([
             html.H5(f'File uploaded successfully: {filename}'),
+            html.P(f'Sheet: {sheet_to_read}'),
             html.P(f'Shape: {df.shape[0]} rows × {df.shape[1]} columns'),
             html.Hr()
         ])

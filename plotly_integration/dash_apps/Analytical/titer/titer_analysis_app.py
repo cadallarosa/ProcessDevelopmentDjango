@@ -50,6 +50,9 @@ app.layout = html.Div([
     dcc.Download(id="download-pdf-report"),
     dcc.Location(id='url', refresh=False),
 
+    dcc.Store(id='button-success-trigger', data=0),
+    dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
+
     # Modal for Create Report iframe
     html.Div(
         id="create-report-modal",
@@ -489,6 +492,8 @@ app.layout = html.Div([
                                                      id='result-table',
                                                      columns=[
                                                          {"name": "Sample Name", "id": "Sample Name"},
+                                                         {"name": "Concentration (mg/mL)", "id": "Concentration"},
+                                                         {"name": "Uncertainty", "id": "Uncertainty"},
                                                          {"name": "Dilution Factor", "id": "Dilution Factor"},
                                                          {"name": "Peak Start", "id": "Peak Start", "type": "numeric",
                                                           "format": {"specifier": ".2f"}},
@@ -496,11 +501,7 @@ app.layout = html.Div([
                                                           "format": {"specifier": ".2f"}},
                                                          {"name": "Main Peak Area", "id": "Main Peak Area",
                                                           "type": "numeric", "format": {"specifier": ".0f"}},
-                                                         {"name": "Concentration (mg/mL)", "id": "Concentration",
-                                                          "type": "numeric", "format": {"specifier": ".3f"}},
-                                                         {"name": "Uncertainty", "id": "Uncertainty"},
-                                                         {"name": "Injection Volume (µL)", "id": "Injection Volume"},
-                                                         {"name": "LIMS Status", "id": "LIMS Status"}
+                                                         {"name": "Injection Volume (µL)", "id": "Injection Volume"}
                                                      ],
                                                      data=[],
                                                      sort_action="native",
@@ -517,11 +518,21 @@ app.layout = html.Div([
                                                          'fontSize': '14px',
                                                          'fontFamily': 'system-ui, -apple-system, sans-serif'
                                                      },
+                                                     style_cell_conditional=[
+                                                         {
+                                                             'if': {'column_id': 'Sample Name'},
+                                                             'textAlign': 'left'
+                                                         },
+                                                         {
+                                                             'if': {'column_id': 'Concentration'},
+                                                             'fontWeight': '600'
+                                                         }
+                                                     ],
                                                      style_header={
-                                                         'backgroundColor': '#0056b3',
+                                                         'backgroundColor': '#f8f9fa',
                                                          'fontWeight': '600',
-                                                         'color': 'white',
-                                                         'borderBottom': '2px solid #004494'
+                                                         'borderBottom': '2px solid #dee2e6',
+                                                         'color': '#495057'
                                                      },
                                                      style_data={
                                                          'borderBottom': '1px solid #e9ecef',
@@ -533,11 +544,9 @@ app.layout = html.Div([
                                                              'backgroundColor': '#f8f9fa',
                                                          },
                                                          {
-                                                             'if': {'column_id': 'LIMS Status',
-                                                                    'filter_query': '{LIMS Status} = "Saved"'},
-                                                             'backgroundColor': '#d4edda',
-                                                             'color': '#155724',
-                                                             'fontWeight': '600'
+                                                             'if': {'state': 'selected'},
+                                                             'backgroundColor': '#e3f2fd',
+                                                             'border': '1px solid #0056b3',
                                                          },
                                                          {
                                                              'if': {'column_id': 'Concentration'},
@@ -919,25 +928,26 @@ def save_plot_settings(n_clicks, report_id, channel, plot_type, selected_std_row
         }
 
 
-# Callback to save results to LIMS
 @app.callback(
-    [Output("result-table", "data", allow_duplicate=True),
-     Output("status-message", "children", allow_duplicate=True),
-     Output("status-message", "style", allow_duplicate=True)],
+    [Output("status-message", "children", allow_duplicate=True),
+     Output("status-message", "style", allow_duplicate=True),
+     Output("button-success-trigger", "data"),
+     Output("button-reset-interval", "disabled")],
     [Input("save-to-lims-btn", "n_clicks")],
     [State("result-table", "data"),
-     State("selected-report", "data")],
+     State("selected-report", "data"),
+     State("button-success-trigger", "data")],
     prevent_initial_call=True
 )
-def save_to_lims(n_clicks, table_data, report_id):
+def save_to_lims(n_clicks, table_data, report_id, current_trigger):
     print('Triggering save to LIMS callback')
     if not table_data or not report_id:
-        return table_data, "⚠️ No data to link!", {
+        return "⚠️ No data to link!", {
             "display": "block",
             "backgroundColor": "#f8d7da",
             "color": "#721c24",
             "border": "1px solid #f5c6cb"
-        }
+        }, current_trigger, True
 
     try:
         # Get report info for project_id
@@ -951,8 +961,8 @@ def save_to_lims(n_clicks, table_data, report_id):
             sample_name = row.get("Sample Name")
             concentration = row.get("Concentration")
 
-            # Skip if already saved or no concentration
-            if row.get("LIMS Status") == "Saved" or not concentration:
+            # Skip if no concentration
+            if not concentration:
                 continue
 
             try:
@@ -1005,15 +1015,13 @@ def save_to_lims(n_clicks, table_data, report_id):
                 lims_sample.titer_result = titer_result
                 lims_sample.save()
 
-                # Update row status
-                row["LIMS Status"] = "Saved"
                 saved_count += 1
 
             except Exception as e:
                 errors.append(f"{sample_name}: {str(e)}")
 
         if errors:
-            message = f"⚠️ Linked {saved_count} results. Errors: {'; '.join(errors[:3])}"  # Show first 3 errors
+            message = f"⚠️ Linked {saved_count} results. Errors: {'; '.join(errors[:3])}"
             if len(errors) > 3:
                 message += f" and {len(errors) - 3} more..."
             style = {
@@ -1031,15 +1039,83 @@ def save_to_lims(n_clicks, table_data, report_id):
                 "border": "1px solid #c3e6cb"
             }
 
-        return table_data, message, style
+        # Trigger button color change and start timer
+        return message, style, current_trigger + 1, False
 
     except Exception as e:
-        return table_data, f"❌ Error linking to LIMS: {str(e)}", {
+        return f"❌ Error linking to LIMS: {str(e)}", {
             "display": "block",
             "backgroundColor": "#f8d7da",
             "color": "#721c24",
             "border": "1px solid #f5c6cb"
+        }, current_trigger, True
+
+
+# New callback to handle button color change
+@app.callback(
+    Output("save-to-lims-btn", "style"),
+    [Input("button-success-trigger", "data"),
+     Input("button-reset-interval", "n_intervals")],
+    prevent_initial_call=True
+)
+def update_button_style(success_trigger, reset_intervals):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return {
+            'backgroundColor': '#17a2b8',
+            'color': 'white',
+            'border': 'none',
+            'padding': '10px 20px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '5px',
+            'fontWeight': '500',
+            'transition': 'all 0.3s ease',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
         }
+
+    trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    if trigger_id == "button-success-trigger":
+        # Button clicked - show success color
+        return {
+            'backgroundColor': '#28a745',  # Green
+            'color': 'white',
+            'border': 'none',
+            'padding': '10px 20px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '5px',
+            'fontWeight': '500',
+            'transition': 'all 0.3s ease',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+        }
+    else:
+        # Timer finished - reset to original color
+        return {
+            'backgroundColor': '#17a2b8',  # Original blue
+            'color': 'white',
+            'border': 'none',
+            'padding': '10px 20px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '5px',
+            'fontWeight': '500',
+            'transition': 'all 0.3s ease',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+        }
+
+
+# Callback to disable the interval after reset
+@app.callback(
+    Output("button-reset-interval", "disabled", allow_duplicate=True),
+    [Input("button-reset-interval", "n_intervals")],
+    prevent_initial_call=True
+)
+def disable_interval_after_reset(n_intervals):
+    if n_intervals > 0:
+        return True  # Disable interval after first trigger
+    return False
 
 
 # Populate report table
@@ -1462,6 +1538,7 @@ def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regres
                 "border": "1px solid #f5c6cb"
             }
 
+
 # Update standard table
 @app.callback(
     [Output("standard-table", "data"),
@@ -1577,6 +1654,7 @@ def update_standard_table(report_clicks, selected_report):
         print(f"Error loading saved standard selection: {e}")
 
     return table_data, selected_rows
+
 
 # Update regression plot
 @app.callback(
@@ -1743,16 +1821,6 @@ def update_result_table(report_clicks, regression_params, selected_report):
                 calculated_concentration = round(calculated_concentration, 3)
                 uncertainty = round(uncertainty, 3)
 
-        lims_status = "Not Saved"
-        try:
-            lims_sample = LimsSampleAnalysis.objects.filter(sample_name=sample_name).first()
-            if lims_sample:
-                titer_result = LimsTiterResult.objects.filter(sample_id=lims_sample).first()
-                if titer_result:
-                    lims_status = "Saved"
-        except:
-            pass
-
         result_data.append({
             "Sample Name": sample_name,
             "System Name": system_name,
@@ -1764,8 +1832,7 @@ def update_result_table(report_clicks, regression_params, selected_report):
             "Concentration": calculated_concentration,
             "Uncertainty": f"{calculated_concentration:.3f} ± {uncertainty:.3f}" if calculated_concentration and uncertainty else None,
             "Injection Volume": injection_volume,
-            "Result ID": result_id,
-            "LIMS Status": lims_status
+            "Result ID": result_id
         })
 
     result_data_sorted = sorted(
@@ -1773,18 +1840,16 @@ def update_result_table(report_clicks, regression_params, selected_report):
         key=lambda x: ("Std_" in x["Sample Name"], x["Result ID"])
     )
 
+    # Updated table columns - removed LIMS Status
     table_columns = [
         {"name": "Sample Name", "id": "Sample Name"},
-        {"name": "Injection Date", "id": "Injection Date"},
-        {"name": "System Name", "id": "System Name"},
-        {"name": "Dilution Factor", "id": "Dilution Factor"},
-        {"name": "Peak Start", "id": "Peak Start", "type": "numeric", "format": {"specifier": ".2f"}},
-        {"name": "Peak End", "id": "Peak End", "type": "numeric", "format": {"specifier": ".2f"}},
-        {"name": "Main Peak Area", "id": "Main Peak Area", "type": "numeric", "format": {"specifier": ".0f"}},
         {"name": "Concentration (mg/mL)", "id": "Concentration", "type": "numeric", "format": {"specifier": ".3f"}},
         {"name": "Uncertainty", "id": "Uncertainty"},
-        {"name": "Injection Volume (µL)", "id": "Injection Volume"},
-        {"name": "LIMS Status", "id": "LIMS Status"}
+        {"name": "Dilution Factor", "id": "Dilution Factor"},
+        {"name": "Peak Start (min)", "id": "Peak Start", "type": "numeric", "format": {"specifier": ".2f"}},
+        {"name": "Peak End (min)", "id": "Peak End", "type": "numeric", "format": {"specifier": ".2f"}},
+        {"name": "Main Peak Area", "id": "Main Peak Area", "type": "numeric", "format": {"specifier": ".0f"}},
+        {"name": "Injection Volume (µL)", "id": "Injection Volume"}
     ]
 
     return table_columns, result_data_sorted
@@ -1793,7 +1858,7 @@ def update_result_table(report_clicks, regression_params, selected_report):
 # Load saved plot settings
 @app.callback(
     [Output("channel-radio", "value"),
-     Output("plot-type-dropdown", "value"),],
+     Output("plot-type-dropdown", "value"), ],
     [Input("selected-report", "data")],
     prevent_initial_call=True
 )
@@ -1811,7 +1876,6 @@ def load_plot_settings(report_id):
             channel = settings.get("channel", "channel_1")
             plot_type = settings.get("plot_type", "plotly")
 
-
             return channel, plot_type
 
     except Exception as e:
@@ -1819,6 +1883,7 @@ def load_plot_settings(report_id):
 
     # Return defaults if no settings found or error occurred
     return "channel_1", "plotly"
+
 
 # Export to Excel
 @app.callback(
