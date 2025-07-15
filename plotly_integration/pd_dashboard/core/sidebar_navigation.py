@@ -94,14 +94,14 @@ def create_sidebar_navigation():
             'href': '#!/data-import',
             'items': []
         },
-        {
-            'id': 'settings',
-            'title': 'Settings',
-            'icon': 'fa-cog',
-            'color': '#7f8c8d',
-            'href': '#!/settings',
-            'items': []
-        }
+        # {
+        #     'id': 'settings',
+        #     'title': 'Settings',
+        #     'icon': 'fa-cog',
+        #     'color': '#7f8c8d',
+        #     'href': '#!/settings',
+        #     'items': []
+        # }
     ]
 
     def create_nav_item(section):

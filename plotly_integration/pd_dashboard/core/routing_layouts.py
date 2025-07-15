@@ -121,6 +121,128 @@ def create_page_router(app):
                 "zIndex": "999"  # Ensure it's above other content
             })
 
+        # DSP AKTA Route - Full screen, non-scrollable
+        elif pathname == "/dsp/create-dn-pd":
+            # Display full AKTA app taking up entire viewport
+            akta_url = "/plotly_integration/dash-app/app/DnAssignmentApp/"
+
+            # Return a special full-screen layout that bypasses normal content container
+            return html.Div([
+                # Minimal header with controls - fixed height
+                html.Div([
+                    html.Div([
+                        html.H5("AKTA Analysis", style={"margin": "0", "color": "#333"}),
+                        dbc.ButtonGroup([
+                            dbc.Button([
+                                html.I(className="fas fa-home me-1"),
+                                "Home"
+                            ], href="#!/", color="outline-secondary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-external-link-alt me-1"),
+                                "Open in New Tab"
+                            ], href=akta_url, target="_blank", color="outline-primary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-sync-alt me-1"),
+                                "Refresh"
+                            ], id="refresh-dsp-akta", color="outline-info", size="sm")
+                        ])
+                    ], style={
+                        "display": "flex",
+                        "justifyContent": "space-between",
+                        "alignItems": "center",
+                        "padding": "8px 16px",
+                        "backgroundColor": "#f8f9fa",
+                        "borderBottom": "1px solid #dee2e6"
+                    })
+                ], style={"height": "50px", "flexShrink": "0"}),
+
+                # Full-height iframe - no scrolling
+                html.Iframe(
+                    src=akta_url,
+                    style={
+                        "width": "100%",
+                        "height": "calc(100vh - 50px)",  # Full viewport height minus header
+                        "border": "none",
+                        "display": "block",
+                        "overflow": "hidden"  # Prevent iframe scrolling
+                    }
+                )
+            ], style={
+                "position": "fixed",  # Fixed positioning to bypass normal layout
+                "top": "0",
+                "left": "220px",  # Account for sidebar width + left margin
+                "right": "20px",  # Right margin
+                "bottom": "0",
+                "height": "100vh",
+                "width": "calc(100vw - 240px)",  # Full width minus sidebar and margins
+                "overflow": "hidden",  # Prevent any scrolling
+                "display": "flex",
+                "flexDirection": "column",
+                "zIndex": "999"  # Ensure it's above other content
+            })
+
+
+
+        elif pathname == "/analytical/report":
+            # Display full SEC app taking up entire viewport
+            sec_url = "/plotly_integration/dash-app/app/ReportApp/"
+
+            # Return a special full-screen layout that bypasses normal content container
+            return html.Div([
+                # Minimal header with controls - fixed height
+                html.Div([
+                    html.Div([
+                        html.H5("SEC Analysis", style={"margin": "0", "color": "#333"}),
+                        dbc.ButtonGroup([
+                            dbc.Button([
+                                html.I(className="fas fa-home me-1"),
+                                "Home"
+                            ], href="#!/", color="outline-secondary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-external-link-alt me-1"),
+                                "Open in New Tab"
+                            ], href=sec_url, target="_blank", color="outline-primary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-sync-alt me-1"),
+                                "Refresh"
+                            ], id="refresh-analytical-sec", color="outline-info", size="sm")
+                        ])
+                    ], style={
+                        "display": "flex",
+                        "justifyContent": "space-between",
+                        "alignItems": "center",
+                        "padding": "8px 16px",
+                        "backgroundColor": "#f8f9fa",
+                        "borderBottom": "1px solid #dee2e6"
+                    })
+                ], style={"height": "50px", "flexShrink": "0"}),
+
+                # Full-height iframe - no scrolling
+                html.Iframe(
+                    src=sec_url,
+                    style={
+                        "width": "100%",
+                        "height": "calc(100vh - 50px)",  # Full viewport height minus header
+                        "border": "none",
+                        "display": "block",
+                        "overflow": "hidden"  # Prevent iframe scrolling
+                    }
+                )
+            ], style={
+                "position": "fixed",  # Fixed positioning to bypass normal layout
+                "top": "0",
+                "left": "220px",  # Account for sidebar width + left margin
+                "right": "20px",  # Right margin
+                "bottom": "0",
+                "height": "100vh",
+                "width": "calc(100vw - 240px)",  # Full width minus sidebar and margins
+                "overflow": "hidden",  # Prevent any scrolling
+                "display": "flex",
+                "flexDirection": "column",
+                "zIndex": "999"  # Ensure it's above other content
+            })
+
+
         # Analytical SEC Route - Full screen, non-scrollable
         elif pathname == "/analytical/sec":
             # Display full SEC app taking up entire viewport
