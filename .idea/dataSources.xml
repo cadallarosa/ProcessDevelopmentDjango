@@ -11,7 +11,7 @@
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
     <data-source source="LOCAL" name="djangoP1_db@127.0.0.1" uuid="c4429e55-2b45-443f-b4ac-7c47a79883bd">
-      <driver-ref>mysql.8</driver-ref>
+      <driver-ref>mysql.9</driver-ref>
       <synchronize>true</synchronize>
       <configured-by-url>true</configured-by-url>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>

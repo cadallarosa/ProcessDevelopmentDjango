@@ -19,7 +19,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 #Analytical Apps
                 import plotly_integration.dash_apps.Analytical.create_report.create_report_app
 
-                import plotly_integration.dash_apps.Analytical.octet.octet_import_app
+                # import plotly_integration.dash_apps.Analytical.octet.octet_import_app
 
                 #Titer Apps
                 import plotly_integration.dash_apps.Analytical.titer.titer_analysis_app
@@ -51,9 +51,12 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_data_import_app
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_create_report_app
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_report_app
+
+                #Vicell Apps
                 import plotly_integration.process_development.cell_culture.vicell.vicell_data_import_app
                 import plotly_integration.process_development.cell_culture.vicell.vicell_create_report_app
                 import plotly_integration.process_development.cell_culture.vicell.vicell_report_app
+                import plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor
 
                 #SEC
                 import plotly_integration.dash_apps.Analytical.sec_app_embedded.app
@@ -96,6 +99,8 @@ class PlotlyIntegrationConfig(AppConfig):
 
                 #New PD Dash App
                 import plotly_integration.pd_dashboard.main_app
+
+
 
 
 

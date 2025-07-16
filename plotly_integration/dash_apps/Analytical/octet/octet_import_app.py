@@ -176,7 +176,7 @@ def create_upload_tab():
         ], style=CARD_STYLE),
 
         # Import Options Card
-        html.Div(id='import-options-card', style={'display': 'none'}, children=[
+        html.Div([
             html.H4([
                 html.I(className="fas fa-cog me-3"),
                 "Import Configuration"
@@ -238,7 +238,7 @@ def create_upload_tab():
                     )
                 ])
             ])
-        ], style=CARD_STYLE)
+        ], id='import-options-card', style={'display': 'none', **CARD_STYLE})
     ])
 
 
@@ -330,7 +330,7 @@ def create_results_tab():
 def create_validation_tab():
     return html.Div([
         # Data Preview Card
-        html.Div(id='preview-card', style={'display': 'none'}, children=[
+        html.Div([
             html.Div([
                 html.H4([
                     html.I(className="fas fa-eye me-3"),
@@ -360,10 +360,10 @@ def create_validation_tab():
             html.Div(id='preview-content', children=[
                 html.Div(id='preview-table-container')
             ])
-        ], style=CARD_STYLE),
+        ], id='preview-card', style={'display': 'none', **CARD_STYLE}),
 
         # Import Actions
-        html.Div(id='import-actions', style={'display': 'none'}, children=[
+        html.Div([
             html.Div([
                 html.H5("Ready to Import", style={"color": "#28a745", "margin-bottom": "20px"}),
 
@@ -387,7 +387,7 @@ def create_validation_tab():
                     className="btn btn-outline-info btn-lg",
                     style={"margin-left": "15px"})
             ], style={"text-align": "center", "margin": "25px 0"})
-        ], style=CARD_STYLE),
+        ], id='import-actions', style={'display': 'none', **CARD_STYLE}),
 
         # Import Results Card
         html.Div(id='import-results')
@@ -446,8 +446,7 @@ def handle_file_upload(contents, filename):
             'size': file_size
         }
 
-        card_style = CARD_STYLE.copy()
-        card_style['display'] = 'block'
+        card_style = {'display': 'block', **CARD_STYLE}
 
         return status_msg, card_style, sheet_options, sheets[0], file_data
 
@@ -571,11 +570,8 @@ def update_preview(selected_sheet, header_row, data_start_row, options, file_dat
                 "No data found with current settings. Please adjust the import options."
             ], className="alert alert-warning", style={"margin": "20px 0"})
 
-        card_style = CARD_STYLE.copy()
-        card_style['display'] = 'block'
-
-        actions_style = CARD_STYLE.copy()
-        actions_style['display'] = 'block'
+        card_style = {'display': 'block', **CARD_STYLE}
+        actions_style = {'display': 'block', **CARD_STYLE}
 
         return card_style, preview_content, validation_summary, actions_style, preview_data
 
@@ -584,7 +580,7 @@ def update_preview(selected_sheet, header_row, data_start_row, options, file_dat
             html.I(className="fas fa-exclamation-triangle me-2"),
             f"Error previewing data: {str(e)}"
         ], className="alert alert-warning", style={"margin": "20px 0"})
-        return CARD_STYLE, error_msg, "", {'display': 'none'}, None
+        return {'display': 'block', **CARD_STYLE}, error_msg, "", {'display': 'none'}, None
 
 
 # Callback: Store edited data

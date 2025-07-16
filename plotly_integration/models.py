@@ -576,7 +576,7 @@ class NovaReport(models.Model):
 # Vicell Models
 class ViCellData(models.Model):
     id = models.AutoField(primary_key=True)  # Ensure primary key is explicitly set
-    sample_id = models.CharField(max_length=100, unique=True)
+    sample_id = models.CharField(max_length=100)
     date_time = models.DateTimeField(null=True, blank=True)
     experiment = models.CharField(max_length=50, null=True, blank=True)
     day = models.IntegerField(null=True, blank=True)
@@ -596,7 +596,7 @@ class ViCellData(models.Model):
 
     class Meta:
         db_table = 'vicell_data'
-        unique_together = ('date_time', 'sample_id')  # Enforce uniqueness
+        # unique_together = ('date_time', 'sample_id')  # Enforce uniqueness
 
 
 class ViCellReport(models.Model):

@@ -6,7 +6,7 @@
       <paths name="DjangoServer">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/cdallarosa/PycharmProjects" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/cdallarosa/home/cdallarosa/PycharmProjects" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
