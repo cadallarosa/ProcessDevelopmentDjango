@@ -19,7 +19,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 #Analytical Apps
                 import plotly_integration.dash_apps.Analytical.create_report.create_report_app
 
-                # import plotly_integration.dash_apps.Analytical.octet.octet_import_app
+                import plotly_integration.dash_apps.Analytical.octet.octet_import_app
 
                 #Titer Apps
                 import plotly_integration.dash_apps.Analytical.titer.titer_analysis_app
