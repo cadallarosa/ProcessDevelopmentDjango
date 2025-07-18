@@ -20,8 +20,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-VICELL_FILE = r"/mnt/fs2/Vi-Blue_Unsorted/Summary_DECEMBER.csv"
-VICELL_FOLDER = r"/mnt/fs2/Vi-Blue_Unsorted"
+VICELL_FILE = r"S:\Shared\Vi-Blue_Unsorted\Summary_DECEMBER.csv"
+VICELL_FOLDER = r"S:\Shared\Vi-Blue_Unsorted"
+# VICELL_FILE = r"/mnt/fs2/Vi-Blue_Unsorted/Summary_DECEMBER.csv"
+# VICELL_FOLDER = r"/mnt/fs2/Vi-Blue_Unsorted"
 MAX_RETRIES = 3  # Maximum retry attempts per record
 
 
@@ -31,103 +33,54 @@ def parse_sample_name(sample_name):
 
     match = re.match(
         r"(?P<experiment>E\d{2})D(?P<day>\d{2})(?P<reactor_type>SF|BRX|BR)[-_]*(?P<reactor_number>\d+)\s*(?P<special>PREFEED|POSTFEED|PREINOC|POSTINOC)?",
-        sample_name, re.IGNORECASE
+        sample_name
     )
 
-    if not match:
-        match = re.match(
-            r"(?P<experiment>E\d{2})D(?P<day>\d{2})(?P<reactor_type>SF|BRX|BR)\s*(?P<special>PREFEED|POSTFEED|PREINOC|POSTINOC)[-_]*(?P<reactor_number>\d+)",
-            sample_name, re.IGNORECASE
-        )
-
-    if not match:
-        return {
-            "experiment": None,
-            "day": None,
-            "reactor_type": None,
-            "reactor_number": None,
-            "special": ""
+    if match:
+        result = {
+            'experiment': match.group('experiment'),
+            'day': int(match.group('day')),
+            'reactor_type': match.group('reactor_type'),
+            'reactor_number': int(match.group('reactor_number')),
+            'special': match.group('special') or ''
         }
-
-    parsed_data = match.groupdict()
-    parsed_data["day"] = int(parsed_data["day"]) if parsed_data["day"] else None
-    parsed_data["reactor_number"] = int(parsed_data["reactor_number"]) if parsed_data["reactor_number"] else None
-
-    pre_post_map = {
-        "PREFEED": "PRE",
-        "PREINOC": "PRE",
-        "POSTFEED": "POST",
-        "POSTINOC": "POST"
-    }
-    parsed_data["special"] = pre_post_map.get(parsed_data["special"].upper(), "") if parsed_data["special"] else ""
-
-    return parsed_data
-
-
-def assign_sample_type(sample_id):
-    """Assign sample type based on sample ID prefix"""
-    if isinstance(sample_id, str):
-        if sample_id.startswith("E"):
-            return 1  # UP
-        elif sample_id.startswith("S"):
-            return 2  # CLD
-    return 3  # Uncategorized
-
-
-def create_vicell_record(row_data):
-    """Create a ViCellData object from row data - handles NULL datetime gracefully"""
-    parsed_sample = parse_sample_name(row_data.get("sample_id"))
-
-    # Handle datetime - use None if it's NaT or invalid
-    date_time = row_data.get("date_time")
-    if pd.isna(date_time):
-        date_time = None
-
-    return ViCellData(
-        sample_id=row_data.get("sample_id"),
-        date_time=date_time,  # Can be None/NULL
-        cell_count=row_data.get("cell_count"),
-        viable_cells=row_data.get("viable_cells"),
-        total_cells_per_ml=row_data.get("total_cells_per_ml"),
-        viable_cells_per_ml=row_data.get("viable_cells_per_ml"),
-        viability=row_data.get("viability"),
-        average_diameter=row_data.get("average_diameter"),
-        average_viable_diameter=row_data.get("average_viable_diameter"),
-        average_circularity=row_data.get("average_circularity"),
-        average_viable_circularity=row_data.get("average_viable_circularity"),
-        experiment=parsed_sample["experiment"],
-        day=parsed_sample["day"],
-        reactor_type=parsed_sample["reactor_type"],
-        reactor_number=parsed_sample["reactor_number"],
-        special=parsed_sample["special"],
-        sample_type=assign_sample_type(row_data.get("sample_id"))
-    )
-
-
-def save_record_with_retry(record, max_retries=MAX_RETRIES):
-    """Try to save a record with retry logic"""
-    for attempt in range(max_retries):
-        try:
-            record.save()
-            return True, None
-        except Exception as e:
-            logger.warning(f"Attempt {attempt + 1} failed for {record.sample_id}: {str(e)}")
-            if attempt == max_retries - 1:
-                return False, str(e)
-    return False, "Max retries exceeded"
+        return result
+    else:
+        return {
+            'experiment': '',
+            'day': None,
+            'reactor_type': '',
+            'reactor_number': None,
+            'special': ''
+        }
 
 
 def process_vicell_file_from_end():
-    """Process ViCell file with robust datetime handling - properly formats all datetime values"""
-    try:
-        # Read the file
-        df = pd.read_csv(VICELL_FILE)
-        logger.info(f"Total rows in file: {len(df)}")
+    """
+    Process the ViCell CSV file with robust datetime handling.
+    Assumes ViCell timestamps are already in the correct timezone.
+    """
 
-        # Column mapping
+    if not os.path.exists(VICELL_FILE):
+        logger.error(f"ViCell file not found: {VICELL_FILE}")
+        return {
+            'imported': 0,
+            'failed': 0,
+            'skipped_invalid': 0,
+            'skipped_duplicates': 0,
+            'datetime_errors': 0,
+            'error': 'File not found',
+            'message': f"ViCell file not found: {VICELL_FILE}"
+        }
+
+    try:
+        # Read the CSV file
+        df = pd.read_csv(VICELL_FILE)
+        logger.info(f"Read {len(df)} rows from ViCell CSV file")
+
+        # Define column mapping
         column_mapping = {
             "Sample ID": "sample_id",
-            "Analysis date/time": "date_time",
             "Cell count": "cell_count",
             "Viable cells": "viable_cells",
             "Total (x10^6) cells/mL": "total_cells_per_ml",
@@ -136,242 +89,204 @@ def process_vicell_file_from_end():
             "Average diameter (µm)": "average_diameter",
             "Average viable diameter (µm)": "average_viable_diameter",
             "Average circularity": "average_circularity",
-            "Average viable circularity": "average_viable_circularity"
+            "Average viable circularity": "average_viable_circularity",
+            "Analysis date/time": "date_time"
         }
 
-        # Select and rename columns
-        relevant_columns = list(column_mapping.keys())
-        available_columns = [col for col in relevant_columns if col in df.columns]
-        df_cleaned = df[available_columns].copy()
-        df_cleaned.rename(columns=column_mapping, inplace=True)
+        # Rename columns
+        df_cleaned = df.rename(columns=column_mapping)
 
-        # ROBUST DATETIME PROCESSING - Standardize all datetime values
+        # Process datetime column with robust parsing
         datetime_errors = []
-        original_datetime_col = "Analysis date/time" if "Analysis date/time" in df.columns else None
+        formatted_datetimes = []
 
-        if "date_time" in df_cleaned.columns and original_datetime_col:
-            logger.info("Processing datetime column with complete standardization...")
+        for idx, row in df_cleaned.iterrows():
+            date_str = row.get('date_time')
 
-            # Reset the column to object type to avoid dtype conflicts
-            df_cleaned["date_time"] = df_cleaned["date_time"].astype(str)
+            if pd.isna(date_str) or str(date_str).lower() in ['nan', 'nat', '', 'null', 'none']:
+                formatted_datetimes.append(None)
+                continue
 
-            # Create a new column for properly formatted datetimes
-            formatted_datetimes = []
+            try:
+                # Try to parse with pandas first (handles most formats)
+                parsed_date = pd.to_datetime(str(date_str), errors='coerce')
 
-            for idx, date_str in enumerate(df_cleaned["date_time"]):
-                try:
-                    # Skip obvious non-dates
-                    if pd.isna(date_str) or str(date_str).lower() in ['nan', 'nat', '', 'null', 'none']:
-                        formatted_datetimes.append(None)
-                        continue
+                if pd.notna(parsed_date):
+                    # DIRTY FIX: ViCell times are being interpreted incorrectly
+                    # If the time is being shifted forward by ~7-8 hours, subtract it back
+                    # This assumes ViCell is recording in Pacific Time but Django is interpreting it as UTC
+                    from datetime import timedelta
 
-                    # Try to parse with pandas first (handles most formats)
-                    parsed_date = pd.to_datetime(str(date_str), errors='coerce')
+                    # Subtract 7 hours to correct the timezone interpretation issue
+                    corrected_date = parsed_date - timedelta(hours=7)
 
-                    if pd.notna(parsed_date):
-                        # Convert to timezone-naive datetime, then make timezone-aware consistently
-                        if parsed_date.tzinfo is not None:
-                            # If already timezone-aware, convert to naive first
-                            naive_date = parsed_date.tz_convert('UTC').tz_localize(None)
-                        else:
-                            naive_date = parsed_date
-
-                        # Make timezone-aware with the default timezone
-                        aware_date = timezone.make_aware(naive_date, timezone.get_default_timezone())
+                    if hasattr(settings, 'USE_TZ') and settings.USE_TZ:
+                        # Make timezone-aware using the default timezone
+                        aware_date = timezone.make_aware(corrected_date.to_pydatetime(),
+                                                         timezone.get_default_timezone())
                         formatted_datetimes.append(aware_date)
-                        continue
+                    else:
+                        # If not using timezones, use the datetime as-is
+                        formatted_datetimes.append(corrected_date.to_pydatetime())
+                    continue
 
-                    # If pandas failed, try manual parsing with specific formats
-                    date_str_clean = str(date_str).strip()
-                    format_attempts = [
-                        '%m/%d/%Y %H:%M',
-                        '%Y-%m-%d %H:%M:%S',
-                        '%m/%d/%Y %H:%M:%S',
-                        '%d/%m/%Y %H:%M:%S',
-                        '%Y-%m-%d',
-                        '%m/%d/%Y',
-                        '%d/%m/%Y',
-                        '%Y%m%d %H:%M:%S',
-                        '%m-%d-%Y %H:%M:%S',
-                    ]
+            except Exception as e:
+                logger.debug(f"Error parsing date {date_str}: {e}")
 
-                    parsed_successfully = False
-                    for fmt in format_attempts:
-                        try:
-                            manual_parsed = dt.strptime(date_str_clean, fmt)
-                            aware_date = timezone.make_aware(manual_parsed, timezone.get_default_timezone())
-                            formatted_datetimes.append(aware_date)
-                            parsed_successfully = True
-                            break
-                        except ValueError:
-                            continue
+            # If pandas failed, try manual parsing with specific formats
+            date_str_clean = str(date_str).strip()
+            format_attempts = [
+                '%m/%d/%Y %I:%M:%S %p',  # 12-hour format with seconds and AM/PM (YOUR FORMAT)
+                '%m/%d/%Y %I:%M %p',  # 12-hour format with AM/PM
+                '%m/%d/%Y %H:%M:%S',  # 24-hour format with seconds
+                '%m/%d/%Y %H:%M',  # 24-hour format
+                '%Y-%m-%d %H:%M:%S',
+                '%d/%m/%Y %H:%M:%S',
+                '%Y-%m-%d',
+                '%m/%d/%Y',
+                '%d/%m/%Y',
+                '%Y%m%d %H:%M:%S',
+                '%m-%d-%Y %H:%M:%S',
+            ]
 
-                    if not parsed_successfully:
-                        # Record the error and set to None
-                        sample_id = df_cleaned.iloc[idx][
-                            'sample_id'] if 'sample_id' in df_cleaned.columns else f"Row {idx}"
-                        datetime_errors.append(sample_id)
-                        formatted_datetimes.append(None)
-                        logger.warning(f"Could not parse datetime '{date_str}' for sample {sample_id}")
+            parsed_successfully = False
+            for fmt in format_attempts:
+                try:
+                    # Parse to datetime
+                    manual_parsed = dt.strptime(date_str_clean, fmt)
 
-                except Exception as e:
-                    # Record the error and set to None
-                    sample_id = df_cleaned.iloc[idx]['sample_id'] if 'sample_id' in df_cleaned.columns else f"Row {idx}"
-                    datetime_errors.append(sample_id)
-                    formatted_datetimes.append(None)
-                    logger.warning(f"Error parsing datetime '{date_str}' for sample {sample_id}: {str(e)}")
+                    # DIRTY FIX: Subtract 7 hours to correct timezone interpretation
+                    from datetime import timedelta
+                    corrected_date = manual_parsed - timedelta(hours=7)
 
-            # Replace the column with properly formatted datetimes
-            df_cleaned["date_time"] = formatted_datetimes
+                    # Make timezone-aware if Django requires it
+                    if hasattr(settings, 'USE_TZ') and settings.USE_TZ:
+                        aware_date = timezone.make_aware(corrected_date, timezone.get_default_timezone())
+                        formatted_datetimes.append(aware_date)
+                    else:
+                        formatted_datetimes.append(corrected_date)
 
-            # Log results
-            valid_dates = [d for d in formatted_datetimes if d is not None]
-            null_dates = len(formatted_datetimes) - len(valid_dates)
+                    parsed_successfully = True
+                    break
+                except ValueError:
+                    continue
 
-            logger.info(f"Datetime processing complete:")
-            logger.info(f"  - Successfully parsed: {len(valid_dates)} datetimes")
-            logger.info(f"  - Set to NULL: {null_dates} datetimes")
+            if not parsed_successfully:
+                # Record the error and set to None
+                sample_id = row.get('sample_id', f"Row {idx}")
+                datetime_errors.append(sample_id)
+                formatted_datetimes.append(None)
+                logger.warning(f"Failed to parse datetime '{date_str}' for sample {sample_id}")
 
-            if datetime_errors:
-                datetime_errors = datetime_errors[:10]  # Keep first 10 for reporting
-                logger.warning(f"Sample IDs with datetime issues: {datetime_errors}")
-        else:
-            logger.warning("No datetime column found - all records will have NULL datetime")
-            df_cleaned["date_time"] = None
+        # Assign the processed datetimes back to the dataframe
+        df_cleaned['date_time'] = formatted_datetimes
 
-        # Remove rows with invalid sample IDs (but keep datetime NULL rows)
-        valid_mask = (
-                df_cleaned["sample_id"].notna() &
-                (df_cleaned["sample_id"] != "") &
-                (df_cleaned["sample_id"] != "nan")
-        )
-        df_valid = df_cleaned[valid_mask].copy()
-
-        invalid_count = len(df_cleaned) - len(df_valid)
-        datetime_null_count = sum(1 for d in df_valid["date_time"] if d is None)
-
-        logger.info(f"Rows with valid sample IDs: {len(df_valid)}")
-        logger.info(f"Rows with invalid sample IDs (will skip): {invalid_count}")
-        logger.info(f"Rows with NULL datetime (will import anyway): {datetime_null_count}")
-
-        # Ensure numeric columns are properly converted
+        # Convert numeric columns
         numeric_columns = [
             "cell_count", "viable_cells", "total_cells_per_ml", "viable_cells_per_ml",
             "viability", "average_diameter", "average_viable_diameter",
             "average_circularity", "average_viable_circularity"
         ]
+
         for col in numeric_columns:
-            if col in df_valid.columns:
-                df_valid[col] = pd.to_numeric(df_valid[col], errors="coerce")
+            if col in df_cleaned.columns:
+                df_cleaned[col] = pd.to_numeric(df_cleaned[col], errors="coerce")
 
-        # Replace NaN values with None
-        df_valid = df_valid.replace({np.nan: None})
+        # Assign sample_type based on predefined categories
+        def assign_sample_type(sample_id):
+            if isinstance(sample_id, str):
+                if sample_id.startswith("E"):
+                    return 1  # UP
+                elif sample_id.startswith("S"):
+                    return 2  # CLD
+            return 3  # Uncategorized
 
-        # Sort by datetime (nulls will go to end) - handle None values properly
-        def safe_sort_key(x):
-            if x is None or pd.isna(x):
-                return dt.min.replace(tzinfo=timezone.get_default_timezone())
-            return x
+        df_cleaned["sample_type"] = df_cleaned["sample_id"].apply(assign_sample_type)
 
-        df_sorted = df_valid.copy()
-        df_sorted['sort_key'] = df_sorted['date_time'].apply(safe_sort_key)
-        df_sorted = df_sorted.sort_values('sort_key', ascending=False).drop('sort_key', axis=1)
+        # Get the last imported record from database
+        latest_db_record = ViCellData.objects.order_by('-date_time').first()
+        latest_db_datetime = latest_db_record.date_time if latest_db_record else None
 
-        # Log date range for non-null dates
-        valid_dates = [d for d in df_sorted['date_time'] if d is not None]
-        if len(valid_dates) > 0:
-            logger.info(f"Date range for valid dates: {min(valid_dates)} to {max(valid_dates)}")
-        else:
-            logger.info("No valid dates found in file")
-
-        # ===== FIXED: Use sample_id checking instead of timestamp comparison =====
-        logger.info("Checking for existing sample IDs in database (no timestamp filtering)...")
-
-        # Get all existing sample IDs from database
-        existing_sample_ids = set(ViCellData.objects.values_list('sample_id', flat=True))
-        logger.info(f"Found {len(existing_sample_ids)} existing sample IDs in database")
-
-        # Filter out records that already exist (by sample_id, not timestamp)
-        new_records_df = df_sorted[~df_sorted['sample_id'].isin(existing_sample_ids)]
-        duplicate_count = len(df_sorted) - len(new_records_df)
-
-        logger.info(f"Found {len(new_records_df)} new records to import")
-        logger.info(f"Found {duplicate_count} duplicate sample IDs to skip")
-
-        if len(new_records_df) == 0:
-            return {
-                'imported': 0,
-                'failed': 0,
-                'skipped_invalid': invalid_count,
-                'skipped_duplicates': duplicate_count,
-                'datetime_errors': len(datetime_errors),
-                'message': 'No new records to import - all sample IDs already exist'
-            }
-
-        # Import records using bulk_create (much faster than one-by-one)
-        logger.info(f"Starting bulk import of {len(new_records_df)} records...")
-
-        records_to_create = []
-        record_creation_errors = []
-
-        for idx, row in new_records_df.iterrows():
-            try:
-                record = create_vicell_record(row.to_dict())
-                records_to_create.append(record)
-
-                if len(records_to_create) % 1000 == 0:
-                    logger.info(f"Prepared {len(records_to_create)} records for import...")
-
-            except Exception as e:
-                record_creation_errors.append({
-                    'sample_id': row.get('sample_id', 'Unknown'),
-                    'error': str(e)
-                })
-                logger.error(f"Error creating record for {row.get('sample_id', 'Unknown')}: {str(e)}")
-                continue
-
-        # Bulk create all records
+        # Import the data
         imported_count = 0
-        failed_count = len(record_creation_errors)
-        failed_records = record_creation_errors.copy()
+        failed_count = 0
+        duplicate_count = 0
+        failed_records = []
+        latest_imported = None
 
-        if records_to_create:
-            try:
-                created_records = ViCellData.objects.bulk_create(records_to_create, ignore_conflicts=True)
-                imported_count = len(created_records)
-                logger.info(f"Successfully bulk created {imported_count} records")
-            except Exception as e:
-                logger.error(f"Bulk create failed, falling back to individual saves: {str(e)}")
+        with transaction.atomic():
+            for idx, row in df_cleaned.iterrows():
+                try:
+                    # Skip if datetime is null
+                    if pd.isna(row['date_time']):
+                        continue
 
-                # Fallback to individual saves if bulk create fails
-                for record in records_to_create:
-                    try:
-                        record.save()
-                        imported_count += 1
-                        if imported_count % 100 == 0:
-                            logger.info(f"Imported {imported_count} records so far...")
-                    except Exception as save_error:
+                    # Skip if we already have this record (based on datetime)
+                    if latest_db_datetime and row['date_time'] and row['date_time'] <= latest_db_datetime:
+                        duplicate_count += 1
+                        continue
+
+                    # Parse sample name
+                    parsed = parse_sample_name(row.get('sample_id', ''))
+
+                    # Create the ViCellData object
+                    vicell_data = ViCellData(
+                        sample_id=row.get('sample_id'),
+                        cell_count=row.get('cell_count'),
+                        viable_cells=row.get('viable_cells'),
+                        total_cells_per_ml=row.get('total_cells_per_ml'),
+                        viable_cells_per_ml=row.get('viable_cells_per_ml'),
+                        viability=row.get('viability'),
+                        average_diameter=row.get('average_diameter'),
+                        average_viable_diameter=row.get('average_viable_diameter'),
+                        average_circularity=row.get('average_circularity'),
+                        average_viable_circularity=row.get('average_viable_circularity'),
+                        date_time=row.get('date_time'),
+                        sample_type=row.get('sample_type', 3),
+                        experiment=parsed['experiment'],
+                        day=parsed['day'],
+                        reactor_type=parsed['reactor_type'],
+                        reactor_number=parsed['reactor_number'],
+                        special=parsed['special']
+                    )
+
+                    vicell_data.save()
+                    imported_count += 1
+
+                    # Track the latest imported datetime
+                    if row['date_time']:
+                        if latest_imported is None or row['date_time'] > latest_imported:
+                            latest_imported = row['date_time']
+
+                except IntegrityError as e:
+                    if 'unique constraint' in str(e).lower():
+                        duplicate_count += 1
+                    else:
                         failed_count += 1
                         failed_records.append({
-                            'sample_id': record.sample_id,
-                            'date_time': str(record.date_time) if record.date_time else 'NULL',
-                            'error': str(save_error)
+                            'row_index': idx,
+                            'sample_id': row.get('sample_id', f'Row {idx}'),
+                            'error': str(e)
                         })
-                        logger.error(f"Failed to save {record.sample_id}: {str(save_error)}")
+                except Exception as e:
+                    failed_count += 1
+                    failed_records.append({
+                        'row_index': idx,
+                        'sample_id': row.get('sample_id', f'Row {idx}'),
+                        'error': str(e)
+                    })
 
-        logger.info(f"Import completed: {imported_count} imported, {failed_count} failed")
+        # Convert latest_imported to string if it exists
+        if latest_imported:
+            latest_imported = latest_imported.isoformat() if hasattr(latest_imported, 'isoformat') else str(
+                latest_imported)
 
-        # Convert latest_imported to string for JSON serialization
-        latest_imported = None
-        if imported_count > 0 and len(new_records_df) > 0:
-            latest_date = new_records_df.iloc[0]['date_time']
-            if latest_date is not None:
-                latest_imported = latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date)
+        logger.info(f"Import completed: {imported_count} imported, {failed_count} failed, {duplicate_count} duplicates")
 
         return {
             'imported': imported_count,
             'failed': failed_count,
-            'skipped_invalid': invalid_count,
+            'skipped_invalid': 0,
             'skipped_duplicates': duplicate_count,
             'datetime_errors': len(datetime_errors),
             'datetime_error_samples': datetime_errors,
@@ -501,7 +416,7 @@ def get_vicell_import_status():
 # Initialize the Dash app
 app = DjangoDash("ViCellImportMonitorSimplified")
 
-# Layout (same as before)
+# Layout
 app.layout = html.Div(
     style={
         "fontFamily": "Arial, sans-serif",
@@ -529,86 +444,97 @@ app.layout = html.Div(
                             "Refresh",
                             id="refresh-vicell-btn",
                             style={
-                                "marginRight": "10px",
-                                "padding": "10px 20px",
                                 "backgroundColor": "#0047b3",
                                 "color": "white",
                                 "border": "none",
                                 "borderRadius": "5px",
-                                "cursor": "pointer"
+                                "padding": "10px 20px",
+                                "fontSize": "16px",
+                                "cursor": "pointer",
+                                "marginRight": "10px"
                             }
                         ),
                         html.Button(
                             "Run Import",
                             id="run-vicell-import-btn",
                             style={
-                                "padding": "10px 20px",
                                 "backgroundColor": "#28a745",
                                 "color": "white",
                                 "border": "none",
                                 "borderRadius": "5px",
+                                "padding": "10px 20px",
+                                "fontSize": "16px",
                                 "cursor": "pointer"
                             }
-                        ),
+                        )
+                    ]
+                )
+            ]
+        ),
+
+        # Main content
+        html.Div(
+            style={
+                "display": "grid",
+                "gridTemplateColumns": "repeat(auto-fit, minmax(300px, 1fr))",
+                "gap": "20px",
+                "marginBottom": "30px"
+            },
+            children=[
+                # Status Card
+                html.Div(
+                    style={
+                        "backgroundColor": "white",
+                        "borderRadius": "8px",
+                        "padding": "20px",
+                        "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)"
+                    },
+                    children=[
+                        html.H3("Status", style={"color": "#0047b3", "marginBottom": "15px"}),
+                        html.Div(id="vicell-status")
+                    ]
+                ),
+
+                # Database Info Card
+                html.Div(
+                    style={
+                        "backgroundColor": "white",
+                        "borderRadius": "8px",
+                        "padding": "20px",
+                        "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)"
+                    },
+                    children=[
+                        html.H3("Database Info", style={"color": "#0047b3", "marginBottom": "15px"}),
+                        html.Div(id="database-info")
+                    ]
+                ),
+
+                # Last Import Card
+                html.Div(
+                    style={
+                        "backgroundColor": "white",
+                        "borderRadius": "8px",
+                        "padding": "20px",
+                        "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)"
+                    },
+                    children=[
+                        html.H3("Last Import", style={"color": "#0047b3", "marginBottom": "15px"}),
+                        html.Div(id="last-import-details")
                     ]
                 ),
             ]
         ),
 
-        # Status Section
-        html.Div(
-            style={
-                "backgroundColor": "white",
-                "padding": "20px",
-                "borderRadius": "8px",
-                "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)",
-                "marginBottom": "20px"
-            },
-            children=[
-                html.H3("Import Status", style={"color": "#0047b3", "marginBottom": "20px"}),
-                html.Div(id="vicell-status"),
-            ]
+        # Hidden div for import trigger
+        html.Div(id="import-trigger-vicell", style={"display": "none"}),
+
+        # Auto-refresh
+        dcc.Interval(
+            id="interval-vicell",
+            interval=10 * 1000,  # Update every 10 seconds
+            n_intervals=0
         ),
-
-        # Database Info Section
-        html.Div(
-            style={
-                "backgroundColor": "white",
-                "padding": "20px",
-                "borderRadius": "8px",
-                "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)",
-                "marginBottom": "20px"
-            },
-            children=[
-                html.H3("Database Status", style={"color": "#0047b3", "marginBottom": "20px"}),
-                html.Div(id="database-info"),
-            ]
-        ),
-
-        # Last Import Details
-        html.Div(
-            style={
-                "backgroundColor": "white",
-                "padding": "20px",
-                "borderRadius": "8px",
-                "boxShadow": "0px 2px 5px rgba(0, 0, 0, 0.1)",
-            },
-            children=[
-                html.H3("Last Import Details", style={"color": "#0047b3", "marginBottom": "20px"}),
-                html.Div(id="last-import-details"),
-
-                # Hidden div for import trigger
-                html.Div(id="import-trigger-vicell", style={"display": "none"}),
-
-                # Auto-refresh
-                dcc.Interval(
-                    id="interval-vicell",
-                    interval=10 * 1000,  # Update every 10 seconds
-                    n_intervals=0
-                ),
-            ],
-        ),
-    ],
+    ]
 )
 
 
