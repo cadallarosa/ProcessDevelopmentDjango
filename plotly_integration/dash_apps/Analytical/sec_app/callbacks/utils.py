@@ -39,24 +39,24 @@ def update_sample_and_std_details(selected_report):
     ]
     report_id = selected_report
 
-    if not report_id:
-        return default_data
+    # if not report_id:
+    #     return default_data
 
     report = Report.objects.filter(report_id=report_id).first()
 
-    if not report:
-        return default_data
+    # if not report:
+    #     return default_data
 
     # Fetch the first sample name from the report's selected samples
     selected_result_ids = [sample.strip() for sample in report.selected_result_ids.split(",") if sample.strip()]
-    if not selected_result_ids:
-        return default_data
+    # if not selected_result_ids:
+    #     return default_data
 
     first_sample_name = selected_result_ids[0]
     sample_metadata = SampleMetadata.objects.filter(result_id=first_sample_name).first()
 
-    if not sample_metadata:
-        return default_data
+    # if not sample_metadata:
+    #     return default_data
 
     # Extract details from the `SampleMetadata` model
     sample_set_name = sample_metadata.sample_set_name or "N/A"
@@ -75,20 +75,68 @@ def update_sample_and_std_details(selected_report):
     ]
 
 
+# @app.callback(
+#     [Output("download-hmw-data", "data")],
+#     [
+#         Input("export-button", "n_clicks"),
+#     ],
+#     [
+#         State("hmw-table", "data"),
+#         State('selected-report', 'data')
+#     ],  # Use the stored selected report
+#     prevent_initial_call=True
+# )
+# def export_to_xlsx(n_clicks, table_data, selected_report):
+#     if not table_data:
+#         return dash.no_update  # Do nothing if the table is empty
+#
+#     print(selected_report)
+#     # Fetch report details from the database
+#     report = Report.objects.filter(report_id=int(selected_report)).first()
+#     print(report)
+#     print(report.project_id)
+#     print(report.report_name)
+#
+#     if not report:
+#         return dash.no_update
+#
+#     # Get current date
+#     current_date = datetime.now().strftime("%Y%m%d")
+#
+#     # Build the file name
+#     file_name = f"{current_date}-{report.project_id}-{report.report_name}.xlsx"
+#     print(file_name)
+#
+#     # Convert table data to a pandas DataFrame
+#     df = pd.DataFrame(table_data)
+#
+#     # Use Dash's `send_data_frame` to export the DataFrame as an XLSX file
+#     return [dcc.send_data_frame(df.to_excel, file_name, index=False)]
+
+
 @app.callback(
-    [Output("download-hmw-data", "data")],
-    [
-        Input("export-button", "n_clicks"),
-    ],
-    [
-        State("hmw-table", "data"),
-        State('selected-report', 'data')
-    ],  # Use the stored selected report
+    [Output("download-hmw-data", "data"),
+     Output("export-state", "data")],
+    [Input("export-button", "n_clicks")],
+    [State("hmw-table", "data"),
+     State('selected-report', 'data'),
+     State('export-state', 'data')],
     prevent_initial_call=True
 )
-def export_to_xlsx(n_clicks, table_data, selected_report):
+def export_to_xlsx(n_clicks, table_data, selected_report, export_state):
+    # Initialize n_clicks if None
+    n_clicks = n_clicks or 0
+
+    # Get the last processed n_clicks
+    last_n_clicks = export_state.get('last_n_clicks', 0)
+
+    # Check if this is a new click
+    if n_clicks <= last_n_clicks:
+        return dash.no_update, dash.no_update
+
     if not table_data:
-        return dash.no_update  # Do nothing if the table is empty
+        # Update state even if no data to prevent re-triggering
+        return dash.no_update, {'processed': True, 'last_n_clicks': n_clicks}
 
     print(selected_report)
     # Fetch report details from the database
@@ -98,7 +146,7 @@ def export_to_xlsx(n_clicks, table_data, selected_report):
     print(report.report_name)
 
     if not report:
-        return dash.no_update
+        return dash.no_update, {'processed': True, 'last_n_clicks': n_clicks}
 
     # Get current date
     current_date = datetime.now().strftime("%Y%m%d")
@@ -110,8 +158,8 @@ def export_to_xlsx(n_clicks, table_data, selected_report):
     # Convert table data to a pandas DataFrame
     df = pd.DataFrame(table_data)
 
-    # Use Dash's `send_data_frame` to export the DataFrame as an XLSX file
-    return [dcc.send_data_frame(df.to_excel, file_name, index=False)]
+    # Return download and update state
+    return dcc.send_data_frame(df.to_excel, file_name, index=False), {'processed': True, 'last_n_clicks': n_clicks}
 
 
 # @app.callback(

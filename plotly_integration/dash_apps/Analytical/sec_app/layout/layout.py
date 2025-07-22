@@ -15,6 +15,7 @@ app_layout = html.Div([
     dcc.Store(id='low-mw-cutoff-store', data=12),  # Default value for low MW cutoff
     dcc.Store(id='hmw-table-store', data=[]),
     dcc.Store(id='report-list-store', data=[]),
+    dcc.Store(id='export-state', data={'processed': True, 'last_n_clicks': 0}),
 
     # Top-left Home Button
     html.Div([

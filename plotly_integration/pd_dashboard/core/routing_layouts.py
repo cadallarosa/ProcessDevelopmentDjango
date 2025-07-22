@@ -666,6 +666,10 @@ def create_page_router(app):
             usp_nova_url = "/plotly_integration/dash-app/app/NovaDataReportApp/"
             return create_full_screen_app("USP Nova", usp_nova_url, "refresh-usp-nova")
 
+        elif pathname == "/usp/nova-data-table":
+            usp_nova_url = "/plotly_integration/dash-app/app/NovaFlex2DataViewerApp/"
+            return create_full_screen_app("USP Nova Data", usp_nova_url, "refresh-usp-nova-data")
+
         # DSP Create DN Route
         elif pathname == "/dsp/create-dn":
             dn_url = "/plotly_integration/dash-app/app/DnAssignmentApp/"

@@ -56,7 +56,8 @@ def create_sidebar_navigation():
                 {'name': 'View Samples', 'href': '#!/usp/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/usp/sample-sets', 'icon': 'fa-layer-group'},
                 {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'},
-                {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'}
+                {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'},
+                {'name': 'Nova Data View', 'href': '#!/usp/nova-data-table', 'icon': 'fa-microscope'}
             ]
         },
         {
