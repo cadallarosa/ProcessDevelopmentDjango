@@ -53,65 +53,65 @@ app.layout = html.Div([
     dcc.Store(id='button-success-trigger', data=0),
     dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
 
-    # Modal for Create Report iframe
-    html.Div(
-        id="create-report-modal",
-        style={
-            "display": "none",
-            "position": "fixed",
-            "top": "0",
-            "left": "0",
-            "width": "100%",
-            "height": "100%",
-            "backgroundColor": "rgba(0, 0, 0, 0.5)",
-            "zIndex": "1000"
-        },
-        children=[
-            html.Div(
-                style={
-                    "position": "relative",
-                    "margin": "5% auto",
-                    "width": "1300px",
-                    "maxWidth": "90%",
-                    "height": "80%",
-                    "backgroundColor": "white",
-                    "borderRadius": "10px",
-                    "padding": "20px",
-                    "boxShadow": "0 5px 15px rgba(0,0,0,0.3)"
-                },
-                children=[
-                    html.Button(
-                        "✕",
-                        id="close-modal-btn",
-                        style={
-                            "position": "absolute",
-                            "top": "10px",
-                            "right": "10px",
-                            "fontSize": "24px",
-                            "border": "none",
-                            "backgroundColor": "transparent",
-                            "cursor": "pointer",
-                            "color": "#666",
-                            "hover": {"color": "#000"}
-                        }
-                    ),
-                    html.H3("Create New Report", style={"marginBottom": "20px", "color": "#0056b3"}),
-                    html.Iframe(
-                        src="/plotly_integration/dash-app/app/CreateTiterReportApp/",
-                        style={
-                            "width": "100%",
-                            "height": "calc(100% - 60px)",
-                            "border": "none"
-                        }
-                    )
-                ]
-            )
-        ]
-    ),
+    # # Modal for Create Report iframe
+    # html.Div(
+    #     id="create-report-modal",
+    #     style={
+    #         "display": "none",
+    #         "position": "fixed",
+    #         "top": "0",
+    #         "left": "0",
+    #         "width": "100%",
+    #         "height": "100%",
+    #         "backgroundColor": "rgba(0, 0, 0, 0.5)",
+    #         "zIndex": "1000"
+    #     },
+    #     children=[
+    #         html.Div(
+    #             style={
+    #                 "position": "relative",
+    #                 "margin": "5% auto",
+    #                 "width": "1300px",
+    #                 "maxWidth": "90%",
+    #                 "height": "80%",
+    #                 "backgroundColor": "white",
+    #                 "borderRadius": "10px",
+    #                 "padding": "20px",
+    #                 "boxShadow": "0 5px 15px rgba(0,0,0,0.3)"
+    #             },
+    #             children=[
+    #                 html.Button(
+    #                     "✕",
+    #                     id="close-modal-btn",
+    #                     style={
+    #                         "position": "absolute",
+    #                         "top": "10px",
+    #                         "right": "10px",
+    #                         "fontSize": "24px",
+    #                         "border": "none",
+    #                         "backgroundColor": "transparent",
+    #                         "cursor": "pointer",
+    #                         "color": "#666",
+    #                         "hover": {"color": "#000"}
+    #                     }
+    #                 ),
+    #                 html.H3("Create New Report", style={"marginBottom": "20px", "color": "#0056b3"}),
+    #                 html.Iframe(
+    #                     src="/plotly_integration/dash-app/app/CreateTiterReportApp/",
+    #                     style={
+    #                         "width": "100%",
+    #                         "height": "calc(100% - 60px)",
+    #                         "border": "none"
+    #                     }
+    #                 )
+    #             ]
+    #         )
+    #     ]
+    # ),
 
     # Modal for Select Report
     html.Div(
-        id="select-report-modal",
+        id="report-modal",
         style={
             "display": "none",
             "position": "fixed",
@@ -140,7 +140,7 @@ app.layout = html.Div([
                 children=[
                     html.Button(
                         "✕",
-                        id="close-select-report-btn",
+                        id="close-report-modal-btn",
                         style={
                             "position": "absolute",
                             "top": "10px",
@@ -152,87 +152,150 @@ app.layout = html.Div([
                             "color": "#666"
                         }
                     ),
-                    html.H3("Select a Report", style={
-                        "marginBottom": "20px",
-                        "color": "#0056b3",
-                        "textAlign": "center"
-                    }),
-                    html.Div(
-                        style={
-                            "flex": "1",
-                            "overflow": "auto",
-                            "marginBottom": "60px"
-                        },
+                    html.H3("Report Management",
+                            style={"marginBottom": "20px", "color": "#0056b3", "textAlign": "center"}),
+
+                    # Tabs for Select/Create
+                    dcc.Tabs(
+                        id="report-tabs",
+                        value="select-tab",
                         children=[
-                            dash_table.DataTable(
-                                id='report-selection-table',
-                                columns=[
-                                    {"name": "Report ID", "id": "report_id"},
-                                    {"name": "Report Name", "id": "report_name"},
-                                    {"name": "Project ID", "id": "project_id"},
-                                    {"name": "Created By", "id": "user_id"},
-                                    {"name": "Date Created", "id": "date_created"},
-                                ],
-                                row_selectable="single",
-                                filter_action="native",
-                                sort_action="native",
-                                page_action="native",
-                                page_size=20,
-                                style_table={
-                                    'overflowX': 'auto',
-                                    'borderRadius': '5px',
-                                    'height': '100%'
-                                },
-                                style_cell={
-                                    'textAlign': 'center',
-                                    'padding': '12px',
-                                    'fontSize': '14px',
-                                    'fontFamily': 'system-ui, -apple-system, sans-serif'
-                                },
-                                style_header={
-                                    'backgroundColor': '#f8f9fa',
-                                    'fontWeight': '600',
-                                    'borderBottom': '2px solid #dee2e6',
-                                    'color': '#495057'
-                                },
-                                style_data={
-                                    'borderBottom': '1px solid #e9ecef',
-                                    'color': '#212529'
-                                },
-                                style_data_conditional=[
-                                    {
-                                        'if': {'row_index': 'odd'},
-                                        'backgroundColor': '#f8f9fa',
-                                    },
-                                    {
-                                        'if': {'state': 'selected'},
-                                        'backgroundColor': '#e3f2fd',
-                                        'border': '1px solid #0056b3',
-                                    }
-                                ],
-                                style_filter={
-                                    'backgroundColor': '#f8f9fa',
-                                }
+                            dcc.Tab(
+                                label="Select Report",
+                                value="select-tab",
+                                style={"height": "100%"},
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "padding": "20px",
+                                            "height": "100%",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "boxSizing": "border-box"
+                                        },
+                                        children=[
+                                            html.H4("Select an Existing Report",
+                                                    style={'marginBottom': '20px', 'color': '#0056b3'}),
+
+                                            # Table container that grows to fill available space
+                                            html.Div(
+                                                style={
+                                                    "flexGrow": 1,
+                                                    "marginBottom": "20px",
+                                                    "minHeight": 0  # Important for Firefox
+                                                },
+                                                children=[
+                                                    dash_table.DataTable(
+                                                        id='report-selection-table',
+                                                        columns=[
+                                                            {"name": "Report ID", "id": "report_id"},
+                                                            {"name": "Report Name", "id": "report_name"},
+                                                            {"name": "Project ID", "id": "project_id"},
+                                                            {"name": "Created By", "id": "user_id"},
+                                                            {"name": "Date Created", "id": "date_created"},
+                                                        ],
+                                                        data=[],
+                                                        row_selectable="single",
+                                                        selected_rows=[],
+                                                        filter_action="native",
+                                                        sort_action="native",
+                                                        page_action="native",
+                                                        page_size=15,  # Increased page size
+                                                        fixed_rows={'headers': True},
+                                                        style_table={
+                                                            'height': '105%',  # Take full height of container
+                                                            'overflowY': 'auto',
+                                                            'overflowX': 'auto',
+                                                            'borderRadius': '5px'
+                                                        },
+                                                        style_cell={
+                                                            'textAlign': 'center',
+                                                            'padding': '12px',
+                                                            'fontSize': '14px',
+                                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                        },
+                                                        style_header={
+                                                            'backgroundColor': '#f8f9fa',
+                                                            'fontWeight': '600',
+                                                            'borderBottom': '2px solid #dee2e6'
+                                                        },
+                                                        style_data={
+                                                            'borderBottom': '1px solid #dee2e6'
+                                                        },
+                                                        style_data_conditional=[
+                                                            {
+                                                                'if': {'row_index': 'odd'},
+                                                                'backgroundColor': '#f8f9fa'
+                                                            }
+                                                        ]
+                                                    )
+                                                ]
+                                            ),
+
+                                            # Buttons at the bottom
+                                            html.Div(
+                                                style={'display': 'flex', 'justifyContent': 'flex-end', 'gap': '10px'},
+                                                children=[
+                                                    html.Button(
+                                                        "Cancel",
+                                                        id="cancel-select-btn",
+                                                        style={
+                                                            'backgroundColor': '#6c757d',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                    html.Button(
+                                                        "Confirm Selection",
+                                                        id="confirm-report-selection",
+                                                        style={
+                                                            'backgroundColor': '#0056b3',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            ),
+                            dcc.Tab(
+                                label="Create Report",
+                                value="create-tab",
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "height": "calc(100vh - 300px)",
+                                            # Adjusted to account for modal padding and header
+                                            "overflow": "hidden"  # Prevent overflow
+                                        },
+                                        children=[
+                                            html.Iframe(
+                                                src="/plotly_integration/dash-app/app/CreateTiterReportApp/",
+                                                style={
+                                                    "width": "100%",
+                                                    "height": "100%",
+                                                    "border": "none",
+                                                    "display": "block"
+                                                }
+                                            )
+                                        ]
+                                    )
+                                ]
                             )
                         ]
-                    ),
-                    html.Button("Select Report",
-                                id="confirm-report-selection",
-                                style={
-                                    'backgroundColor': '#0056b3',
-                                    'color': 'white',
-                                    'border': 'none',
-                                    'padding': '10px 30px',
-                                    'fontSize': '14px',
-                                    'cursor': 'pointer',
-                                    'borderRadius': '5px',
-                                    'fontWeight': '500',
-                                    'position': 'absolute',
-                                    'bottom': '20px',
-                                    'right': '20px',
-                                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                                }
-                                )
+                    )
                 ]
             )
         ]
@@ -256,26 +319,41 @@ app.layout = html.Div([
                 id='left-toolbar',
                 style={'display': 'flex', 'gap': '10px', 'alignItems': 'center'},
                 children=[
-                    html.Button([
-                        html.Span("➕ ", style={'marginRight': '5px'}),
-                        "Create New Report"
-                    ], id="create-report-btn", style={
-                        'backgroundColor': '#0056b3',
-                        'color': 'white',
-                        'border': 'none',
-                        'padding': '10px 20px',
-                        'fontSize': '14px',
-                        'cursor': 'pointer',
-                        'borderRadius': '5px',
-                        'fontWeight': '500',
-                        'transition': 'all 0.3s ease',
-                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    }),
+                    # html.Button([
+                    #     html.Span("➕ ", style={'marginRight': '5px'}),
+                    #     "Create New Report"
+                    # ], id="create-report-btn", style={
+                    #     'backgroundColor': '#0056b3',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
+                    # html.Button([
+                    #     html.Span("📊 ", style={'marginRight': '5px'}),
+                    #     "Select Report"
+                    # ], id="change-report-btn", style={
+                    #     'backgroundColor': '#6c757d',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
                     html.Button([
                         html.Span("📊 ", style={'marginRight': '5px'}),
-                        "Select Report"
-                    ], id="change-report-btn", style={
-                        'backgroundColor': '#6c757d',
+                        "Select/Create Report"
+                    ], id="select-create-report-btn", style={
+                        'backgroundColor': '#0056b3',
                         'color': 'white',
                         'border': 'none',
                         'padding': '10px 20px',
@@ -299,7 +377,7 @@ app.layout = html.Div([
                 children=[
                     html.Button([
                         html.Span("💾 ", style={'marginRight': '5px'}),
-                        "Save Settings"
+                        "Save Report Settings"
                     ], id="save-settings-btn", style={
                         'backgroundColor': '#28a745',
                         'color': 'white',
@@ -314,7 +392,7 @@ app.layout = html.Div([
                     }),
                     html.Button([
                         html.Span("🔗 ", style={'marginRight': '5px'}),
-                        "Link Results"
+                        "Report Results"
                     ], id="save-to-lims-btn", style={
                         'backgroundColor': '#17a2b8',
                         'color': 'white',
@@ -327,21 +405,21 @@ app.layout = html.Div([
                         'transition': 'all 0.3s ease',
                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
-                    html.Button([
-                        html.Span("📄 ", style={'marginRight': '5px'}),
-                        "Create PDF Report"
-                    ], id="create-pdf-btn", style={
-                        'backgroundColor': '#dc3545',
-                        'color': 'white',
-                        'border': 'none',
-                        'padding': '10px 20px',
-                        'fontSize': '14px',
-                        'cursor': 'pointer',
-                        'borderRadius': '5px',
-                        'fontWeight': '500',
-                        'transition': 'all 0.3s ease',
-                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    }),
+                    # html.Button([
+                    #     html.Span("📄 ", style={'marginRight': '5px'}),
+                    #     "Create PDF Report"
+                    # ], id="create-pdf-btn", style={
+                    #     'backgroundColor': '#dc3545',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
 
                 ]
             )
@@ -792,48 +870,25 @@ def update_toolbar_visibility(embedded):
         return create_btn_style, select_btn_style
 
 
-# Callback to show/hide Create Report modal
 @app.callback(
-    Output("create-report-modal", "style"),
-    [Input("create-report-btn", "n_clicks"),
-     Input("close-modal-btn", "n_clicks")],
-    [State("create-report-modal", "style")],
-    prevent_initial_call=True
-)
-def toggle_modal(open_clicks, close_clicks, current_style):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return current_style
-
-    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-    if button_id == "create-report-btn":
-        return {**current_style, "display": "block"}
-    elif button_id == "close-modal-btn":
-        return {**current_style, "display": "none"}
-
-    return current_style
-
-
-# Callback to show/hide Select Report modal
-@app.callback(
-    [Output("select-report-modal", "style"),
+    [Output("report-modal", "style"),
      Output("current-report-text", "children")],
-    [Input("change-report-btn", "n_clicks"),
-     Input("close-select-report-btn", "n_clicks"),
+    [Input("select-create-report-btn", "n_clicks"),
+     Input("close-report-modal-btn", "n_clicks"),
+     Input("cancel-select-btn", "n_clicks"),
      Input("confirm-report-selection", "n_clicks"),
      Input("load-once", "n_intervals"),
      Input("url-params", "data")],
-    [State("select-report-modal", "style"),
+    [State("report-modal", "style"),
      State("selected-report", "data"),
      State("report-selection-table", "selected_rows"),
      State("report-selection-table", "data"),
      State("embedded-mode", "data")],
     prevent_initial_call=False
 )
-def toggle_select_report_modal(change_clicks, close_clicks, confirm_clicks, load_interval,
-                               url_params, current_style, selected_report, selected_rows,
-                               table_data, embedded):
+def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
+                        url_params, current_style, selected_report, selected_rows,
+                        table_data, embedded):
     ctx = dash.callback_context
 
     # Get the ID of the component that triggered the callback
@@ -842,37 +897,152 @@ def toggle_select_report_modal(change_clicks, close_clicks, confirm_clicks, load
     else:
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    # Check if report_id is provided in URL
-    if triggered_id == "url-params" and url_params.get('report_id'):
-        report_id = url_params['report_id']
-        report = Report.objects.filter(report_id=report_id).first()
-        if report:
-            return current_style, f"{report.project_id} - {report.report_name}"
+    # Initial load with URL params
+    if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
+        report_id = url_params.get("report_id")
+        try:
+            report = Report.objects.get(report_id=int(report_id))
+            return current_style, f"{report.report_name}"
+        except Report.DoesNotExist:
+            return current_style, "Invalid report ID"
 
-    # Check if no report is selected on initial load (but not in embedded mode)
-    if triggered_id == "load-once" and not selected_report and not embedded:
-        return {**current_style, "display": "block"}, "No report selected"
-
-    if not ctx.triggered:
-        return current_style, "No report selected"
-
-    if triggered_id == "change-report-btn":
+    # Handle button clicks
+    if triggered_id == "select-create-report-btn":
         return {**current_style, "display": "block"}, dash.no_update
-    elif triggered_id == "close-select-report-btn":
-        return {**current_style, "display": "none"}, dash.no_update
-    elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
-        # Get selected report info
-        selected = table_data[selected_rows[0]]
-        report_text = f"{selected['project_id']} - {selected['report_name']}"
-        return {**current_style, "display": "none"}, report_text
 
-    # Update report text if report is selected
+    elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
+        return {**current_style, "display": "none"}, dash.no_update
+
+    elif triggered_id == "confirm-report-selection" and selected_rows:
+        selected_report_data = table_data[selected_rows[0]]
+        report_name = selected_report_data.get("report_name", "Unknown Report")
+        return {**current_style, "display": "none"}, f"{report_name}"
+
+    # Default: show report name if selected
     if selected_report:
-        report = Report.objects.filter(report_id=selected_report).first()
-        if report:
-            return current_style, f"{report.project_id} - {report.report_name}"
+        try:
+            report = Report.objects.get(report_id=int(selected_report))
+            return current_style, f"{report.report_name}"
+        except Report.DoesNotExist:
+            return current_style, "Invalid report"
 
     return current_style, "No report selected"
+
+
+@app.callback(
+    Output("report-selection-table", "data"),
+    [Input("report-modal", "style"),
+     Input("report-tabs", "value")],  # Trigger when modal opens or tab changes
+    prevent_initial_call=True
+)
+def populate_report_table(modal_style, active_tab):
+    """Populate the report selection table when the modal is opened and select tab is active"""
+
+    # Only populate if modal is visible and we're on the select tab
+    if modal_style.get("display") == "block" and active_tab == "select-tab":
+        try:
+            # Fetch all reports with analysis_type=2 for Titer
+            reports = Report.objects.filter(analysis_type=2).order_by('-date_created')
+
+            report_data = []
+            for report in reports:
+                report_data.append({
+                    "report_id": report.report_id,
+                    "report_name": report.report_name,
+                    "project_id": report.project_id,
+                    "user_id": report.user_id,
+                    "date_created": report.date_created.strftime("%Y-%m-%d %H:%M") if report.date_created else ""
+                })
+
+            return report_data
+        except Exception as e:
+            print(f"Error fetching reports: {e}")
+            return []
+
+    return dash.no_update
+
+
+# # Callback to show/hide Create Report modal
+# @app.callback(
+#     Output("create-report-modal", "style"),
+#     [Input("create-report-btn", "n_clicks"),
+#      Input("close-modal-btn", "n_clicks")],
+#     [State("create-report-modal", "style")],
+#     prevent_initial_call=True
+# )
+# def toggle_modal(open_clicks, close_clicks, current_style):
+#     ctx = dash.callback_context
+#     if not ctx.triggered:
+#         return current_style
+#
+#     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+#
+#     if button_id == "create-report-btn":
+#         return {**current_style, "display": "block"}
+#     elif button_id == "close-modal-btn":
+#         return {**current_style, "display": "none"}
+#
+#     return current_style
+#
+#
+# # Callback to show/hide Select Report modal
+# @app.callback(
+#     [Output("select-report-modal", "style"),
+#      Output("current-report-text", "children")],
+#     [Input("change-report-btn", "n_clicks"),
+#      Input("close-select-report-btn", "n_clicks"),
+#      Input("confirm-report-selection", "n_clicks"),
+#      Input("load-once", "n_intervals"),
+#      Input("url-params", "data")],
+#     [State("select-report-modal", "style"),
+#      State("selected-report", "data"),
+#      State("report-selection-table", "selected_rows"),
+#      State("report-selection-table", "data"),
+#      State("embedded-mode", "data")],
+#     prevent_initial_call=False
+# )
+# def toggle_select_report_modal(change_clicks, close_clicks, confirm_clicks, load_interval,
+#                                url_params, current_style, selected_report, selected_rows,
+#                                table_data, embedded):
+#     ctx = dash.callback_context
+#
+#     # Get the ID of the component that triggered the callback
+#     if not ctx.triggered:
+#         triggered_id = None
+#     else:
+#         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+#
+#     # Check if report_id is provided in URL
+#     if triggered_id == "url-params" and url_params.get('report_id'):
+#         report_id = url_params['report_id']
+#         report = Report.objects.filter(report_id=report_id).first()
+#         if report:
+#             return current_style, f"{report.project_id} - {report.report_name}"
+#
+#     # Check if no report is selected on initial load (but not in embedded mode)
+#     if triggered_id == "load-once" and not selected_report and not embedded:
+#         return {**current_style, "display": "block"}, "No report selected"
+#
+#     if not ctx.triggered:
+#         return current_style, "No report selected"
+#
+#     if triggered_id == "change-report-btn":
+#         return {**current_style, "display": "block"}, dash.no_update
+#     elif triggered_id == "close-select-report-btn":
+#         return {**current_style, "display": "none"}, dash.no_update
+#     elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
+#         # Get selected report info
+#         selected = table_data[selected_rows[0]]
+#         report_text = f"{selected['project_id']} - {selected['report_name']}"
+#         return {**current_style, "display": "none"}, report_text
+#
+#     # Update report text if report is selected
+#     if selected_report:
+#         report = Report.objects.filter(report_id=selected_report).first()
+#         if report:
+#             return current_style, f"{report.project_id} - {report.report_name}"
+#
+#     return current_style, "No report selected"
 
 
 # Callback to save plot settings
@@ -1119,28 +1289,28 @@ def disable_interval_after_reset(n_intervals):
 
 
 # Populate report table
-@app.callback(
-    Output("report-selection-table", "data"),
-    [Input("load-once", "n_intervals"),
-     Input("change-report-btn", "n_clicks")]  # Added this input
-)
-def populate_report_table(load_interval, change_btn_clicks):
-    """Populate the report selection table on initial load and when modal is opened."""
-    reports = Report.objects.filter(analysis_type=2).order_by('-date_created').values(
-        "report_id", "report_name", "project_id", "user_id", "date_created"
-    )
-    data = []
-    for report in reports:
-        date = report["date_created"]
-        date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else "N/A"
-        data.append({
-            "report_id": report["report_id"],
-            "report_name": report["report_name"],
-            "project_id": report["project_id"],
-            "user_id": report["user_id"] or "N/A",
-            "date_created": date_str
-        })
-    return data
+# @app.callback(
+#     Output("report-selection-table", "data"),
+#     [Input("load-once", "n_intervals"),
+#      Input("change-report-btn", "n_clicks")]  # Added this input
+# )
+# def populate_report_table(load_interval, change_btn_clicks):
+#     """Populate the report selection table on initial load and when modal is opened."""
+#     reports = Report.objects.filter(analysis_type=2).order_by('-date_created').values(
+#         "report_id", "report_name", "project_id", "user_id", "date_created"
+#     )
+#     data = []
+#     for report in reports:
+#         date = report["date_created"]
+#         date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else "N/A"
+#         data.append({
+#             "report_id": report["report_id"],
+#             "report_name": report["report_name"],
+#             "project_id": report["project_id"],
+#             "user_id": report["user_id"] or "N/A",
+#             "date_created": date_str
+#         })
+#     return data
 
 
 # Store selected report
@@ -1302,241 +1472,241 @@ def plot_standard_time_series(report_clicks, selected_report):
 
 # Create PDF Report
 # Create PDF Report
-@app.callback(
-    [Output("download-pdf-report", "data"),
-     Output("status-message", "children", allow_duplicate=True),
-     Output("status-message", "style", allow_duplicate=True)],
-    [Input("create-pdf-btn", "n_clicks")],
-    [State("selected-report", "data"),
-     State("time-series-graph", "figure"),
-     State("result-table", "data"),
-     State("regression-plot", "figure"),
-     State("standard-table", "data"),
-     State("regression-equation", "children"),
-     State("r-squared-value", "children")],
-    prevent_initial_call=True
-)
-def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regression_fig,
-                      standard_data, regression_eq, r_squared):
-    print(f"PDF Report Debug - n_clicks: {n_clicks}")
-    print(f"PDF Report Debug - report_id: {report_id}")
-    print(f"PDF Report Debug - has chromatogram: {chromatogram_fig is not None}")
-    print(f"PDF Report Debug - result_data length: {len(result_data) if result_data else 0}")
-
-    if not n_clicks:
-        print("PDF Report Debug - No clicks, returning")
-        return dash.no_update, dash.no_update, dash.no_update
-
-    if not report_id:
-        print("PDF Report Debug - No report ID")
-        return dash.no_update, "⚠️ No report selected!", {
-            "display": "block",
-            "backgroundColor": "#f8d7da",
-            "color": "#721c24",
-            "border": "1px solid #f5c6cb"
-        }
-
-    try:
-        import io
-        import base64
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-
-        print("PDF Report Debug - ReportLab imported successfully")
-
-        try:
-            import plotly.io as pio
-            print("PDF Report Debug - Plotly.io imported successfully")
-        except ImportError as e:
-            print(f"PDF Report Debug - Plotly.io import error: {e}")
-            # Try alternative approach
-            pass
-
-        # Get report info
-        report = Report.objects.get(report_id=report_id)
-        print(f"PDF Report Debug - Report found: {report.report_name}")
-
-        # Create PDF buffer
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
-        story = []
-        styles = getSampleStyleSheet()
-
-        # Title
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#0056b3'),
-            spaceAfter=30,
-            alignment=1  # Center alignment
-        )
-        story.append(Paragraph("Titer Analysis Report", title_style))
-        story.append(Spacer(1, 12))
-
-        # Report info
-        info_style = ParagraphStyle(
-            'Info',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=6
-        )
-        story.append(Paragraph(f"<b>Project ID:</b> {report.project_id}", info_style))
-        story.append(Paragraph(f"<b>Report Name:</b> {report.report_name}", info_style))
-        story.append(Paragraph(f"<b>Date Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
-        story.append(Spacer(1, 20))
-
-        # Section 1: Chromatogram
-        story.append(Paragraph("Chromatogram", styles['Heading2']))
-        story.append(Spacer(1, 12))
-
-        # Convert plotly figure to image
-        if chromatogram_fig:
-            try:
-                print("PDF Report Debug - Attempting to convert chromatogram to image")
-                img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400)
-                img_buffer = io.BytesIO(img_bytes)
-                img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
-                story.append(img)
-                print("PDF Report Debug - Chromatogram added successfully")
-            except Exception as e:
-                print(f"PDF Report Debug - Error converting chromatogram: {e}")
-                story.append(Paragraph("Chromatogram could not be rendered", styles['Normal']))
-
-        story.append(Spacer(1, 20))
-
-        # Section 2: Analysis Results Table
-        story.append(Paragraph("Analysis Results", styles['Heading2']))
-        story.append(Spacer(1, 12))
-
-        if result_data:
-            print(f"PDF Report Debug - Creating table with {len(result_data)} rows")
-            # Create table data
-            table_data = [["Sample Name", "Dilution", "Concentration\n(mg/mL)", "Uncertainty", "LIMS Status"]]
-            for row in result_data:
-                if "Std_" not in row.get("Sample Name", ""):  # Exclude standards
-                    table_data.append([
-                        row.get("Sample Name", ""),
-                        str(row.get("Dilution Factor", "")),
-                        str(row.get("Concentration", "")),
-                        row.get("Uncertainty", ""),
-                        row.get("LIMS Status", "")
-                    ])
-
-            print(f"PDF Report Debug - Table has {len(table_data)} rows (including header)")
-
-            # Create table
-            t = Table(table_data, colWidths=[2 * inch, 0.8 * inch, 1.2 * inch, 1.5 * inch, 1 * inch])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ]))
-            story.append(t)
-
-        story.append(PageBreak())
-
-        # Section 3: Standard Analysis
-        story.append(Paragraph("Standard Analysis", styles['Heading2']))
-        story.append(Spacer(1, 12))
-
-        # Add regression equation and R²
-        story.append(Paragraph(f"<b>Regression Equation:</b> {regression_eq}", info_style))
-        story.append(Paragraph(f"<b>R² Value:</b> {r_squared}", info_style))
-        story.append(Spacer(1, 12))
-
-        # Add regression plot
-        if regression_fig:
-            try:
-                print("PDF Report Debug - Attempting to convert regression plot to image")
-                img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400)
-                img_buffer = io.BytesIO(img_bytes)
-                img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
-                story.append(img)
-                print("PDF Report Debug - Regression plot added successfully")
-            except Exception as e:
-                print(f"PDF Report Debug - Error converting regression plot: {e}")
-                story.append(Paragraph("Regression plot could not be rendered", styles['Normal']))
-
-        story.append(Spacer(1, 20))
-
-        # Standards table
-        if standard_data:
-            story.append(Paragraph("Standards Data", styles['Heading3']))
-            story.append(Spacer(1, 12))
-
-            table_data = [["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]]
-            for row in standard_data:
-                table_data.append([
-                    row.get("Sample Name", ""),
-                    str(row.get("Concentration (mg/mL)", "")),
-                    str(row.get("Main Peak Area", ""))
-                ])
-
-            t = Table(table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ]))
-            story.append(t)
-
-        # Build PDF
-        print("PDF Report Debug - Building PDF document")
-        doc.build(story)
-        buffer.seek(0)
-
-        # Create filename
-        filename = f"{datetime.now().strftime('%Y%m%d')}_{report.project_id}_{report.report_name}_Analysis.pdf"
-        print(f"PDF Report Debug - PDF created successfully, filename: {filename}")
-
-        return dcc.send_bytes(buffer.read(), filename), \
-            "✅ PDF report generated successfully!", \
-            {
-                "display": "block",
-                "backgroundColor": "#d4edda",
-                "color": "#155724",
-                "border": "1px solid #c3e6cb"
-            }
-
-    except ImportError as e:
-        print(f"PDF Report Debug - Import error: {e}")
-        return dash.no_update, \
-            "❌ Error: reportlab library not installed. Please install with: pip install reportlab plotly kaleido", \
-            {
-                "display": "block",
-                "backgroundColor": "#f8d7da",
-                "color": "#721c24",
-                "border": "1px solid #f5c6cb"
-            }
-    except Exception as e:
-        print(f"PDF Report Debug - General error: {e}")
-        import traceback
-        traceback.print_exc()
-        return dash.no_update, \
-            f"❌ Error generating PDF: {str(e)}", \
-            {
-                "display": "block",
-                "backgroundColor": "#f8d7da",
-                "color": "#721c24",
-                "border": "1px solid #f5c6cb"
-            }
+# @app.callback(
+#     [Output("download-pdf-report", "data"),
+#      Output("status-message", "children", allow_duplicate=True),
+#      Output("status-message", "style", allow_duplicate=True)],
+#     [Input("create-pdf-btn", "n_clicks")],
+#     [State("selected-report", "data"),
+#      State("time-series-graph", "figure"),
+#      State("result-table", "data"),
+#      State("regression-plot", "figure"),
+#      State("standard-table", "data"),
+#      State("regression-equation", "children"),
+#      State("r-squared-value", "children")],
+#     prevent_initial_call=True
+# )
+# def create_pdf_report(n_clicks, report_id, chromatogram_fig, result_data, regression_fig,
+#                       standard_data, regression_eq, r_squared):
+#     print(f"PDF Report Debug - n_clicks: {n_clicks}")
+#     print(f"PDF Report Debug - report_id: {report_id}")
+#     print(f"PDF Report Debug - has chromatogram: {chromatogram_fig is not None}")
+#     print(f"PDF Report Debug - result_data length: {len(result_data) if result_data else 0}")
+#
+#     if not n_clicks:
+#         print("PDF Report Debug - No clicks, returning")
+#         return dash.no_update, dash.no_update, dash.no_update
+#
+#     if not report_id:
+#         print("PDF Report Debug - No report ID")
+#         return dash.no_update, "⚠️ No report selected!", {
+#             "display": "block",
+#             "backgroundColor": "#f8d7da",
+#             "color": "#721c24",
+#             "border": "1px solid #f5c6cb"
+#         }
+#
+#     try:
+#         import io
+#         import base64
+#         from reportlab.lib import colors
+#         from reportlab.lib.pagesizes import letter, A4
+#         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+#         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+#         from reportlab.lib.units import inch
+#
+#         print("PDF Report Debug - ReportLab imported successfully")
+#
+#         try:
+#             import plotly.io as pio
+#             print("PDF Report Debug - Plotly.io imported successfully")
+#         except ImportError as e:
+#             print(f"PDF Report Debug - Plotly.io import error: {e}")
+#             # Try alternative approach
+#             pass
+#
+#         # Get report info
+#         report = Report.objects.get(report_id=report_id)
+#         print(f"PDF Report Debug - Report found: {report.report_name}")
+#
+#         # Create PDF buffer
+#         buffer = io.BytesIO()
+#         doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+#         story = []
+#         styles = getSampleStyleSheet()
+#
+#         # Title
+#         title_style = ParagraphStyle(
+#             'CustomTitle',
+#             parent=styles['Heading1'],
+#             fontSize=24,
+#             textColor=colors.HexColor('#0056b3'),
+#             spaceAfter=30,
+#             alignment=1  # Center alignment
+#         )
+#         story.append(Paragraph("Titer Analysis Report", title_style))
+#         story.append(Spacer(1, 12))
+#
+#         # Report info
+#         info_style = ParagraphStyle(
+#             'Info',
+#             parent=styles['Normal'],
+#             fontSize=12,
+#             spaceAfter=6
+#         )
+#         story.append(Paragraph(f"<b>Project ID:</b> {report.project_id}", info_style))
+#         story.append(Paragraph(f"<b>Report Name:</b> {report.report_name}", info_style))
+#         story.append(Paragraph(f"<b>Date Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", info_style))
+#         story.append(Spacer(1, 20))
+#
+#         # Section 1: Chromatogram
+#         story.append(Paragraph("Chromatogram", styles['Heading2']))
+#         story.append(Spacer(1, 12))
+#
+#         # Convert plotly figure to image
+#         if chromatogram_fig:
+#             try:
+#                 print("PDF Report Debug - Attempting to convert chromatogram to image")
+#                 img_bytes = pio.to_image(chromatogram_fig, format='png', width=700, height=400)
+#                 img_buffer = io.BytesIO(img_bytes)
+#                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
+#                 story.append(img)
+#                 print("PDF Report Debug - Chromatogram added successfully")
+#             except Exception as e:
+#                 print(f"PDF Report Debug - Error converting chromatogram: {e}")
+#                 story.append(Paragraph("Chromatogram could not be rendered", styles['Normal']))
+#
+#         story.append(Spacer(1, 20))
+#
+#         # Section 2: Analysis Results Table
+#         story.append(Paragraph("Analysis Results", styles['Heading2']))
+#         story.append(Spacer(1, 12))
+#
+#         if result_data:
+#             print(f"PDF Report Debug - Creating table with {len(result_data)} rows")
+#             # Create table data
+#             table_data = [["Sample Name", "Dilution", "Concentration\n(mg/mL)", "Uncertainty", "LIMS Status"]]
+#             for row in result_data:
+#                 if "Std_" not in row.get("Sample Name", ""):  # Exclude standards
+#                     table_data.append([
+#                         row.get("Sample Name", ""),
+#                         str(row.get("Dilution Factor", "")),
+#                         str(row.get("Concentration", "")),
+#                         row.get("Uncertainty", ""),
+#                         row.get("LIMS Status", "")
+#                     ])
+#
+#             print(f"PDF Report Debug - Table has {len(table_data)} rows (including header)")
+#
+#             # Create table
+#             t = Table(table_data, colWidths=[2 * inch, 0.8 * inch, 1.2 * inch, 1.5 * inch, 1 * inch])
+#             t.setStyle(TableStyle([
+#                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+#                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+#                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+#                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+#                 ('FONTSIZE', (0, 0), (-1, 0), 12),
+#                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+#                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+#                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+#                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+#                 ('FONTSIZE', (0, 1), (-1, -1), 10),
+#             ]))
+#             story.append(t)
+#
+#         story.append(PageBreak())
+#
+#         # Section 3: Standard Analysis
+#         story.append(Paragraph("Standard Analysis", styles['Heading2']))
+#         story.append(Spacer(1, 12))
+#
+#         # Add regression equation and R²
+#         story.append(Paragraph(f"<b>Regression Equation:</b> {regression_eq}", info_style))
+#         story.append(Paragraph(f"<b>R² Value:</b> {r_squared}", info_style))
+#         story.append(Spacer(1, 12))
+#
+#         # Add regression plot
+#         if regression_fig:
+#             try:
+#                 print("PDF Report Debug - Attempting to convert regression plot to image")
+#                 img_bytes = pio.to_image(regression_fig, format='png', width=700, height=400)
+#                 img_buffer = io.BytesIO(img_bytes)
+#                 img = Image(img_buffer, width=6.5 * inch, height=3.7 * inch)
+#                 story.append(img)
+#                 print("PDF Report Debug - Regression plot added successfully")
+#             except Exception as e:
+#                 print(f"PDF Report Debug - Error converting regression plot: {e}")
+#                 story.append(Paragraph("Regression plot could not be rendered", styles['Normal']))
+#
+#         story.append(Spacer(1, 20))
+#
+#         # Standards table
+#         if standard_data:
+#             story.append(Paragraph("Standards Data", styles['Heading3']))
+#             story.append(Spacer(1, 12))
+#
+#             table_data = [["Sample Name", "Concentration\n(mg/mL)", "Peak Area"]]
+#             for row in standard_data:
+#                 table_data.append([
+#                     row.get("Sample Name", ""),
+#                     str(row.get("Concentration (mg/mL)", "")),
+#                     str(row.get("Main Peak Area", ""))
+#                 ])
+#
+#             t = Table(table_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
+#             t.setStyle(TableStyle([
+#                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+#                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#495057')),
+#                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+#                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+#                 ('FONTSIZE', (0, 0), (-1, 0), 12),
+#                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+#                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+#                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+#                 ('FONTSIZE', (0, 1), (-1, -1), 10),
+#             ]))
+#             story.append(t)
+#
+#         # Build PDF
+#         print("PDF Report Debug - Building PDF document")
+#         doc.build(story)
+#         buffer.seek(0)
+#
+#         # Create filename
+#         filename = f"{datetime.now().strftime('%Y%m%d')}_{report.project_id}_{report.report_name}_Analysis.pdf"
+#         print(f"PDF Report Debug - PDF created successfully, filename: {filename}")
+#
+#         return dcc.send_bytes(buffer.read(), filename), \
+#             "✅ PDF report generated successfully!", \
+#             {
+#                 "display": "block",
+#                 "backgroundColor": "#d4edda",
+#                 "color": "#155724",
+#                 "border": "1px solid #c3e6cb"
+#             }
+#
+#     except ImportError as e:
+#         print(f"PDF Report Debug - Import error: {e}")
+#         return dash.no_update, \
+#             "❌ Error: reportlab library not installed. Please install with: pip install reportlab plotly kaleido", \
+#             {
+#                 "display": "block",
+#                 "backgroundColor": "#f8d7da",
+#                 "color": "#721c24",
+#                 "border": "1px solid #f5c6cb"
+#             }
+#     except Exception as e:
+#         print(f"PDF Report Debug - General error: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return dash.no_update, \
+#             f"❌ Error generating PDF: {str(e)}", \
+#             {
+#                 "display": "block",
+#                 "backgroundColor": "#f8d7da",
+#                 "color": "#721c24",
+#                 "border": "1px solid #f5c6cb"
+#             }
 
 
 # Update standard table

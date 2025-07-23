@@ -48,9 +48,12 @@ class PlotlyIntegrationConfig(AppConfig):
                 import protein_engineering.homepage
                 import protein_engineering.sec_report_app
                 import protein_engineering.create_report_app
+
+                #Nova Flex Apps
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_data_import_app
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_create_report_app
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_report_app
+                import plotly_integration.process_development.cell_culture.nova_flex_2.nova_data_viewer
 
                 #Vicell Apps
                 import plotly_integration.process_development.cell_culture.vicell.vicell_data_import_app
