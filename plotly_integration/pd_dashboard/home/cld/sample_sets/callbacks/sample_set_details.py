@@ -118,7 +118,24 @@ def create_analysis_cards(sample_set_id, sample_ids):
             'model': LimsCeSdsResult,
             'table_fields': [
                 {'name': 'Sample ID', 'id': 'sample_id'},
-                {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'Methods', 'id': 'methods_available'},
+                # Reduced method columns
+                {'name': 'R: LMW (%)', 'id': 'reduced_lmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+                {'name': 'R: Light Chain (%)', 'id': 'reduced_light_chain', 'type': 'numeric',
+                 'format': {'specifier': '.1f'}},
+                {'name': 'R: Heavy Chain (%)', 'id': 'reduced_heavy_chain', 'type': 'numeric',
+                 'format': {'specifier': '.1f'}},
+                {'name': 'R: HMW (%)', 'id': 'reduced_hmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+                # Non-reduced method columns
+                {'name': 'NR: LMW (%)', 'id': 'nonreduced_lmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+                {'name': 'NR: Light Chain (%)', 'id': 'nonreduced_light_chain', 'type': 'numeric',
+                 'format': {'specifier': '.1f'}},
+                {'name': 'NR: Intact (%)', 'id': 'nonreduced_intact', 'type': 'numeric',
+                 'format': {'specifier': '.1f'}},
+                {'name': 'NR: HMW (%)', 'id': 'nonreduced_hmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+                # KEY ADDITION: Only Intact MW (most important)
+                {'name': 'Intact MW (kDa)', 'id': 'intact_mw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+                {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.1f'}},
                 {'name': 'Status', 'id': 'status'},
                 {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
             ]
@@ -279,8 +296,26 @@ def create_analysis_table(analysis_type, model, sample_ids):
         ],
         'CE-SDS': [
             {'name': 'Sample ID', 'id': 'sample_id'},
-            {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.2f'}},
-            {'name': 'Status', 'id': 'status'}
+            {'name': 'Methods', 'id': 'methods_available'},
+            # Reduced method columns
+            {'name': 'R: LMW (%)', 'id': 'reduced_lmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'R: Light Chain (%)', 'id': 'reduced_light_chain', 'type': 'numeric',
+             'format': {'specifier': '.1f'}},
+            {'name': 'R: Heavy Chain (%)', 'id': 'reduced_heavy_chain', 'type': 'numeric',
+             'format': {'specifier': '.1f'}},
+            {'name': 'R: HMW (%)', 'id': 'reduced_hmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            # Non-reduced method columns
+            {'name': 'NR: LMW (%)', 'id': 'nonreduced_lmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'NR: Light Chain (%)', 'id': 'nonreduced_light_chain', 'type': 'numeric',
+             'format': {'specifier': '.1f'}},
+            {'name': 'NR: Intact (%)', 'id': 'nonreduced_intact', 'type': 'numeric',
+             'format': {'specifier': '.1f'}},
+            {'name': 'NR: HMW (%)', 'id': 'nonreduced_hmw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            # KEY ADDITION: Only Intact MW (most important)
+            {'name': 'Intact MW (kDa)', 'id': 'intact_mw', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'Status', 'id': 'status'},
+            {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
         ]
     }
 
@@ -320,7 +355,39 @@ def create_analysis_table(analysis_type, model, sample_ids):
                         'status': result.status
                     })
                 elif analysis_type == 'CE-SDS':
+                    # Parse band_pattern JSON to extract method-specific data
+                    band_pattern = result.band_pattern or {}
+                    methods = band_pattern.get('methods', {})
+
+                    # Determine which methods are available
+                    available_methods = []
+                    if 'reduced' in methods:
+                        available_methods.append('R')
+                    if 'non_reduced' in methods:
+                        available_methods.append('NR')
+
+                    # Extract reduced method data
+                    reduced_data = methods.get('reduced', {}).get('peaks', {})
+
+                    # Extract non-reduced method data
+                    nonreduced_data = methods.get('non_reduced', {}).get('peaks', {})
+
+                    # NEW: Get ONLY intact molecular weight from non-reduced data
+                    intact_mw = None
+                    if 'Intact' in nonreduced_data:
+                        intact_mw = nonreduced_data['Intact'].get('molecular_weight')
+
                     row.update({
+                        'methods_available': ' + '.join(available_methods) if available_methods else 'None',
+                        'reduced_lmw': reduced_data.get('LMW', {}).get('value', None),
+                        'reduced_light_chain': reduced_data.get('Light Chain', {}).get('value', None),
+                        'reduced_heavy_chain': reduced_data.get('Heavy Chain', {}).get('value', None),
+                        'reduced_hmw': reduced_data.get('HMW', {}).get('value', None),
+                        'nonreduced_lmw': nonreduced_data.get('LMW', {}).get('value', None),
+                        'nonreduced_light_chain': nonreduced_data.get('Light Chain', {}).get('value', None),
+                        'nonreduced_intact': nonreduced_data.get('Intact', {}).get('value', None),
+                        'nonreduced_hmw': nonreduced_data.get('HMW', {}).get('value', None),
+                        'intact_mw': intact_mw,  # ONLY Intact MW (key value)
                         'purity': result.purity,
                         'status': result.status
                     })
