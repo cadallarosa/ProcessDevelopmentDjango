@@ -44,7 +44,7 @@ VICELL_FILE = "/mnt/fs2/Vi-Blue_Unsorted/Summary_DECEMBER.csv"  # Specific file 
 
 
 # ========== AKTA TASKS ==========
-@shared_task(name='plotly_integration.run_complete_pipeline')
+@shared_task(name='plotly_integration.run_complete_pipeline' , bind=True)
 def run_complete_import_pipeline():
     """
     Run the complete import pipeline:
@@ -173,7 +173,7 @@ def run_complete_import_pipeline():
     return results
 
 
-@shared_task(name='plotly_integration.run_import_only')
+@shared_task(name='plotly_integration.run_import_only' ,bind=True)
 def run_import_only():
     """
     Run only the Python import script.
@@ -225,7 +225,7 @@ def run_import_only():
         }
 
 
-@shared_task(name='plotly_integration.run_traversal_only')
+@shared_task(name='plotly_integration.run_traversal_only', bind=True)
 def run_traversal_only():
     """
     Run only the traversal part.
@@ -264,7 +264,7 @@ def run_traversal_only():
         }
 
 
-@shared_task(name='plotly_integration.check_traversal_status')
+@shared_task(name='plotly_integration.check_traversal_status', bind=True)
 def check_traversal_status():
     """Check current traversal status"""
     try:
@@ -278,7 +278,7 @@ def check_traversal_status():
         return {"error": str(e), "timestamp": datetime.datetime.now().isoformat()}
 
 
-@shared_task(name='plotly_integration.stop_traversal')
+@shared_task(name='plotly_integration.stop_traversal', bind=True)
 def stop_traversal():
     """Stop the currently running traversal"""
     try:
@@ -293,7 +293,7 @@ def stop_traversal():
         return {"error": str(e), "timestamp": datetime.datetime.now().isoformat()}
 
 
-@shared_task(name='plotly_integration.check_import_status')
+@shared_task(name='plotly_integration.check_import_status', bind=True)
 def check_import_status():
     """
     Check how many records need import.
@@ -363,7 +363,7 @@ def cleanup_old_results(days_to_keep=30):
         }
 
 
-@shared_task(name='plotly_integration.health_check')
+@shared_task(name='plotly_integration.health_check', bind=True)
 def health_check():
     """
     Simple health check task to verify Celery is working.
@@ -1149,3 +1149,98 @@ def import_nova_flex2_files():
     print(f"Records updated: {results['total_records_updated']}")
 
     return results
+
+
+# ========== CESDS Import ==========
+from plotly_integration.process_development.analytical.ce_sds.process_asc import save_asc_to_db, move_file_to_processed
+import os
+
+# Configuration - adjust these paths as needed
+CESDS_IMPORT_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imports"
+CESDS_PROCESSED_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imported"
+
+
+@shared_task(name='plotly_integration.import_cesds_files', bind=True)
+def import_cesds_files(self):
+    """Import CESDS .asc files from incoming folder to database"""
+
+    # Ensure folders exist
+    os.makedirs(CESDS_PROCESSED_FOLDER, exist_ok=True)
+
+    # Get files to process
+    processed_files = set(os.listdir(CESDS_PROCESSED_FOLDER))
+    asc_files = [
+        f for f in os.listdir(CESDS_IMPORT_FOLDER)
+        if f.lower().endswith(".asc")
+           and "dat-pda - 220nm" not in f.lower()
+           and f not in processed_files
+    ]
+
+    if not asc_files:
+        return "No new files to import"
+
+    # Process files
+    successful = 0
+    failed = 0
+
+    for i, filename in enumerate(asc_files):
+        file_path = os.path.join(CESDS_IMPORT_FOLDER, filename)
+
+        try:
+            save_asc_to_db(file_path)
+            move_file_to_processed(file_path, CESDS_PROCESSED_FOLDER)
+            successful += 1
+        except Exception as e:
+            failed += 1
+            print(f"Failed to import {filename}: {e}")
+
+    return f"Import completed. Success: {successful}, Failed: {failed}"
+
+
+# ========== cIEF Import ==========
+from plotly_integration.process_development.analytical.cief.process_asc import save_asc_to_db, move_file_to_processed
+import os
+
+# Configuration - adjust these paths as needed
+CIEF_IMPORT_FOLDER = "/mnt/fs2/DjangoRawData/cIEF/Imports"
+CIEF_PROCESSED_FOLDER = "/mnt/fs2/DjangoRawData/cIEF/Imported"
+
+
+@shared_task(name='plotly_integration.import_cief_files', bind=True)
+def import_cief_files(self):
+    """Import cief .asc files from incoming folder to database"""
+
+    # Ensure folders exist
+    os.makedirs(CIEF_PROCESSED_FOLDER, exist_ok=True)
+
+    # Get files to process
+    processed_files = set(os.listdir(CIEF_PROCESSED_FOLDER))
+    asc_files = [
+        f for f in os.listdir(CIEF_IMPORT_FOLDER)
+        if f.lower().endswith(".asc")
+           and "dat-pda - 220nm" not in f.lower()
+           and f not in processed_files
+    ]
+
+    if not asc_files:
+        return "No new files to import"
+
+    # Process files
+    successful = 0
+    failed = 0
+
+    for i, filename in enumerate(asc_files):
+        file_path = os.path.join(CIEF_IMPORT_FOLDER, filename)
+
+        try:
+            save_asc_to_db(file_path)
+            move_file_to_processed(file_path, CIEF_PROCESSED_FOLDER)
+            successful += 1
+        except Exception as e:
+            failed += 1
+            print(f"Failed to import {filename}: {e}")
+
+    return f"Import completed. Success: {successful}, Failed: {failed}"
+
+
+
