@@ -171,23 +171,15 @@ def create_sample_sets_table(sample_sets_data):
 
     # Define table columns - keep basic info + analysis status
     columns = [
-        {"name": "Set Name", "id": "set_name", "type": "text"},
-        {"name": "Project", "id": "project_id", "type": "text"},
-        {"name": "SIP", "id": "sip_number", "type": "text"},
-        {"name": "Samples", "id": "sample_count", "type": "numeric"},
-        {"name": "Created", "id": "created_date", "type": "text"},
-        # Analysis status columns
-        {"name": "SEC", "id": "sec_status", "presentation": "markdown"},
-        {"name": "AKTA", "id": "akta_status", "presentation": "markdown"},
-        {"name": "Titer", "id": "titer_status", "presentation": "markdown"},
-        {"name": "CE-SDS", "id": "ce_sds_status", "presentation": "markdown"},
-        {"name": "cIEF", "id": "cief_status", "presentation": "markdown"},
-        {"name": "Mass Check", "id": "mass_check_status", "presentation": "markdown"},
-        {"name": "Glycan", "id": "glycan_status", "presentation": "markdown"},
-        {"name": "HCP", "id": "hcp_status", "presentation": "markdown"},
-        {"name": "ProA", "id": "proa_status", "presentation": "markdown"},
-        # Actions column
-        {"name": "Actions", "id": "actions", "presentation": "markdown"}
+        {"name": "Actions", "id": "actions", "presentation": "markdown"},
+        {"name": "Project ID", "id": "project_id"},
+        {"name": "SIP Number", "id": "sip_number"},
+        {"name": "Dev Stage", "id": "development_stage"},
+        {"name": "Sample Range", "id": "sample_range"},
+        {"name": "Count", "id": "sample_count", "type": "numeric"},
+        {"name": "Requested", "id": "requested_analysis"},
+        {"name": "Completed", "id": "completed_analysis"},
+        {"name": "Created", "id": "created_date"},
     ]
 
     return dash_table.DataTable(

@@ -9,7 +9,7 @@ from plotly_integration.pd_dashboard.shared.styles.common_styles import (
 
 # Field definitions for UP samples
 UP_SAMPLE_CREATE_FIELDS = [
-    {"name": "Sample #", "id": "sample_number", "editable": False, "type": "numeric"},
+    {"name": "Sample #", "id": "sample_number", "editable": True, "type": "numeric"},
     {"name": "Clone", "id": "cell_line", "editable": True},
     {"name": "Harvest Date", "id": "harvest_date", "editable": True, "type": "datetime"},
     {"name": "HF Octet Titer", "id": "hf_octet_titer", "editable": True, "type": "numeric"},

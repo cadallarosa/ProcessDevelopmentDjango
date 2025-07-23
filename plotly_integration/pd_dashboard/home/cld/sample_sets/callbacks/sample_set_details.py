@@ -1,841 +1,746 @@
 # plotly_integration/pd_dashboard/home/cld/sample_sets/callbacks/sample_set_details.py
-# Complete callbacks file for the restructured 2-tab layout
 
-from dash import callback, Input, Output, State, no_update, html, ALL
+from dash import callback, Input, Output, State, ctx, no_update, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from datetime import datetime
+from dash import html, dash_table
 import json
+from datetime import datetime
 
 # Import from the main app
 from plotly_integration.pd_dashboard.main_app import app
 
-# Import models - using only existing models from the repo
+# Import models
 from plotly_integration.models import (
     LimsSampleSet, LimsSampleSetMembership, LimsSampleAnalysis,
-    LimsUpstreamSamples, LimsSecResult, Report
+    LimsSecResult, LimsTiterResult, LimsCiefResult, LimsCeSdsResult,
+    LimsUpstreamSamples, Report
 )
 
-# Import layout components
-from ..layouts.sample_set_details import (
-    create_sample_set_details_table, create_sec_results_table,
-    create_analysis_card
-)
 
-# Import pandas for summary statistics
-try:
-    import pandas as pd
-except ImportError:
-    print("Warning: pandas not available for summary statistics")
-    pd = None
-
-
-def build_sample_row_with_recoveries(s):
-    """Build sample row data (same as view_samples)"""
-    try:
-        # Calculate recoveries if possible
-        fast_pro_a_recovery = None
-        purification_recovery_a280 = None
-
-        if s.pro_aqa_hf_titer and s.pro_aqa_e_titer and s.pro_aqa_hf_titer > 0:
-            fast_pro_a_recovery = round((s.pro_aqa_e_titer / s.pro_aqa_hf_titer) * 100, 1)
-
-        if s.proa_eluate_a280_conc and s.hccf_loading_volume and s.proa_eluate_volume:
-            if s.proa_eluate_a280_conc > 0 and s.hccf_loading_volume > 0:
-                purification_recovery_a280 = round(
-                    (s.proa_eluate_a280_conc * s.proa_eluate_volume) /
-                    (s.hccf_loading_volume * 100), 1
-                )
-
-        return {
-            "project": s.project or "",
-            "sample_number": s.sample_number or "",
-            "cell_line": s.cell_line or "",
-            "sip_number": s.sip_number or "",
-            "development_stage": s.development_stage or "",
-            "analyst": s.analyst or "",
-            "harvest_date": s.harvest_date.strftime('%Y-%m-%d') if s.harvest_date else "",
-            "unifi_number": s.unifi_number or "",
-            "hf_octet_titer": s.hf_octet_titer,
-            "pro_aqa_hf_titer": s.pro_aqa_hf_titer,
-            "pro_aqa_e_titer": s.pro_aqa_e_titer,
-            "proa_eluate_a280_conc": s.proa_eluate_a280_conc,
-            "hccf_loading_volume": s.hccf_loading_volume,
-            "proa_eluate_volume": s.proa_eluate_volume,
-            "fast_pro_a_recovery": fast_pro_a_recovery,
-            "purification_recovery_a280": purification_recovery_a280,
-            "note": s.note or ""
-        }
-    except Exception as e:
-        print(f"Error building row for sample {s.sample_number}: {e}")
-        return {}
-
-
-# ============================================================================
-# HEADER CALLBACKS
-# ============================================================================
-
+# Main page load callback
 @app.callback(
-    Output("sample-set-basic-info", "children"),
-    Input("current-sample-set-id", "data")
+    [Output("sample-set-basic-info", "children"),
+     Output("analysis-cards-container", "children")],
+    [Input("current-sample-set-id", "data"),
+     Input("refresh-sample-set-details-btn", "n_clicks")]
 )
-def load_sample_set_basic_info(sample_set_id):
-    """Load basic sample set information for header"""
+def load_sample_set_details(sample_set_id, refresh_clicks):
+    """Load sample set basic info and analysis cards"""
     if not sample_set_id:
-        return dbc.Alert("No sample set selected", color="warning")
+        return html.Div("No sample set selected"), html.Div()
 
     try:
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        print(f"DEBUG: Found sample set: {sample_set.set_name}")
 
-        return html.Div([
-            html.H2([
-                html.I(className="fas fa-info-circle text-primary me-2"),
-                sample_set.set_name
-            ], className="mb-2"),
+        # Create basic info header
+        basic_info = html.Div([
+            html.H3(sample_set.set_name, className="mb-2"),
             html.P([
-                html.Strong("Project: "), sample_set.project_id, " | ",
-                html.Strong("SIP: "), sample_set.sip_number or "N/A", " | ",
-                html.Strong("Stage: "), sample_set.development_stage or "N/A", " | ",
-                html.Strong("Sample Count: "), str(sample_set.sample_count)
-            ], className="text-muted mb-0")
+                html.Span(f"Project: {sample_set.project_id}", className="me-3"),
+                html.Span(f"Samples: {sample_set.sample_count}", className="me-3"),
+                html.Span(f"Created: {sample_set.created_at.strftime('%Y-%m-%d')}")
+            ], className="text-muted")
         ])
 
-    except Exception as e:
-        print(f"ERROR: loading sample set basic info: {e}")
-        return dbc.Alert(f"Error loading sample set: {str(e)}", color="danger")
+        # Get sample IDs for this set
+        sample_ids = list(
+            sample_set.members.values_list('sample__sample_id', flat=True)
+        )
 
+        # Create analysis cards
+        analysis_cards = create_analysis_cards(sample_set_id, sample_ids)
 
-# ============================================================================
-# OVERVIEW TAB CALLBACKS
-# ============================================================================
-
-@app.callback(
-    Output("sample-set-summary-stats", "children"),
-    Input("current-sample-set-id", "data")
-)
-def update_sample_set_summary_stats(sample_set_id):
-    """Update the summary statistics for the overview tab"""
-    if not sample_set_id:
-        return ""
-
-    try:
-        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        members = sample_set.members.all()
-
-        # Calculate summary stats
-        total_samples = members.count()
-
-        # Count samples with SEC results
-        sample_ids = [member.sample.sample_id for member in members]
-        sec_results_count = LimsSecResult.objects.filter(
-            sample_id__sample_id__in=sample_ids
-        ).count()
-
-        return dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H4(str(total_samples), className="text-primary"),
-                        html.P("Total Samples", className="text-muted mb-0")
-                    ])
-                ], className="text-center")
-            ], md=3),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H4(str(sec_results_count), className="text-info"),
-                        html.P("SEC Results", className="text-muted mb-0")
-                    ])
-                ], className="text-center")
-            ], md=3),
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.H4(f"{sample_set.created_at.strftime('%m/%d/%Y')}", className="text-secondary"),
-                        html.P("Created Date", className="text-muted mb-0")
-                    ])
-                ], className="text-center")
-            ], md=3)
-        ])
+        return basic_info, analysis_cards
 
     except Exception as e:
-        return dbc.Alert(f"Error loading summary: {str(e)}", color="danger")
+        return html.Div(f"Error loading sample set: {str(e)}", className="text-danger"), html.Div()
 
 
-@app.callback(
-    Output("sample-set-details-table", "data"),
-    Input("current-sample-set-id", "data")
-)
-def load_sample_set_details_table(sample_set_id):
-    """Load sample set details using the same method as view samples"""
-    print(f"DEBUG: load_sample_set_details_table called with ID: {sample_set_id}")
+def create_analysis_cards(sample_set_id, sample_ids):
+    """Create collapsible cards for each analysis type"""
+    cards = []
 
-    if not sample_set_id:
-        print("DEBUG: No sample set ID provided")
-        return []
+    # Analysis types with their configurations
+    analysis_configs = [
+        {
+            'type': 'SEC',
+            'title': 'SEC Analysis',
+            'icon': 'fa-chart-line',
+            'color': 'primary',
+            'model': LimsSecResult,
+            'table_fields': [
+                {'name': 'Sample ID', 'id': 'sample_id'},
+                {'name': 'Main Peak (%)', 'id': 'main_peak', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'HMW (%)', 'id': 'hmw', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'LMW (%)', 'id': 'lmw', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'QC Pass', 'id': 'qc_pass'},
+                {'name': 'Status', 'id': 'status'},
+                {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
+            ]
+        },
+        {
+            'type': 'Titer',
+            'title': 'Titer Analysis',
+            'icon': 'fa-vial',
+            'color': 'success',
+            'model': LimsTiterResult,
+            'table_fields': [
+                {'name': 'Sample ID', 'id': 'sample_id'},
+                {'name': 'Titer (mg/mL)', 'id': 'titer', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'QC Pass', 'id': 'qc_pass'},
+                {'name': 'Status', 'id': 'status'},
+                {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
+            ]
+        },
+        {
+            'type': 'cIEF',
+            'title': 'cIEF Analysis',
+            'icon': 'fa-flask',
+            'color': 'info',
+            'model': LimsCiefResult,
+            'table_fields': [
+                {'name': 'Sample ID', 'id': 'sample_id'},
+                {'name': 'Main Peak (%)', 'id': 'main_peak', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'Acidic Variants (%)', 'id': 'acidic_variants', 'type': 'numeric',
+                 'format': {'specifier': '.2f'}},
+                {'name': 'Basic Variants (%)', 'id': 'basic_variants', 'type': 'numeric',
+                 'format': {'specifier': '.2f'}},
+                {'name': 'Status', 'id': 'status'},
+                {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
+            ]
+        },
+        {
+            'type': 'CE-SDS',
+            'title': 'CE-SDS Analysis',
+            'icon': 'fa-chart-bar',
+            'color': 'warning',
+            'model': LimsCeSdsResult,
+            'table_fields': [
+                {'name': 'Sample ID', 'id': 'sample_id'},
+                {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+                {'name': 'Status', 'id': 'status'},
+                {'name': 'Analysis Date', 'id': 'created_at', 'type': 'datetime'}
+            ]
+        }
+    ]
+
+    for config in analysis_configs:
+        # Check if data exists
+        has_data = check_analysis_data(config['model'], sample_ids)
+
+        card = create_single_analysis_card(
+            config=config,
+            sample_set_id=sample_set_id,
+            sample_ids=sample_ids,
+            has_data=has_data
+        )
+        cards.append(card)
+
+    return html.Div(cards)
+
+
+def create_single_analysis_card(config, sample_set_id, sample_ids, has_data):
+    """Create a single analysis card with button and collapsible content"""
+    card_id = config['type'].lower().replace('-', '')
+
+    # Create link button based on analysis type
+    if config['type'] == 'SEC':
+        # Check for existing SEC reports
+        sec_reports = Report.objects.filter(
+            analysis_type=1,
+            project_id=LimsSampleSet.objects.get(id=sample_set_id).project_id
+        ).order_by('-date_created')
+
+        if sec_reports.exists():
+            latest_report = sec_reports.first()
+            button_href = f"/plotly_dash/sec_report_embedded/?report_id={latest_report.report_id}"
+            button_text = "View SEC Report"
+            button_color = "success"
+            button_target = "_blank"
+        else:
+            # For new SEC analysis
+            button_href = f"/plotly_dash/sec_report_embedded/?sample_set_id={sample_set_id}"
+            button_text = "Launch SEC Analysis"
+            button_color = "primary"
+            button_target = "_blank"
+    else:
+        # Generic button for other analysis types - adjust these URLs based on your actual embedded apps
+        button_href = f"/plotly_dash/{card_id}_embedded/?sample_set_id={sample_set_id}"
+        button_text = f"Launch {config['title']}"
+        button_color = config['color']
+        button_target = "_blank"
+
+    return dbc.Card([
+        dbc.CardHeader([
+            dbc.Row([
+                dbc.Col([
+                    html.H5([
+                        html.I(className=f"fas {config['icon']} me-2"),
+                        config['title']
+                    ], className="mb-0")
+                ], width=8),
+                dbc.Col([
+                    dbc.Button(
+                        button_text,
+                        href=button_href,
+                        color=button_color,
+                        size="sm",
+                        className="me-2",
+                        target=button_target if 'button_target' in locals() else None
+                    ),
+                    dbc.Button(
+                        html.I(className="fas fa-chevron-down"),
+                        id={"type": "analysis-card-toggle", "index": card_id},
+                        color="light",
+                        size="sm",
+                        style={"width": "40px"}
+                    )
+                ], width=4, className="text-end")
+            ])
+        ]),
+        dbc.Collapse(
+            dbc.CardBody(
+                id={"type": "analysis-card-content", "index": card_id}
+            ),
+            id={"type": "analysis-card-collapse", "index": card_id},
+            is_open=True  # Default to expanded
+        )
+    ], className="mb-3")
+
+
+def check_analysis_data(model, sample_ids):
+    """Check if analysis data exists for samples"""
+    if not model or not hasattr(model, 'objects'):
+        return False
 
     try:
-        # Get the sample set
-        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        print(f"DEBUG: Found sample set: {sample_set.set_name}")
+        return model.objects.filter(sample_id__sample_id__in=sample_ids).exists()
+    except:
+        return False
 
-        # Get members and extract sample_ids
-        members = sample_set.members.all()
-        print(f"DEBUG: Found {len(members)} members")
 
-        if not members:
-            print("DEBUG: No members found")
-            return []
+# Callback for loading analysis table data
+@app.callback(
+    Output({"type": "analysis-card-content", "index": ALL}, "children"),
+    Input("analysis-cards-container", "children"),
+    State("current-sample-set-id", "data")
+)
+def load_all_analysis_tables(cards_rendered, sample_set_id):
+    """Load data tables for all analysis cards"""
+    if not sample_set_id:
+        return [no_update] * 4
 
-        # Extract sample numbers from members (FB123 -> 123)
-        sample_numbers = []
-        for member in members:
-            sample_id = member.sample.sample_id
-            print(f"DEBUG: Found sample_id: {sample_id}")
-            if sample_id.startswith('FB'):
-                sample_number = sample_id[2:]  # Remove 'FB' prefix
-                sample_numbers.append(sample_number)
-                print(f"DEBUG: Extracted sample_number: {sample_number}")
+    try:
+        # Get sample IDs
+        sample_ids = list(
+            LimsSampleSetMembership.objects.filter(
+                sample_set_id=sample_set_id
+            ).values_list('sample__sample_id', flat=True)
+        )
 
-        if not sample_numbers:
-            print("DEBUG: No valid sample numbers found")
-            return []
+        # Load data for each analysis type
+        sec_table = create_analysis_table('SEC', LimsSecResult, sample_ids)
+        titer_table = create_analysis_table('Titer', LimsTiterResult, sample_ids)
+        cief_table = create_analysis_table('cIEF', LimsCiefResult, sample_ids)
+        cesds_table = create_analysis_table('CE-SDS', LimsCeSdsResult, sample_ids)
 
-        # Query upstream samples using the same method as view samples
-        samples_query = LimsUpstreamSamples.objects.filter(
-            sample_type=2,
-            sample_number__in=sample_numbers
-        ).order_by("sample_number")
+        return [sec_table, titer_table, cief_table, cesds_table]
 
-        samples = list(samples_query)
-        print(f"DEBUG: Found {len(samples)} upstream samples")
+    except Exception as e:
+        print(f"Error loading analysis tables: {e}")
+        return [html.Div("Error loading data")] * 4
 
-        # Build data using the same method as view samples
-        data = []
-        for s in samples:
-            row = build_sample_row_with_recoveries(s)
-            if row:  # Only add if row was built successfully
+
+def create_analysis_table(analysis_type, model, sample_ids):
+    """Create a data table for analysis results"""
+    # Get table fields from config
+    table_configs = {
+        'SEC': [
+            {'name': 'Sample ID', 'id': 'sample_id'},
+            {'name': 'Main Peak (%)', 'id': 'main_peak', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'HMW (%)', 'id': 'hmw', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'LMW (%)', 'id': 'lmw', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'QC Pass', 'id': 'qc_pass'},
+            {'name': 'Status', 'id': 'status'}
+        ],
+        'Titer': [
+            {'name': 'Sample ID', 'id': 'sample_id'},
+            {'name': 'Titer (mg/mL)', 'id': 'titer', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'QC Pass', 'id': 'qc_pass'},
+            {'name': 'Status', 'id': 'status'}
+        ],
+        'cIEF': [
+            {'name': 'Sample ID', 'id': 'sample_id'},
+            {'name': 'Main Peak (%)', 'id': 'main_peak', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'Acidic (%)', 'id': 'acidic_variants', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'Basic (%)', 'id': 'basic_variants', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'Status', 'id': 'status'}
+        ],
+        'CE-SDS': [
+            {'name': 'Sample ID', 'id': 'sample_id'},
+            {'name': 'Purity (%)', 'id': 'purity', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'Status', 'id': 'status'}
+        ]
+    }
+
+    columns = table_configs.get(analysis_type, [])
+
+    # Get data
+    try:
+        if model and hasattr(model, 'objects'):
+            results = model.objects.filter(
+                sample_id__sample_id__in=sample_ids
+            ).select_related('sample_id')
+
+            data = []
+            for result in results:
+                row = {'sample_id': result.sample_id.sample_id}
+
+                # Add fields based on model
+                if analysis_type == 'SEC':
+                    row.update({
+                        'main_peak': result.main_peak,
+                        'hmw': result.hmw,
+                        'lmw': result.lmw,
+                        'qc_pass': 'Pass' if result.qc_pass else 'Fail',
+                        'status': result.status
+                    })
+                elif analysis_type == 'Titer':
+                    row.update({
+                        'titer': result.titer,
+                        'qc_pass': 'Pass' if result.qc_pass else 'Fail',
+                        'status': result.status
+                    })
+                elif analysis_type == 'cIEF':
+                    row.update({
+                        'main_peak': result.main_peak,
+                        'acidic_variants': result.acidic_variants,
+                        'basic_variants': result.basic_variants,
+                        'status': result.status
+                    })
+                elif analysis_type == 'CE-SDS':
+                    row.update({
+                        'purity': result.purity,
+                        'status': result.status
+                    })
+
                 data.append(row)
 
-        print(f"DEBUG: Built {len(data)} rows")
-        return data
-
-    except Exception as e:
-        print(f"ERROR: in load_sample_set_details_table: {e}")
-        return []
-
-
-# ============================================================================
-# ANALYSIS TAB CALLBACKS
-# ============================================================================
-
-@app.callback(
-    Output("analysis-cards-container", "children"),
-    Input("current-sample-set-id", "data")
-)
-def create_analysis_cards_container(sample_set_id):
-    """Create collapsible cards for each analysis type"""
-    if not sample_set_id:
-        return dbc.Alert("No sample set selected", color="warning")
-
-    try:
-        # Check which analyses have results
-        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        members = sample_set.members.all()
-        sample_ids = [member.sample.sample_id for member in members]
-
-        # Count SEC results
-        sec_count = LimsSecResult.objects.filter(
-            sample_id__sample_id__in=sample_ids
-        ).count()
-
-        # Create cards for each analysis type
-        # IMPORTANT: Order matters! The position in this list determines which card opens
-        cards = [
-            # Position 0: SEC Analysis (table view)
-            create_analysis_card("SEC Analysis", "sec", "fas fa-chart-line", "info",
-                                 has_results=(sec_count > 0), result_count=sec_count),
-            # Position 1: SEC Embedded
-            create_analysis_card("SEC Analysis (Embedded)", "sec-embedded", "fas fa-chart-line", "primary",
-                                 has_results=(sec_count > 0), result_count=sec_count),
-            # Position 2: AKTA
-            create_analysis_card("AKTA Analysis", "akta", "fas fa-wave-square", "success",
-                                 has_results=False, result_count=0),
-            # Position 3: Titer
-            create_analysis_card("Titer Results", "titer", "fas fa-vial", "warning", False, 0),
-            # Position 4: CE-SDS
-            create_analysis_card("CE-SDS Analysis", "cesds", "fas fa-bolt", "danger", False, 0),
-            # Position 5: cIEF
-            create_analysis_card("cIEF Analysis", "cief", "fas fa-chart-area", "primary", False, 0),
-        ]
-
-        return cards
-
-    except Exception as e:
-        print(f"Error creating analysis cards: {e}")
-        return dbc.Alert(f"Error loading analysis cards: {str(e)}", color="danger")
-
-
-# ============================================================================
-# CARD TOGGLE CALLBACK - FIXED VERSION
-# ============================================================================
-
-# ============================================================================
-# INDIVIDUAL CARD TOGGLE CALLBACKS - SIMPLER APPROACH
-# ============================================================================
-
-# SEC Analysis Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "sec"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "sec"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "sec"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_sec_card(n_clicks, is_open, sample_set_id):
-    """Toggle SEC analysis card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("sec", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# SEC Embedded Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "sec-embedded"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "sec-embedded"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "sec-embedded"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "sec-embedded"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "sec-embedded"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_sec_embedded_card(n_clicks, is_open, sample_set_id):
-    """Toggle SEC embedded card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("sec-embedded", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# AKTA Analysis Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "akta"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "akta"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "akta"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "akta"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "akta"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_akta_card(n_clicks, is_open, sample_set_id):
-    """Toggle AKTA analysis card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("akta", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# Titer Results Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "titer"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "titer"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "titer"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "titer"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "titer"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_titer_card(n_clicks, is_open, sample_set_id):
-    """Toggle Titer results card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("titer", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# CE-SDS Analysis Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "cesds"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "cesds"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "cesds"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "cesds"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "cesds"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_cesds_card(n_clicks, is_open, sample_set_id):
-    """Toggle CE-SDS analysis card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("cesds", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# cIEF Analysis Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "cief"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "cief"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "cief"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "cief"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "cief"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_cief_card(n_clicks, is_open, sample_set_id):
-    """Toggle cIEF analysis card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("cief", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# AKTA Embedded Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "akta-embedded"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "akta-embedded"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "akta-embedded"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "akta-embedded"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "akta-embedded"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_akta_embedded_card(n_clicks, is_open, sample_set_id):
-    """Toggle AKTA embedded card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("akta-embedded", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# Titer Embedded Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "titer-embedded"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "titer-embedded"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "titer-embedded"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "titer-embedded"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "titer-embedded"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_titer_embedded_card(n_clicks, is_open, sample_set_id):
-    """Toggle Titer embedded card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("titer-embedded", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# CE-SDS Embedded Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "cesds-embedded"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "cesds-embedded"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "cesds-embedded"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "cesds-embedded"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "cesds-embedded"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_cesds_embedded_card(n_clicks, is_open, sample_set_id):
-    """Toggle CE-SDS embedded card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("cesds-embedded", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# cIEF Embedded Card
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": "cief-embedded"}, "is_open"),
-     Output({"type": "analysis-card-content", "index": "cief-embedded"}, "children"),
-     Output({"type": "analysis-card-toggle", "index": "cief-embedded"}, "children")],
-    [Input({"type": "analysis-card-toggle", "index": "cief-embedded"}, "n_clicks")],
-    [State({"type": "analysis-card-collapse", "index": "cief-embedded"}, "is_open"),
-     State("current-sample-set-id", "data")],
-    prevent_initial_call=True
-)
-def toggle_cief_embedded_card(n_clicks, is_open, sample_set_id):
-    """Toggle cIEF embedded card"""
-    if not n_clicks:
-        raise PreventUpdate
-
-    new_is_open = not is_open
-    new_icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
-
-    if new_is_open and sample_set_id:
-        content = load_analysis_content("cief-embedded", sample_set_id)
-        return new_is_open, content, new_icon
-
-    return new_is_open, no_update, new_icon
-
-
-# Comment out or remove the complex ALL pattern callback
-"""
-# Store to track previous n_clicks values
-@app.callback(
-    Output("previous-n-clicks", "data"),
-    Input({"type": "analysis-card-toggle", "index": ALL}, "n_clicks"),
-    State("previous-n-clicks", "data")
-)
-def update_previous_clicks(n_clicks_list, previous_clicks):
-    # ... existing code ...
-
-@app.callback(
-    [Output({"type": "analysis-card-collapse", "index": ALL}, "is_open"),
-     Output({"type": "analysis-card-content", "index": ALL}, "children"),
-     Output({"type": "analysis-card-toggle", "index": ALL}, "children")],
-    # ... rest of the complex callback ...
-)
-def toggle_analysis_cards(n_clicks_list, is_open_list, current_content, sample_set_id, button_ids, previous_clicks):
-    # ... existing code ...
-"""
-
-
-# ============================================================================
-# CONTENT LOADING FUNCTIONS
-# ============================================================================
-
-def load_analysis_content(analysis_type, sample_set_id):
-    """Load specific analysis content based on type"""
-    try:
-        sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        members = sample_set.members.all()
-        sample_ids = [member.sample.sample_id for member in members]
-
-        from urllib.parse import urlencode
-
-        # SEC special cases with table view
-        if analysis_type == "sec":
-            return load_sec_content(sample_ids, sample_set_id)
-        elif analysis_type == "sec-embedded":
-            return load_sec_embedded_content(sample_ids, sample_set_id)
-
-        # All other types - just show embedded iframe
-        else:
-            # Build URL based on analysis type
-            if analysis_type in ["akta", "akta-embedded"]:
-                # AKTA expects just numbers, not FB prefixes
-                fb_numbers = []
-                for sample_id in sample_ids:
-                    if str(sample_id).startswith('FB'):
-                        fb_numbers.append(str(sample_id)[2:])  # Remove 'FB' prefix
-                    else:
-                        fb_numbers.append(str(sample_id))
-
-                # Build URL with just the numbers
-                fb_param = ','.join(fb_numbers)
-                print(f'DEBUG: AKTA URL with FB numbers: {fb_param}')
-                url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?fb={fb_param}&embed=true"
-
-            elif analysis_type in ["titer", "titer-embedded"]:
-                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
-                url = f"/plotly_integration/dash-app/app/TiterAnalysisApp/?{urlencode(params)}"
-
-            elif analysis_type in ["cesds", "cesds-embedded"]:
-                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
-                url = f"/plotly_integration/dash-app/app/CESDSReportViewerApp/?{urlencode(params)}"
-
-            elif analysis_type in ["cief", "cief-embedded"]:
-                params = {'samples': ','.join(sample_ids), 'embed': 'true'}
-                url = f"/plotly_integration/dash-app/app/cIEFReportViewerApp/?{urlencode(params)}"
-
+            if data:
+                # Build style conditions
+                style_data_conditional = [
+                    {
+                        'if': {'column_id': 'qc_pass', 'filter_query': '{qc_pass} = "Pass"'},
+                        'color': 'green'
+                    },
+                    {
+                        'if': {'column_id': 'qc_pass', 'filter_query': '{qc_pass} = "Fail"'},
+                        'color': 'red'
+                    }
+                ]
+
+                # Add color gradient for SEC main peak
+                if analysis_type == 'SEC' and any(row.get('main_peak') for row in data):
+                    main_peak_values = [row.get('main_peak', 0) for row in data if row.get('main_peak') is not None]
+                    if main_peak_values:
+                        min_val = min(main_peak_values)
+                        max_val = max(main_peak_values)
+
+                        for i, row in enumerate(data):
+                            if row.get('main_peak') is not None:
+                                # Calculate color intensity (0-1 scale)
+                                normalized = (row['main_peak'] - min_val) / (
+                                            max_val - min_val) if max_val > min_val else 1
+                                # Natural red to green gradient with muted colors
+                                if normalized < 0.5:
+                                    # Red to yellow range
+                                    red = 220
+                                    green = int(150 * (normalized * 2))
+                                    blue = 100
+                                else:
+                                    # Yellow to green range
+                                    red = int(220 - 120 * ((normalized - 0.5) * 2))
+                                    green = 150 + int(50 * ((normalized - 0.5) * 2))
+                                    blue = 100 + int(50 * ((normalized - 0.5) * 2))
+
+                                style_data_conditional.append({
+                                    'if': {'row_index': i, 'column_id': 'main_peak'},
+                                    'backgroundColor': f'rgb({red}, {green}, {blue})',
+                                    'color': 'black'
+                                })
+
+                # Add color gradient for Titer values
+                if analysis_type == 'Titer' and any(row.get('titer') for row in data):
+                    titer_values = [row.get('titer', 0) for row in data if row.get('titer') is not None]
+                    if titer_values:
+                        min_val = min(titer_values)
+                        max_val = max(titer_values)
+
+                        for i, row in enumerate(data):
+                            if row.get('titer') is not None:
+                                # Calculate color intensity (0-1 scale)
+                                normalized = (row['titer'] - min_val) / (max_val - min_val) if max_val > min_val else 1
+                                # Natural red to green gradient with muted colors
+                                if normalized < 0.5:
+                                    # Red to yellow range
+                                    red = 220
+                                    green = int(150 * (normalized * 2))
+                                    blue = 100
+                                else:
+                                    # Yellow to green range
+                                    red = int(220 - 120 * ((normalized - 0.5) * 2))
+                                    green = 150 + int(50 * ((normalized - 0.5) * 2))
+                                    blue = 100 + int(50 * ((normalized - 0.5) * 2))
+
+                                style_data_conditional.append({
+                                    'if': {'row_index': i, 'column_id': 'titer'},
+                                    'backgroundColor': f'rgb({red}, {green}, {blue})',
+                                    'color': 'black'
+                                })
+
+                return dash_table.DataTable(
+                    columns=columns,
+                    data=data,
+                    style_table={'overflowX': 'auto'},
+                    style_cell={
+                        'textAlign': 'left',
+                        'padding': '10px'
+                    },
+                    style_header={
+                        'backgroundColor': 'rgb(230, 230, 230)',
+                        'fontWeight': 'bold'
+                    },
+                    style_data_conditional=style_data_conditional,
+                    # Remove pagination - show all rows
+                    page_action="none",
+                    sort_action="native",
+                    filter_action="native"
+                )
             else:
                 return html.Div([
-                    html.P(f"No {analysis_type.upper()} results available for this sample set.",
-                           className="text-muted text-center")
+                    html.P(f"No {analysis_type} results available", className="text-muted text-center py-3")
                 ])
-
-            # Return iframe for all embedded views
-            return html.Div([
-                html.Iframe(
-                    src=url,
-                    style={
-                        "width": "100%",
-                        "height": "800px",
-                        "border": "1px solid #dee2e6",
-                        "borderRadius": "0.25rem"
-                    }
-                )
-            ])
-
-    except Exception as e:
-        return dbc.Alert(f"Error loading {analysis_type} data: {str(e)}", color="danger")
-
-
-def load_sec_content(sample_ids, sample_set_id):
-    """Load SEC results content"""
-    # Get SEC results
-    sample_analyses = LimsSampleAnalysis.objects.filter(
-        sample_id__in=sample_ids,
-        sample_type=2  # FB samples
-    )
-
-    sec_results = LimsSecResult.objects.filter(
-        sample_id__in=sample_analyses
-    ).select_related('sample_id', 'report')
-
-    if not sec_results:
-        return html.Div([
-            html.P("No SEC results found for this sample set.", className="text-muted text-center")
-        ])
-
-    # Get the report ID from the first SEC result (or most recent)
-    report_id = None
-    if sec_results:
-        # Get the most recent report
-        result_with_report = sec_results.filter(report__isnull=False).first()
-        if result_with_report and result_with_report.report:
-            report_id = result_with_report.report.report_id
-
-    # Create SEC content with action buttons and table
-    return html.Div([
-        # Action buttons
-        dbc.Row([
-            dbc.Col([
-                dbc.ButtonGroup([
-                    dbc.Button([
-                        html.I(className="fas fa-chart-line me-1"),
-                        "Open SEC App"
-                    ],
-                        href=f"#!/analytical/sec/report?report_id={report_id}" if report_id else "#!/analytical/sec/report",
-                        color="primary",
-                        size="sm"),
-                    dbc.Button([
-                        html.I(className="fas fa-file-excel me-1"),
-                        "Export Results"
-                    ], id="export-sec-results", color="success", size="sm")
-                ])
-            ], className="mb-3")
-        ]),
-
-        # Results table container
-        html.Div(id="sec-results-table-container", children=[
-            create_sec_results_table()
-        ])
-    ])
-
-
-def load_sec_embedded_content(sample_ids, sample_set_id):
-    """Load embedded SEC app in iframe"""
-    # Get SEC results to find report ID
-    sample_analyses = LimsSampleAnalysis.objects.filter(
-        sample_id__in=sample_ids,
-        sample_type=2  # FB samples
-    )
-
-    sec_results = LimsSecResult.objects.filter(
-        sample_id__in=sample_analyses
-    ).select_related('sample_id', 'report')
-
-    # Get the report ID
-    report_id = None
-    if sec_results:
-        result_with_report = sec_results.filter(report__isnull=False).first()
-        if result_with_report and result_with_report.report:
-            report_id = result_with_report.report.report_id
-
-    # Build the SEC URL - use the actual app URL, not the hash route
-    sec_url = f"/plotly_integration/dash-app/app/SecReportEmbeddedApp/?report_id={report_id}" if report_id else "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
-
-    # Create embedded iframe
-    return html.Div([
-        html.Iframe(
-            src=sec_url,
-            style={
-                "width": "100%",
-                "height": "800px",
-                "border": "1px solid #dee2e6",
-                "borderRadius": "0.25rem"
-            }
-        )
-    ])
-
-
-
-def load_akta_embedded_content(sample_ids, sample_set_id):
-    """Load embedded AKTA app in iframe"""
-    # For AKTA, we need to extract just the numbers from FB IDs
-    # The AKTA app expects just the numbers without the FB prefix
-    fb_numbers = []
-    for sample_id in sample_ids:
-        # Extract just the number part
-        if str(sample_id).startswith('FB'):
-            fb_numbers.append(str(sample_id)[2:])  # Remove 'FB' prefix
         else:
-            # Assume it's already just a number
-            fb_numbers.append(str(sample_id))
+            return html.Div([
+                html.P(f"No {analysis_type} results available", className="text-muted text-center py-3")
+            ])
+    except Exception as e:
+        print(f"Error creating {analysis_type} table: {e}")
+        return html.Div([
+            html.P(f"Error loading {analysis_type} results", className="text-danger text-center py-3")
+        ])
 
-    # Build AKTA URL with just the numbers
-    fb_param = ','.join(fb_numbers)
-    print(f'{fb_param}')
-    akta_url = f"/plotly_integration/dash-app/app/AktaChromatogramApp/?fb={fb_param}&embed=true"
 
-
-    print(f"DEBUG: AKTA URL with FB numbers: {akta_url}")
-
-    # Create embedded iframe
-    return html.Div([
-        html.Iframe(
-            src=akta_url,
-            style={
-                "width": "100%",
-                "height": "800px",
-                "border": "1px solid #dee2e6",
-                "borderRadius": "0.25rem"
-            }
-        )
-    ])
-
-# ============================================================================
-# SEC RESULTS TABLE DATA CALLBACK
-# ============================================================================
-
+# Individual card toggle callbacks
 @app.callback(
-    [Output("sec-results-table", "data"),
-     Output("sec-results-table", "columns", allow_duplicate=True)],
-    Input({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
-    State("current-sample-set-id", "data"),
+    [Output({"type": "analysis-card-collapse", "index": "sec"}, "is_open"),
+     Output({"type": "analysis-card-toggle", "index": "sec"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "sec"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "sec"}, "is_open")],
     prevent_initial_call=True
 )
-def load_sec_results_data(is_open, sample_set_id):
-    """Load SEC results data when SEC card is expanded"""
-    print(f"DEBUG: load_sec_results_data called - is_open: {is_open}, sample_set_id: {sample_set_id}")
+def toggle_sec_card(n_clicks, is_open):
+    """Toggle SEC card"""
+    new_is_open = not is_open
+    icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+    return new_is_open, icon
 
-    if not is_open or not sample_set_id:
-        return [], no_update
+
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "titer"}, "is_open"),
+     Output({"type": "analysis-card-toggle", "index": "titer"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "titer"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "titer"}, "is_open")],
+    prevent_initial_call=True
+)
+def toggle_titer_card(n_clicks, is_open):
+    """Toggle Titer card"""
+    new_is_open = not is_open
+    icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+    return new_is_open, icon
+
+
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cief"}, "is_open"),
+     Output({"type": "analysis-card-toggle", "index": "cief"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cief"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cief"}, "is_open")],
+    prevent_initial_call=True
+)
+def toggle_cief_card(n_clicks, is_open):
+    """Toggle cIEF card"""
+    new_is_open = not is_open
+    icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+    return new_is_open, icon
+
+
+@app.callback(
+    [Output({"type": "analysis-card-collapse", "index": "cesds"}, "is_open"),
+     Output({"type": "analysis-card-toggle", "index": "cesds"}, "children")],
+    [Input({"type": "analysis-card-toggle", "index": "cesds"}, "n_clicks")],
+    [State({"type": "analysis-card-collapse", "index": "cesds"}, "is_open")],
+    prevent_initial_call=True
+)
+def toggle_cesds_card(n_clicks, is_open):
+    """Toggle CE-SDS card"""
+    new_is_open = not is_open
+    icon = html.I(className=f"fas fa-chevron-{'up' if new_is_open else 'down'}")
+    return new_is_open, icon
+
+
+# Load sample details table
+@app.callback(
+    [Output("sample-set-details-table-container", "children"),
+     Output("sample-set-summary-stats", "children")],
+    [Input("sample-set-detail-tabs", "active_tab"),
+     Input("current-sample-set-id", "data")]
+)
+def update_sample_details_table(active_tab, sample_set_id):
+    """Update the sample details table when overview tab is active"""
+    if active_tab != "overview" or not sample_set_id:
+        return no_update, no_update
 
     try:
-        # Get the sample set and its members
+        # Get sample set and samples
         sample_set = LimsSampleSet.objects.get(id=sample_set_id)
-        members = sample_set.members.all()
-        sample_ids = [member.sample.sample_id for member in members]
-
-        print(f"DEBUG: Looking for SEC results for samples: {sample_ids}")
-
-        # Query LimsSampleAnalysis for these sample IDs
-        sample_analyses = LimsSampleAnalysis.objects.filter(
-            sample_id__in=sample_ids,
-            sample_type=2  # FB samples
+        memberships = LimsSampleSetMembership.objects.filter(
+            sample_set_id=sample_set_id
+        ).select_related(
+            'sample',
+            'sample__up'
         )
 
-        # Get SEC results
-        sec_results = LimsSecResult.objects.filter(
-            sample_id__in=sample_analyses
-        ).select_related('sample_id', 'report')
+        # Build table data with correct fields
+        data = []
+        for membership in memberships:
+            sample = membership.sample
+            up_data = sample.up if hasattr(sample, 'up') and sample.up else None
 
-        print(f"DEBUG: Found {len(sec_results)} SEC results")
-
-        # Build table data
-        table_data = []
-        for sec_result in sec_results:
             row = {
-                'sample_id': sec_result.sample_id.sample_id,
-                'main_peak': f"{sec_result.main_peak:.2f}" if sec_result.main_peak else 'N/A',
-                'hmw': f"{sec_result.hmw:.2f}" if sec_result.hmw else 'N/A',
-                'lmw': f"{sec_result.lmw:.2f}" if sec_result.lmw else 'N/A',
-                'qc_pass': 'Pass' if sec_result.qc_pass else 'Fail',
-                'status': sec_result.status or 'complete',
-                'report_name': sec_result.report.report_name if sec_result.report else 'N/A',
-                'created_at': sec_result.created_at.strftime('%Y-%m-%d %H:%M') if sec_result.created_at else 'N/A'
+                'project': sample.project_id,
+                'sample_number': sample.sample_id,
+                'cell_line': up_data.cell_line if up_data else '',
+                'sip_number': sample_set.sip_number or '',
+                'development_stage': sample_set.development_stage or '',
+                'analyst': sample.analyst or '',
+                'harvest_date': up_data.harvest_date.strftime('%Y-%m-%d') if up_data and up_data.harvest_date else '',
+                'unifi_number': up_data.unifi_number if up_data else '',
+                'hf_octet_titer': up_data.hf_octet_titer if up_data else '',
+                'pro_aqa_hf_titer': up_data.pro_aqa_hf_titer if up_data else '',
+                'pro_aqa_e_titer': up_data.pro_aqa_e_titer if up_data else '',
+                'proa_eluate_a280_conc': up_data.proa_eluate_a280_conc if up_data else '',
+                'hccf_loading_volume': up_data.hccf_loading_volume if up_data else '',
+                'proa_eluate_volume': up_data.proa_eluate_volume if up_data else '',
+                'fast_pro_a_recovery': up_data.fast_pro_a_recovery if up_data else '',
+                'purification_recovery_a280': up_data.purification_recovery_a280 if up_data else '',
+                'note': up_data.note if up_data else ''
             }
-            table_data.append(row)
+            data.append(row)
 
-        from ..layouts.sample_set_details import SEC_RESULTS_FIELDS
-        return table_data, SEC_RESULTS_FIELDS
+        # Create summary stats with more info
+        total_samples = len(data)
+        unique_cell_lines = len(set(row['cell_line'] for row in data if row['cell_line']))
+
+        summary = dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Total Samples", className="text-muted"),
+                        html.H4(total_samples)
+                    ])
+                ])
+            ], width=3),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Project", className="text-muted"),
+                        html.H4(sample_set.project_id)
+                    ])
+                ])
+            ], width=3),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("SIP", className="text-muted"),
+                        html.H4(sample_set.sip_number or 'N/A')
+                    ])
+                ])
+            ], width=3),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6("Cell Lines", className="text-muted"),
+                        html.H4(unique_cell_lines)
+                    ])
+                ])
+            ], width=3)
+        ], className="mb-3")
+
+        # Return updated table
+        from plotly_integration.pd_dashboard.home.cld.sample_sets.layouts.sample_set_details import \
+            create_sample_set_details_table
+        table = create_sample_set_details_table()
+        table.data = data
+
+        return table, summary
 
     except Exception as e:
-        print(f"Error loading SEC results: {e}")
-        return [], no_update
+        print(f"Error updating sample details: {e}")
+        return html.Div("Error loading samples"), html.Div()
 
 
-# ============================================================================
-# REFRESH CALLBACKS
-# ============================================================================
-
+# Load top clones ranking table
 @app.callback(
-    Output("sample-set-details-notifications", "children"),
-    Input("refresh-sample-set-details-btn", "n_clicks"),
-    prevent_initial_call=True
+    Output("top-clones-table-container", "children"),
+    [Input("sample-set-detail-tabs", "active_tab"),
+     Input("current-sample-set-id", "data")]
 )
-def refresh_sample_set_details(n_clicks):
-    """Handle refresh button click"""
-    if n_clicks:
-        return dbc.Toast(
-            "Sample set details refreshed successfully!",
-            header="Refresh Complete",
-            is_open=True,
-            dismissable=True,
-            duration=3000,
-            icon="success",
-            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+def update_top_clones_table(active_tab, sample_set_id):
+    """Create and update the top clones ranking table"""
+    if active_tab != "top-clones" or not sample_set_id:
+        return no_update
+
+    try:
+        # Get samples in this set
+        sample_ids = list(
+            LimsSampleSetMembership.objects.filter(
+                sample_set_id=sample_set_id
+            ).values_list('sample__sample_id', flat=True)
         )
-    return no_update
 
+        # Get SEC and Titer results
+        sec_results = {
+            r.sample_id.sample_id: r.main_peak
+            for r in LimsSecResult.objects.filter(
+                sample_id__sample_id__in=sample_ids
+            ).select_related('sample_id')
+            if r.main_peak is not None
+        }
 
-print("✅ Complete sample set details callbacks loaded - 2 tab structure")
+        titer_results = {
+            r.sample_id.sample_id: r.titer
+            for r in LimsTiterResult.objects.filter(
+                sample_id__sample_id__in=sample_ids
+            ).select_related('sample_id')
+            if r.titer is not None
+        }
+
+        # Build ranking data
+        ranking_data = []
+
+        # Get samples that have both SEC and Titer results
+        samples_with_both = set(sec_results.keys()) & set(titer_results.keys())
+
+        if not samples_with_both:
+            return html.Div([
+                html.P("No samples with both SEC and Titer results available for ranking.",
+                       className="text-muted text-center py-5")
+            ])
+
+        # Get min/max for normalization
+        sec_values = [sec_results[s] for s in samples_with_both]
+        titer_values = [titer_results[s] for s in samples_with_both]
+
+        sec_min, sec_max = min(sec_values), max(sec_values)
+        titer_min, titer_max = min(titer_values), max(titer_values)
+
+        # Calculate scores for each sample
+        for sample_id in samples_with_both:
+            sec_value = sec_results[sample_id]
+            titer_value = titer_results[sample_id]
+
+            # Normalize to 0-100 scale
+            sec_normalized = ((sec_value - sec_min) / (sec_max - sec_min) * 100) if sec_max > sec_min else 100
+            titer_normalized = (
+                        (titer_value - titer_min) / (titer_max - titer_min) * 100) if titer_max > titer_min else 100
+
+            # Calculate composite score (40% SEC, 60% Titer)
+            composite_score = (0.4 * sec_normalized) + (0.6 * titer_normalized)
+
+            ranking_data.append({
+                'rank': 0,  # Will be assigned after sorting
+                'sample_id': sample_id,
+                'sec_main_peak': sec_value,
+                'sec_normalized': sec_normalized,
+                'titer': titer_value,
+                'titer_normalized': titer_normalized,
+                'composite_score': composite_score
+            })
+
+        # Sort by composite score (descending) and assign ranks
+        ranking_data.sort(key=lambda x: x['composite_score'], reverse=True)
+        for i, item in enumerate(ranking_data):
+            item['rank'] = i + 1
+
+        # Create the ranking table
+        columns = [
+            {'name': 'Rank', 'id': 'rank', 'type': 'numeric'},
+            {'name': 'Sample ID', 'id': 'sample_id'},
+            {'name': 'SEC Main Peak (%)', 'id': 'sec_main_peak', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'SEC Score', 'id': 'sec_normalized', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'Titer (mg/mL)', 'id': 'titer', 'type': 'numeric', 'format': {'specifier': '.2f'}},
+            {'name': 'Titer Score', 'id': 'titer_normalized', 'type': 'numeric', 'format': {'specifier': '.1f'}},
+            {'name': 'Composite Score', 'id': 'composite_score', 'type': 'numeric', 'format': {'specifier': '.1f'}}
+        ]
+
+        # Style conditions for the table
+        style_data_conditional = []
+
+        # Highlight top 3 ranks
+        for i in range(min(3, len(ranking_data))):
+            if i == 0:  # Gold for 1st
+                bg_color = 'rgba(255, 215, 0, 0.2)'
+            elif i == 1:  # Silver for 2nd
+                bg_color = 'rgba(192, 192, 192, 0.2)'
+            else:  # Bronze for 3rd
+                bg_color = 'rgba(205, 127, 50, 0.2)'
+
+            style_data_conditional.append({
+                'if': {'row_index': i},
+                'backgroundColor': bg_color,
+                'fontWeight': 'bold'
+            })
+
+        # Add color coding for composite score
+        for i, row in enumerate(ranking_data):
+            score_normalized = row['composite_score'] / 100
+            if score_normalized < 0.5:
+                # Red to yellow range
+                red = 220
+                green = int(150 * (score_normalized * 2))
+                blue = 100
+            else:
+                # Yellow to green range
+                red = int(220 - 120 * ((score_normalized - 0.5) * 2))
+                green = 150 + int(50 * ((score_normalized - 0.5) * 2))
+                blue = 100 + int(50 * ((score_normalized - 0.5) * 2))
+
+            style_data_conditional.append({
+                'if': {'row_index': i, 'column_id': 'composite_score'},
+                'backgroundColor': f'rgb({red}, {green}, {blue})',
+                'color': 'black',
+                'fontWeight': 'bold'
+            })
+
+        return dash_table.DataTable(
+            columns=columns,
+            data=ranking_data,
+            style_table={'overflowX': 'auto'},
+            style_cell={
+                'textAlign': 'left',
+                'padding': '10px'
+            },
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold'
+            },
+            style_data_conditional=style_data_conditional,
+            page_action="none",
+            sort_action="native",
+            filter_action="native"
+        )
+
+    except Exception as e:
+        print(f"Error creating top clones table: {e}")
+        return html.Div(f"Error loading rankings: {str(e)}", className="text-danger")

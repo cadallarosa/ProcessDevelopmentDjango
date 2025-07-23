@@ -118,7 +118,42 @@ def create_sample_set_detail_layout(query_params):
                     # Analysis cards container
                     html.Div(id="analysis-cards-container", className="mt-3")
                 ])
-            ])
+            ]),
+            # Tab 3: Top Clones
+            dbc.Tab(label="Top Clones", tab_id="top-clones", children=[
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5([
+                            html.I(className="fas fa-trophy text-warning me-2"),
+                            "Top Clone Rankings"
+                        ], className="mb-0")
+                    ]),
+                    dbc.CardBody([
+                        # Algorithm description
+                        dbc.Alert([
+                            html.H6("Ranking Algorithm", className="alert-heading"),
+                            html.P([
+                                "Clones are ranked using a composite score that combines SEC and Titer results:"
+                            ]),
+                            html.Ul([
+                                html.Li("SEC Main Peak % (40% weight): Higher purity indicates better product quality"),
+                                html.Li(
+                                    "Titer mg/mL (60% weight): Higher expression levels indicate better productivity")
+                            ]),
+                            html.P([
+                                html.Strong("Composite Score = "),
+                                "(0.4 × SEC Main Peak Normalized) + (0.6 × Titer Normalized)",
+                                html.Br(),
+                                html.Small("Values are normalized to 0-100 scale within the sample set",
+                                           className="text-muted")
+                            ], className="mb-0")
+                        ], color="info", className="mb-4"),
+
+                        # Top clones table container
+                        html.Div(id="top-clones-table-container")
+                    ])
+                ], className="mt-3")
+            ]),
         ], id="sample-set-detail-tabs", active_tab="overview"),
 
         # Notifications

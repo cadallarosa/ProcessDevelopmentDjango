@@ -8,7 +8,7 @@ from django_plotly_dash import DjangoDash
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from scipy.stats import linregress
-from plotly_integration.models import CESDSReport, CESDSMetadata, CESDSTimeSeries
+from plotly_integration.models import CESDSReport, CESDSMetadata, CESDSTimeSeries, LimsSampleAnalysis, LimsCeSdsResult
 from scipy.signal import find_peaks, savgol_filter, argrelextrema
 import dash_bootstrap_components as dbc
 from openpyxl import load_workbook
@@ -241,36 +241,6 @@ app.layout = html.Div([
                 id='left-toolbar',
                 style={'display': 'flex', 'gap': '10px', 'alignItems': 'center'},
                 children=[
-                    # html.Button([
-                    #     html.Span("➕ ", style={'marginRight': '5px'}),
-                    #     "Create New Report"
-                    # ], id="create-report-btn", style={
-                    #     'backgroundColor': '#0056b3',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
-                    # html.Button([
-                    #     html.Span("📊 ", style={'marginRight': '5px'}),
-                    #     "Select Report"
-                    # ], id="change-report-btn", style={
-                    #     'backgroundColor': '#6c757d',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
                     html.Button([
                         html.Span("📊 ", style={'marginRight': '5px'}),
                         "Select/Create Report"
@@ -315,7 +285,7 @@ app.layout = html.Div([
                     html.Button([
                         html.Span("🔗 ", style={'marginRight': '5px'}),
                         "Report Results"
-                    ], id="save-to-lims-btn", style={
+                    ], id="report-results-btn", style={
                         'backgroundColor': '#17a2b8',
                         'color': 'white',
                         'border': 'none',
@@ -327,22 +297,6 @@ app.layout = html.Div([
                         'transition': 'all 0.3s ease',
                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
-                    # html.Button([
-                    #     html.Span("📄 ", style={'marginRight': '5px'}),
-                    #     "Create PDF Report"
-                    # ], id="create-pdf-btn", style={
-                    #     'backgroundColor': '#dc3545',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
-
                 ]
             )
         ]
@@ -2016,3 +1970,323 @@ def run_linear_mw_regression(table_data, selected_rows, rt_input):
 )
 def auto_select_all_std_peaks(data):
     return list(range(len(data))) if data else []
+
+
+@app.callback(
+    [Output("status-message", "children", allow_duplicate=True),
+     Output("status-message", "style", allow_duplicate=True),
+     Output("button-success-trigger", "data"),
+     Output("button-reset-interval", "disabled")],
+    [Input("report-results-btn", "n_clicks")],
+    [State("reduced-table", "data"),
+     State("nonreduced-table", "data"),
+     State("selected-report", "data"),
+     State("button-success-trigger", "data")],
+    prevent_initial_call=True
+)
+def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_trigger):
+    print('=' * 50)
+    print('SAVE TO LIMS CALLBACK TRIGGERED')
+    print(f'n_clicks: {n_clicks}')
+    print(f'report_name: {report_name}')
+    print(f'reduced_data length: {len(reduced_data) if reduced_data else 0}')
+    print(f'nonreduced_data length: {len(nonreduced_data) if nonreduced_data else 0}')
+    print('=' * 50)
+
+    if (not reduced_data and not nonreduced_data) or not report_name:
+        print('No data or report name - returning early')
+        return "⚠️ No data to link!", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb",
+            "padding": "10px 20px",
+            "margin": "10px 20px",
+            "borderRadius": "5px"
+        }, current_trigger, True
+
+    try:
+        # Get report info
+        print(f'Looking for report with name: {report_name}')
+        report = CESDSReport.objects.filter(report_name=report_name).first()
+        if report:
+            project_id = report.project_id
+            print(f'Found report - project_id: {project_id}')
+        else:
+            project_id = "Unknown"
+            print('Report not found - using Unknown project_id')
+
+        saved_count = 0
+        errors = []
+        skipped_controls = []
+
+        # Dictionary to combine reduced and non-reduced data by sample ID
+        combined_samples = {}
+
+        # Process reduced samples
+        if reduced_data:
+            print(f'\nProcessing {len(reduced_data)} reduced samples...')
+            for idx, row in enumerate(reduced_data):
+                print(f'\nReduced Row {idx}: {row}')
+                sample_name = row.get("Sample Name", "")
+                print(f'Sample name: "{sample_name}"')
+
+                # Skip control samples
+                if any(control in sample_name.upper() for control in ['BLK', 'IGG', 'STD', 'BLANK', 'CONTROL']):
+                    print(f'Skipping control sample: {sample_name}')
+                    skipped_controls.append(sample_name)
+                    continue
+
+                # Remove R prefix if present
+                clean_sample_name = sample_name
+                if sample_name.startswith('R '):
+                    clean_sample_name = sample_name[2:].strip()
+                elif sample_name.startswith('R'):
+                    clean_sample_name = sample_name[1:].strip()
+                print(f'Clean sample name: "{clean_sample_name}"')
+
+                try:
+                    # Get values and handle None/empty strings
+                    lmw = row.get("LMW (%)", 0)
+                    hmw = row.get("HMW (%)", 0)
+                    light_chain = row.get("Light Chain (%)", 0)
+                    heavy_chain = row.get("Heavy Chain (%)", 0)
+
+                    print(f'Raw values - LMW: {lmw}, HMW: {hmw}, LC: {light_chain}, HC: {heavy_chain}')
+
+                    # Convert to float, handling None and empty strings
+                    lmw = float(lmw) if lmw not in [None, '', 'None'] else 0
+                    hmw = float(hmw) if hmw not in [None, '', 'None'] else 0
+                    light_chain = float(light_chain) if light_chain not in [None, '', 'None'] else 0
+                    heavy_chain = float(heavy_chain) if heavy_chain not in [None, '', 'None'] else 0
+
+                    # Initialize sample entry if not exists
+                    if clean_sample_name not in combined_samples:
+                        combined_samples[clean_sample_name] = {
+                            'original_names': [],
+                            'methods': {},
+                            'purity': None
+                        }
+
+                    # Add reduced method data
+                    combined_samples[clean_sample_name]['original_names'].append(sample_name)
+                    combined_samples[clean_sample_name]['methods']['reduced'] = {
+                        "peaks": {
+                            "LMW": {"value": lmw, "unit": "%"},
+                            "Light Chain": {"value": light_chain, "unit": "%"},
+                            "Heavy Chain": {"value": heavy_chain, "unit": "%"},
+                            "HMW": {"value": hmw, "unit": "%"}
+                        },
+                        "total_peaks": 4
+                    }
+
+                    # Calculate purity for reduced (main chain components)
+                    purity = 100 - lmw - hmw
+                    combined_samples[clean_sample_name]['purity'] = purity
+                    print(f'Calculated purity: {purity}')
+
+                except Exception as e:
+                    print(f'ERROR processing reduced sample {sample_name}: {str(e)}')
+                    import traceback
+                    traceback.print_exc()
+                    errors.append(f"{sample_name} (reduced): {str(e)}")
+
+        # Process non-reduced samples
+        if nonreduced_data:
+            print(f'\nProcessing {len(nonreduced_data)} non-reduced samples...')
+            for idx, row in enumerate(nonreduced_data):
+                print(f'\nNon-reduced Row {idx}: {row}')
+                sample_name = row.get("Sample Name", "")
+                print(f'Sample name: "{sample_name}"')
+
+                # Skip control samples
+                if any(control in sample_name.upper() for control in ['BLK', 'IGG', 'STD', 'BLANK', 'CONTROL']):
+                    print(f'Skipping control sample: {sample_name}')
+                    skipped_controls.append(sample_name)
+                    continue
+
+                # Remove NR prefix if present
+                clean_sample_name = sample_name
+                if sample_name.startswith('NR '):
+                    clean_sample_name = sample_name[3:].strip()
+                elif sample_name.startswith('NR'):
+                    clean_sample_name = sample_name[2:].strip()
+                print(f'Clean sample name: "{clean_sample_name}"')
+
+                try:
+                    # Get values and handle None/empty strings
+                    lmw = row.get("LMW (%)", 0)
+                    hmw = row.get("HMW (%)", 0)
+                    light_chain = row.get("Light Chain (%)", 0)
+                    intact = row.get("Intact (%)", 0)
+
+                    print(f'Raw values - LMW: {lmw}, HMW: {hmw}, LC: {light_chain}, Intact: {intact}')
+
+                    # Convert to float
+                    lmw = float(lmw) if lmw not in [None, '', 'None'] else 0
+                    hmw = float(hmw) if hmw not in [None, '', 'None'] else 0
+                    light_chain = float(light_chain) if light_chain not in [None, '', 'None'] else 0
+                    intact = float(intact) if intact not in [None, '', 'None'] else 0
+
+                    # Initialize sample entry if not exists
+                    if clean_sample_name not in combined_samples:
+                        combined_samples[clean_sample_name] = {
+                            'original_names': [],
+                            'methods': {},
+                            'purity': None
+                        }
+
+                    # Add non-reduced method data
+                    combined_samples[clean_sample_name]['original_names'].append(sample_name)
+                    combined_samples[clean_sample_name]['methods']['non_reduced'] = {
+                        "peaks": {
+                            "LMW": {"value": lmw, "unit": "%"},
+                            "Light Chain": {"value": light_chain, "unit": "%"},
+                            "Intact": {"value": intact, "unit": "%"},
+                            "HMW": {"value": hmw, "unit": "%"}
+                        },
+                        "total_peaks": 4
+                    }
+
+                    # Calculate purity for non-reduced if not already set
+                    if combined_samples[clean_sample_name]['purity'] is None:
+                        purity = 100 - lmw - hmw
+                        combined_samples[clean_sample_name]['purity'] = purity
+                        print(f'Calculated purity: {purity}')
+
+                except Exception as e:
+                    print(f'ERROR processing non-reduced sample {sample_name}: {str(e)}')
+                    import traceback
+                    traceback.print_exc()
+                    errors.append(f"{sample_name} (non-reduced): {str(e)}")
+
+        # Now save the combined data to LIMS
+        print(f'\n=== SAVING COMBINED DATA ===')
+        print(f'Total unique samples to save: {len(combined_samples)}')
+
+        for clean_sample_name, sample_data in combined_samples.items():
+            try:
+                print(f'\nProcessing combined sample: {clean_sample_name}')
+                print(f'Original names: {sample_data["original_names"]}')
+                print(f'Methods available: {list(sample_data["methods"].keys())}')
+
+                # Create comprehensive band pattern with both methods
+                band_pattern = {
+                    "methods": sample_data['methods'],
+                    "original_names": sample_data['original_names'],
+                    "analysis_date": datetime.now().isoformat(),
+                    "instrument": "CE-SDS",
+                    "total_methods": len(sample_data['methods'])
+                }
+
+                print(f'Combined band pattern: {band_pattern}')
+
+                # Create or update LIMS records
+                print(f'Creating/updating LimsSampleAnalysis for sample_id: {clean_sample_name}')
+                lims_sample, created = LimsSampleAnalysis.objects.update_or_create(
+                    sample_id=clean_sample_name,
+                    defaults={
+                        'sample_type': 2,  # FB samples
+                        'project_id': project_id,
+                        'analyst': report.user_id if report else 'Unknown',
+                        'sample_date': datetime.now().date(),
+                        'description': f'CE-SDS analysis from report {report_name}'
+                    }
+                )
+                print(f'LimsSampleAnalysis {"created" if created else "updated"}: {lims_sample.sample_id}')
+
+                # Determine notes based on available methods
+                method_list = list(sample_data['methods'].keys())
+                if len(method_list) == 2:
+                    notes = 'CE-SDS analysis (both reduced and non-reduced)'
+                elif 'reduced' in method_list:
+                    notes = 'CE-SDS analysis (reduced only)'
+                else:
+                    notes = 'CE-SDS analysis (non-reduced only)'
+
+                print(f'Creating/updating LimsCeSdsResult...')
+                cesds_result, created = LimsCeSdsResult.objects.update_or_create(
+                    sample_id=lims_sample,
+                    defaults={
+                        'purity': sample_data['purity'],
+                        'band_pattern': band_pattern,
+                        'notes': notes,
+                        'status': 'completed'
+                    }
+                )
+                print(f'LimsCeSdsResult {"created" if created else "updated"}')
+                saved_count += 1
+                print(f'Successfully saved combined sample {clean_sample_name}')
+
+            except Exception as e:
+                print(f'ERROR processing combined sample {clean_sample_name}: {str(e)}')
+                import traceback
+                traceback.print_exc()
+                errors.append(f"{clean_sample_name}: {str(e)}")
+
+        print(f'\n=== SUMMARY ===')
+        print(f'Total saved: {saved_count}')
+        print(f'Skipped controls: {len(skipped_controls)} - {skipped_controls}')
+        print(f'Errors: {len(errors)} - {errors}')
+
+        # Prepare status message
+        message_parts = []
+        if saved_count > 0:
+            message_parts.append(f"✅ Linked {saved_count} CE-SDS results to LIMS")
+        if skipped_controls:
+            message_parts.append(f"⚠️ Skipped {len(skipped_controls)} control samples: {', '.join(skipped_controls)}")
+        if errors:
+            error_msg = f"❌ Errors: {'; '.join(errors[:3])}"
+            if len(errors) > 3:
+                error_msg += f" and {len(errors) - 3} more..."
+            message_parts.append(error_msg)
+
+        message = " | ".join(message_parts) if message_parts else "No samples processed"
+
+        # Determine style based on results
+        if errors and not saved_count:
+            style = {
+                "display": "block",
+                "backgroundColor": "#f8d7da",
+                "color": "#721c24",
+                "border": "1px solid #f5c6cb",
+                "padding": "10px 20px",
+                "margin": "10px 20px",
+                "borderRadius": "5px"
+            }
+        elif errors or skipped_controls:
+            style = {
+                "display": "block",
+                "backgroundColor": "#fff3cd",
+                "color": "#856404",
+                "border": "1px solid #ffeeba",
+                "padding": "10px 20px",
+                "margin": "10px 20px",
+                "borderRadius": "5px"
+            }
+        else:
+            style = {
+                "display": "block",
+                "backgroundColor": "#d4edda",
+                "color": "#155724",
+                "border": "1px solid #c3e6cb",
+                "padding": "10px 20px",
+                "margin": "10px 20px",
+                "borderRadius": "5px"
+            }
+
+        return message, style, current_trigger + 1, False
+
+    except Exception as e:
+        print(f'MAIN EXCEPTION: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return f"❌ Error linking to LIMS: {str(e)}", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb",
+            "padding": "10px 20px",
+            "margin": "10px 20px",
+            "borderRadius": "5px"
+        }, current_trigger, True

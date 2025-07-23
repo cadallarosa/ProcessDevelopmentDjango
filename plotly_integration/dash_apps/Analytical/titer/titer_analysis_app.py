@@ -53,61 +53,6 @@ app.layout = html.Div([
     dcc.Store(id='button-success-trigger', data=0),
     dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
 
-    # # Modal for Create Report iframe
-    # html.Div(
-    #     id="create-report-modal",
-    #     style={
-    #         "display": "none",
-    #         "position": "fixed",
-    #         "top": "0",
-    #         "left": "0",
-    #         "width": "100%",
-    #         "height": "100%",
-    #         "backgroundColor": "rgba(0, 0, 0, 0.5)",
-    #         "zIndex": "1000"
-    #     },
-    #     children=[
-    #         html.Div(
-    #             style={
-    #                 "position": "relative",
-    #                 "margin": "5% auto",
-    #                 "width": "1300px",
-    #                 "maxWidth": "90%",
-    #                 "height": "80%",
-    #                 "backgroundColor": "white",
-    #                 "borderRadius": "10px",
-    #                 "padding": "20px",
-    #                 "boxShadow": "0 5px 15px rgba(0,0,0,0.3)"
-    #             },
-    #             children=[
-    #                 html.Button(
-    #                     "✕",
-    #                     id="close-modal-btn",
-    #                     style={
-    #                         "position": "absolute",
-    #                         "top": "10px",
-    #                         "right": "10px",
-    #                         "fontSize": "24px",
-    #                         "border": "none",
-    #                         "backgroundColor": "transparent",
-    #                         "cursor": "pointer",
-    #                         "color": "#666",
-    #                         "hover": {"color": "#000"}
-    #                     }
-    #                 ),
-    #                 html.H3("Create New Report", style={"marginBottom": "20px", "color": "#0056b3"}),
-    #                 html.Iframe(
-    #                     src="/plotly_integration/dash-app/app/CreateTiterReportApp/",
-    #                     style={
-    #                         "width": "100%",
-    #                         "height": "calc(100% - 60px)",
-    #                         "border": "none"
-    #                     }
-    #                 )
-    #             ]
-    #         )
-    #     ]
-    # ),
 
     # Modal for Select Report
     html.Div(
@@ -203,7 +148,7 @@ app.layout = html.Div([
                                                         page_size=15,  # Increased page size
                                                         fixed_rows={'headers': True},
                                                         style_table={
-                                                            'height': '105%',  # Take full height of container
+                                                            'height': '90%',  # Take full height of container
                                                             'overflowY': 'auto',
                                                             'overflowX': 'auto',
                                                             'borderRadius': '5px'
@@ -319,36 +264,7 @@ app.layout = html.Div([
                 id='left-toolbar',
                 style={'display': 'flex', 'gap': '10px', 'alignItems': 'center'},
                 children=[
-                    # html.Button([
-                    #     html.Span("➕ ", style={'marginRight': '5px'}),
-                    #     "Create New Report"
-                    # ], id="create-report-btn", style={
-                    #     'backgroundColor': '#0056b3',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
-                    # html.Button([
-                    #     html.Span("📊 ", style={'marginRight': '5px'}),
-                    #     "Select Report"
-                    # ], id="change-report-btn", style={
-                    #     'backgroundColor': '#6c757d',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
+
                     html.Button([
                         html.Span("📊 ", style={'marginRight': '5px'}),
                         "Select/Create Report"
@@ -405,21 +321,7 @@ app.layout = html.Div([
                         'transition': 'all 0.3s ease',
                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
-                    # html.Button([
-                    #     html.Span("📄 ", style={'marginRight': '5px'}),
-                    #     "Create PDF Report"
-                    # ], id="create-pdf-btn", style={
-                    #     'backgroundColor': '#dc3545',
-                    #     'color': 'white',
-                    #     'border': 'none',
-                    #     'padding': '10px 20px',
-                    #     'fontSize': '14px',
-                    #     'cursor': 'pointer',
-                    #     'borderRadius': '5px',
-                    #     'fontWeight': '500',
-                    #     'transition': 'all 0.3s ease',
-                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-                    # }),
+
 
                 ]
             )
@@ -962,88 +864,6 @@ def populate_report_table(modal_style, active_tab):
     return dash.no_update
 
 
-# # Callback to show/hide Create Report modal
-# @app.callback(
-#     Output("create-report-modal", "style"),
-#     [Input("create-report-btn", "n_clicks"),
-#      Input("close-modal-btn", "n_clicks")],
-#     [State("create-report-modal", "style")],
-#     prevent_initial_call=True
-# )
-# def toggle_modal(open_clicks, close_clicks, current_style):
-#     ctx = dash.callback_context
-#     if not ctx.triggered:
-#         return current_style
-#
-#     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
-#
-#     if button_id == "create-report-btn":
-#         return {**current_style, "display": "block"}
-#     elif button_id == "close-modal-btn":
-#         return {**current_style, "display": "none"}
-#
-#     return current_style
-#
-#
-# # Callback to show/hide Select Report modal
-# @app.callback(
-#     [Output("select-report-modal", "style"),
-#      Output("current-report-text", "children")],
-#     [Input("change-report-btn", "n_clicks"),
-#      Input("close-select-report-btn", "n_clicks"),
-#      Input("confirm-report-selection", "n_clicks"),
-#      Input("load-once", "n_intervals"),
-#      Input("url-params", "data")],
-#     [State("select-report-modal", "style"),
-#      State("selected-report", "data"),
-#      State("report-selection-table", "selected_rows"),
-#      State("report-selection-table", "data"),
-#      State("embedded-mode", "data")],
-#     prevent_initial_call=False
-# )
-# def toggle_select_report_modal(change_clicks, close_clicks, confirm_clicks, load_interval,
-#                                url_params, current_style, selected_report, selected_rows,
-#                                table_data, embedded):
-#     ctx = dash.callback_context
-#
-#     # Get the ID of the component that triggered the callback
-#     if not ctx.triggered:
-#         triggered_id = None
-#     else:
-#         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-#
-#     # Check if report_id is provided in URL
-#     if triggered_id == "url-params" and url_params.get('report_id'):
-#         report_id = url_params['report_id']
-#         report = Report.objects.filter(report_id=report_id).first()
-#         if report:
-#             return current_style, f"{report.project_id} - {report.report_name}"
-#
-#     # Check if no report is selected on initial load (but not in embedded mode)
-#     if triggered_id == "load-once" and not selected_report and not embedded:
-#         return {**current_style, "display": "block"}, "No report selected"
-#
-#     if not ctx.triggered:
-#         return current_style, "No report selected"
-#
-#     if triggered_id == "change-report-btn":
-#         return {**current_style, "display": "block"}, dash.no_update
-#     elif triggered_id == "close-select-report-btn":
-#         return {**current_style, "display": "none"}, dash.no_update
-#     elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
-#         # Get selected report info
-#         selected = table_data[selected_rows[0]]
-#         report_text = f"{selected['project_id']} - {selected['report_name']}"
-#         return {**current_style, "display": "none"}, report_text
-#
-#     # Update report text if report is selected
-#     if selected_report:
-#         report = Report.objects.filter(report_id=selected_report).first()
-#         if report:
-#             return current_style, f"{report.project_id} - {report.report_name}"
-#
-#     return current_style, "No report selected"
-
 
 # Callback to save plot settings
 @app.callback(
@@ -1286,32 +1106,6 @@ def disable_interval_after_reset(n_intervals):
     if n_intervals > 0:
         return True  # Disable interval after first trigger
     return False
-
-
-# Populate report table
-# @app.callback(
-#     Output("report-selection-table", "data"),
-#     [Input("load-once", "n_intervals"),
-#      Input("change-report-btn", "n_clicks")]  # Added this input
-# )
-# def populate_report_table(load_interval, change_btn_clicks):
-#     """Populate the report selection table on initial load and when modal is opened."""
-#     reports = Report.objects.filter(analysis_type=2).order_by('-date_created').values(
-#         "report_id", "report_name", "project_id", "user_id", "date_created"
-#     )
-#     data = []
-#     for report in reports:
-#         date = report["date_created"]
-#         date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else "N/A"
-#         data.append({
-#             "report_id": report["report_id"],
-#             "report_name": report["report_name"],
-#             "project_id": report["project_id"],
-#             "user_id": report["user_id"] or "N/A",
-#             "date_created": date_str
-#         })
-#     return data
-
 
 # Store selected report
 @app.callback(
