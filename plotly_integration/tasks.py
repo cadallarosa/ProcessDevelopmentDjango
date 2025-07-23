@@ -1,15 +1,13 @@
 # plotly_integration/tasks.py
 # Combined Celery tasks for AKTA, Empower, and ViCell imports
-import datetime
 import os
 import hashlib
 import json
 import logging
 import re
-
 import requests
 import time
-from datetime import datetime as dt, timedelta
+from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from celery import shared_task
@@ -19,12 +17,7 @@ from django.utils import timezone
 from django.db import IntegrityError, transaction
 from plotly_integration.models import ViCellData
 from plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor import run_vicell_import
-import re
-import pandas as pd
-import numpy as np
-from datetime import datetime
 from pathlib import Path
-from django.db import transaction
 from plotly_integration.models import NovaFlex2
 
 logger = logging.getLogger(__name__)
@@ -53,7 +46,7 @@ def run_complete_import_pipeline():
     3. Run historical data import
     """
     results = {
-        "start_time": datetime.datetime.now().isoformat(),
+        "start_time": datetime.now().isoformat(),
         "traversal": {},
         "import": {},
         "status": "started"
@@ -72,7 +65,7 @@ def run_complete_import_pipeline():
         if not start_response.json().get('success'):
             raise Exception("Failed to start traversal")
 
-        results["traversal"]["started_at"] = datetime.datetime.now().isoformat()
+        results["traversal"]["started_at"] = datetime.now().isoformat()
         print("✅ Traversal started successfully")
 
         # Wait for traversal to complete
@@ -112,7 +105,7 @@ def run_complete_import_pipeline():
 
                 if not is_active:
                     # Traversal completed!
-                    results["traversal"]["completed_at"] = datetime.datetime.now().isoformat()
+                    results["traversal"]["completed_at"] = datetime.now().isoformat()
                     results["traversal"]["stats"] = stats
                     results["traversal"]["duration_seconds"] = elapsed
                     print(f"✅ Traversal completed! Processed {processed} folders, inserted {inserted} records")
@@ -136,7 +129,7 @@ def run_complete_import_pipeline():
 
     # Step 3: Run the Python import
     print("\n🔄 Starting historical data import...")
-    results["import"]["started_at"] = datetime.datetime.now().isoformat()
+    results["import"]["started_at"] = datetime.now().isoformat()
 
     try:
         # Import and run the function directly
@@ -144,12 +137,12 @@ def run_complete_import_pipeline():
             process_opcua_node_ids
 
         start_time = "2013-01-01T00:00:00"
-        end_time = datetime.datetime.now().isoformat()
+        end_time = datetime.now().isoformat()
 
         # Run the import
         process_opcua_node_ids(start_time, end_time)
 
-        results["import"]["completed_at"] = datetime.datetime.now().isoformat()
+        results["import"]["completed_at"] = datetime.now().isoformat()
         results["import"]["status"] = "success"
         results["status"] = "completed"
         print("✅ Historical data import completed successfully")
@@ -160,11 +153,11 @@ def run_complete_import_pipeline():
         results["status"] = "import_failed"
         print(f"❌ Import failed: {e}")
 
-    results["completed_at"] = datetime.datetime.now().isoformat()
+    results["completed_at"] = datetime.now().isoformat()
 
     # Log final summary
-    duration = (datetime.datetime.fromisoformat(results["completed_at"]) -
-                datetime.datetime.fromisoformat(results["start_time"])).total_seconds()
+    duration = (datetime.fromisoformat(results["completed_at"]) -
+                datetime.fromisoformat(results["start_time"])).total_seconds()
     print(f"\n{'=' * 60}")
     print(f"Pipeline completed in {duration:.1f} seconds")
     print(f"Status: {results['status']}")
@@ -173,8 +166,8 @@ def run_complete_import_pipeline():
     return results
 
 
-@shared_task(name='plotly_integration.run_import_only' ,bind=True)
-def run_import_only():
+@shared_task(name='plotly_integration.run_import_only', bind=True)
+def run_import_only(self):
     """
     Run only the Python import script.
     Use this when you already have traversal data and just want to import unprocessed records.
@@ -192,11 +185,11 @@ def run_import_only():
             return {
                 "status": "success",
                 "message": "No unimported records found",
-                "timestamp": datetime.datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
 
         start_time = "2013-01-01T00:00:00"
-        end_time = datetime.datetime.now().isoformat()
+        end_time = datetime.now().isoformat()
 
         # Run the import
         process_opcua_node_ids(start_time, end_time)
@@ -210,7 +203,7 @@ def run_import_only():
             "message": f"Imported {imported_count} records successfully",
             "processed": imported_count,
             "remaining": still_unimported,
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         }
 
     except Exception as e:
@@ -221,7 +214,7 @@ def run_import_only():
         return {
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         }
 
 
@@ -245,14 +238,14 @@ def run_traversal_only():
             return {
                 "status": "started",
                 "response": response.json(),
-                "timestamp": datetime.datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
         else:
             return {
                 "status": "error",
                 "error": "Failed to start traversal",
                 "response": response.json(),
-                "timestamp": datetime.datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
 
     except Exception as e:
@@ -260,7 +253,7 @@ def run_traversal_only():
         return {
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         }
 
 
@@ -275,7 +268,7 @@ def check_traversal_status():
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        return {"error": str(e), "timestamp": datetime.datetime.now().isoformat()}
+        return {"error": str(e), "timestamp": datetime.now().isoformat()}
 
 
 @shared_task(name='plotly_integration.stop_traversal', bind=True)
@@ -288,9 +281,9 @@ def stop_traversal():
         )
         response.raise_for_status()
         print("🛑 Traversal stop requested")
-        return {"status": "stopped", "timestamp": datetime.datetime.now().isoformat()}
+        return {"status": "stopped", "timestamp": datetime.now().isoformat()}
     except Exception as e:
-        return {"error": str(e), "timestamp": datetime.datetime.now().isoformat()}
+        return {"error": str(e), "timestamp": datetime.now().isoformat()}
 
 
 @shared_task(name='plotly_integration.check_import_status', bind=True)
@@ -321,7 +314,7 @@ def check_import_status():
         "percentage": percentage,
         "total_results": total_results,
         "status_message": status_msg,
-        "timestamp": datetime.datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat()
     }
 
 
@@ -351,7 +344,7 @@ def cleanup_old_results(days_to_keep=30):
             "status": "success",
             "deleted_count": count,
             "cutoff_date": cutoff_date.isoformat(),
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         }
 
     except Exception as e:
@@ -359,7 +352,7 @@ def cleanup_old_results(days_to_keep=30):
         return {
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         }
 
 
@@ -371,7 +364,7 @@ def health_check():
     """
     return {
         "status": "healthy",
-        "timestamp": datetime.datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "message": "Celery worker is running"
     }
 
@@ -779,7 +772,7 @@ def import_vicell_data_complete(self):
 
         # Store detailed results in cache
         cache.set('vicell_last_import', {
-            'timestamp': dt.now().isoformat(),
+            'timestamp': datetime.now().isoformat(),
             'task_id': self.request.id,
             'method': 'complete-file-import',
             'imported': created_count,
@@ -841,8 +834,6 @@ def check_and_import_vicell_files(self):
 
 # ========== Nova Flex II ==========
 # /mnt/windows-share/Results
-
-from datetime import timedelta
 
 @shared_task
 def import_nova_flex2_files():
@@ -1241,6 +1232,3 @@ def import_cief_files(self):
             print(f"Failed to import {filename}: {e}")
 
     return f"Import completed. Success: {successful}, Failed: {failed}"
-
-
-
