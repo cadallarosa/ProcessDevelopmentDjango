@@ -1003,15 +1003,22 @@ def generate_chromatogram_figure_advanced(
 
         fig.update_xaxes(title_text="Time (min)", row=i, col=1)
 
+        # Store MW calculations for each peak class (reduced method)
+        mw_values = {"LMW": None, "Light Chain": None, "Heavy Chain": None, "HMW": None}
+
         for p, class_label in classified_peaks:
             pct = (p["area"] / total_area * 100) if total_area else 0
             percentages[class_label] += pct
             label = f"{class_label}<br>({pct:.1f}%)"
 
+            # Calculate MW and store it
             if regression_slope is not None and regression_intercept is not None:
                 log_mw = regression_slope * p["peak_time"] + regression_intercept
                 mw_kda = np.exp(log_mw)
                 label += f"<br>{mw_kda:.1f} kDa"
+
+                # Store the MW for this peak class
+                mw_values[class_label] = round(mw_kda, 1)
 
             peak_height = p["peak_height"]
             if y_scale and y_scale != 1:
@@ -1033,6 +1040,7 @@ def generate_chromatogram_figure_advanced(
         if abs(total_pct - 100) > 1e-2:
             print(f"[DEBUG] {meta['sample_id']} percentages do not sum to 100%: {total_pct:.2f}%")
 
+        # UPDATED: Add MW columns to reduced table output
         if table_output is not None:
             table_output.append({
                 "Sample Name": meta["sample_id"],
@@ -1040,6 +1048,11 @@ def generate_chromatogram_figure_advanced(
                 "Light Chain (%)": round(percentages["Light Chain"], 1),
                 "Heavy Chain (%)": round(percentages["Heavy Chain"], 1),
                 "HMW (%)": round(percentages["HMW"], 1),
+                # Add MW columns for reduced method
+                "LMW MW (kDa)": mw_values["LMW"],
+                "Light Chain MW (kDa)": mw_values["Light Chain"],
+                "Heavy Chain MW (kDa)": mw_values["Heavy Chain"],
+                "HMW MW (kDa)": mw_values["HMW"],
             })
 
     fig.update_layout(
@@ -1622,15 +1635,22 @@ def generate_chromatogram_figure_nonreduced(
 
         fig.update_xaxes(title_text="Time (min)", row=i, col=1)
 
+        # Store MW calculations for each peak class
+        mw_values = {"LMW": None, "Light Chain": None, "Intact": None, "HMW": None}
+
         for p, class_label in classified_peaks:
             pct = (p["area"] / total_area * 100) if total_area else 0
             percentages[class_label] += pct
             label = f"{class_label}<br>({pct:.1f}%)"
 
+            # Calculate MW and store it
             if regression_slope is not None and regression_intercept is not None:
                 log_mw = regression_slope * p["peak_time"] + regression_intercept
                 mw_kda = np.exp(log_mw)
                 label += f"<br>{mw_kda:.1f} kDa"
+
+                # Store the MW for this peak class
+                mw_values[class_label] = round(mw_kda, 1)
 
             peak_height = p["peak_height"]
             if y_scale and y_scale != 1:
@@ -1652,6 +1672,7 @@ def generate_chromatogram_figure_nonreduced(
         if abs(total_pct - 100) > 1e-2:
             print(f"[DEBUG] {meta['sample_id']} percentages do not sum to 100%: {total_pct:.2f}%")
 
+        # UPDATED: Add MW columns to table output
         if table_output is not None:
             table_output.append({
                 "Sample Name": meta["sample_id"],
@@ -1659,6 +1680,11 @@ def generate_chromatogram_figure_nonreduced(
                 "Light Chain (%)": round(percentages["Light Chain"], 1),
                 "Intact (%)": round(percentages["Intact"], 1),
                 "HMW (%)": round(percentages["HMW"], 1),
+                # Add MW columns
+                "LMW MW (kDa)": mw_values["LMW"],
+                "Light Chain MW (kDa)": mw_values["Light Chain"],
+                "Intact MW (kDa)": mw_values["Intact"],
+                "HMW MW (kDa)": mw_values["HMW"],
             })
 
     fig.update_layout(
@@ -1981,16 +2007,18 @@ def auto_select_all_std_peaks(data):
     [State("reduced-table", "data"),
      State("nonreduced-table", "data"),
      State("selected-report", "data"),
-     State("button-success-trigger", "data")],
+     State("button-success-trigger", "data"),
+     State("standard-regression-params", "data")],  # ADD: Get regression parameters
     prevent_initial_call=True
 )
-def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_trigger):
+def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_trigger, regression_params):
     print('=' * 50)
     print('SAVE TO LIMS CALLBACK TRIGGERED')
     print(f'n_clicks: {n_clicks}')
     print(f'report_name: {report_name}')
     print(f'reduced_data length: {len(reduced_data) if reduced_data else 0}')
     print(f'nonreduced_data length: {len(nonreduced_data) if nonreduced_data else 0}')
+    print(f'regression_params: {regression_params}')
     print('=' * 50)
 
     if (not reduced_data and not nonreduced_data) or not report_name:
@@ -2023,7 +2051,7 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
         # Dictionary to combine reduced and non-reduced data by sample ID
         combined_samples = {}
 
-        # Process reduced samples
+        # Process reduced samples WITH MW DATA
         if reduced_data:
             print(f'\nProcessing {len(reduced_data)} reduced samples...')
             for idx, row in enumerate(reduced_data):
@@ -2046,19 +2074,32 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                 print(f'Clean sample name: "{clean_sample_name}"')
 
                 try:
-                    # Get values and handle None/empty strings
+                    # Get percentage values
                     lmw = row.get("LMW (%)", 0)
                     hmw = row.get("HMW (%)", 0)
                     light_chain = row.get("Light Chain (%)", 0)
                     heavy_chain = row.get("Heavy Chain (%)", 0)
 
+                    # NEW: Get MW values
+                    lmw_mw = row.get("LMW MW (kDa)", None)
+                    lc_mw = row.get("Light Chain MW (kDa)", None)
+                    hc_mw = row.get("Heavy Chain MW (kDa)", None)
+                    hmw_mw = row.get("HMW MW (kDa)", None)
+
                     print(f'Raw values - LMW: {lmw}, HMW: {hmw}, LC: {light_chain}, HC: {heavy_chain}')
+                    print(f'MW values - LMW MW: {lmw_mw}, LC MW: {lc_mw}, HC MW: {hc_mw}, HMW MW: {hmw_mw}')
 
                     # Convert to float, handling None and empty strings
                     lmw = float(lmw) if lmw not in [None, '', 'None'] else 0
                     hmw = float(hmw) if hmw not in [None, '', 'None'] else 0
                     light_chain = float(light_chain) if light_chain not in [None, '', 'None'] else 0
                     heavy_chain = float(heavy_chain) if heavy_chain not in [None, '', 'None'] else 0
+
+                    # Convert MW values
+                    lmw_mw = float(lmw_mw) if lmw_mw not in [None, '', 'None'] else None
+                    lc_mw = float(lc_mw) if lc_mw not in [None, '', 'None'] else None
+                    hc_mw = float(hc_mw) if hc_mw not in [None, '', 'None'] else None
+                    hmw_mw = float(hmw_mw) if hmw_mw not in [None, '', 'None'] else None
 
                     # Initialize sample entry if not exists
                     if clean_sample_name not in combined_samples:
@@ -2068,14 +2109,30 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                             'purity': None
                         }
 
-                    # Add reduced method data
+                    # UPDATED: Add reduced method data WITH MW
                     combined_samples[clean_sample_name]['original_names'].append(sample_name)
                     combined_samples[clean_sample_name]['methods']['reduced'] = {
                         "peaks": {
-                            "LMW": {"value": lmw, "unit": "%"},
-                            "Light Chain": {"value": light_chain, "unit": "%"},
-                            "Heavy Chain": {"value": heavy_chain, "unit": "%"},
-                            "HMW": {"value": hmw, "unit": "%"}
+                            "LMW": {
+                                "value": lmw,
+                                "unit": "%",
+                                "molecular_weight": lmw_mw
+                            },
+                            "Light Chain": {
+                                "value": light_chain,
+                                "unit": "%",
+                                "molecular_weight": lc_mw
+                            },
+                            "Heavy Chain": {
+                                "value": heavy_chain,
+                                "unit": "%",
+                                "molecular_weight": hc_mw
+                            },
+                            "HMW": {
+                                "value": hmw,
+                                "unit": "%",
+                                "molecular_weight": hmw_mw
+                            }
                         },
                         "total_peaks": 4
                     }
@@ -2091,7 +2148,7 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                     traceback.print_exc()
                     errors.append(f"{sample_name} (reduced): {str(e)}")
 
-        # Process non-reduced samples
+        # Process non-reduced samples WITH MW DATA
         if nonreduced_data:
             print(f'\nProcessing {len(nonreduced_data)} non-reduced samples...')
             for idx, row in enumerate(nonreduced_data):
@@ -2114,19 +2171,32 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                 print(f'Clean sample name: "{clean_sample_name}"')
 
                 try:
-                    # Get values and handle None/empty strings
+                    # Get percentage values
                     lmw = row.get("LMW (%)", 0)
                     hmw = row.get("HMW (%)", 0)
                     light_chain = row.get("Light Chain (%)", 0)
                     intact = row.get("Intact (%)", 0)
 
-                    print(f'Raw values - LMW: {lmw}, HMW: {hmw}, LC: {light_chain}, Intact: {intact}')
+                    # NEW: Get MW values
+                    lmw_mw = row.get("LMW MW (kDa)", None)
+                    lc_mw = row.get("Light Chain MW (kDa)", None)
+                    intact_mw = row.get("Intact MW (kDa)", None)  # KEY VALUE for display
+                    hmw_mw = row.get("HMW MW (kDa)", None)
 
-                    # Convert to float
+                    print(f'Raw values - LMW: {lmw}, HMW: {hmw}, LC: {light_chain}, Intact: {intact}')
+                    print(f'MW values - LMW MW: {lmw_mw}, LC MW: {lc_mw}, Intact MW: {intact_mw}, HMW MW: {hmw_mw}')
+
+                    # Convert percentage values to float
                     lmw = float(lmw) if lmw not in [None, '', 'None'] else 0
                     hmw = float(hmw) if hmw not in [None, '', 'None'] else 0
                     light_chain = float(light_chain) if light_chain not in [None, '', 'None'] else 0
                     intact = float(intact) if intact not in [None, '', 'None'] else 0
+
+                    # Convert MW values
+                    lmw_mw = float(lmw_mw) if lmw_mw not in [None, '', 'None'] else None
+                    lc_mw = float(lc_mw) if lc_mw not in [None, '', 'None'] else None
+                    intact_mw = float(intact_mw) if intact_mw not in [None, '', 'None'] else None
+                    hmw_mw = float(hmw_mw) if hmw_mw not in [None, '', 'None'] else None
 
                     # Initialize sample entry if not exists
                     if clean_sample_name not in combined_samples:
@@ -2136,14 +2206,30 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                             'purity': None
                         }
 
-                    # Add non-reduced method data
+                    # UPDATED: Add non-reduced method data WITH MW
                     combined_samples[clean_sample_name]['original_names'].append(sample_name)
                     combined_samples[clean_sample_name]['methods']['non_reduced'] = {
                         "peaks": {
-                            "LMW": {"value": lmw, "unit": "%"},
-                            "Light Chain": {"value": light_chain, "unit": "%"},
-                            "Intact": {"value": intact, "unit": "%"},
-                            "HMW": {"value": hmw, "unit": "%"}
+                            "LMW": {
+                                "value": lmw,
+                                "unit": "%",
+                                "molecular_weight": lmw_mw
+                            },
+                            "Light Chain": {
+                                "value": light_chain,
+                                "unit": "%",
+                                "molecular_weight": lc_mw
+                            },
+                            "Intact": {
+                                "value": intact,
+                                "unit": "%",
+                                "molecular_weight": intact_mw  # KEY: Intact MW for display
+                            },
+                            "HMW": {
+                                "value": hmw,
+                                "unit": "%",
+                                "molecular_weight": hmw_mw
+                            }
                         },
                         "total_peaks": 4
                     }
@@ -2170,13 +2256,14 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                 print(f'Original names: {sample_data["original_names"]}')
                 print(f'Methods available: {list(sample_data["methods"].keys())}')
 
-                # Create comprehensive band pattern with both methods
+                # UPDATED: Create comprehensive band pattern with MW data and regression info
                 band_pattern = {
                     "methods": sample_data['methods'],
                     "original_names": sample_data['original_names'],
                     "analysis_date": datetime.now().isoformat(),
                     "instrument": "CE-SDS",
-                    "total_methods": len(sample_data['methods'])
+                    "total_methods": len(sample_data['methods']),
+                    "regression_parameters": regression_params if regression_params else None  # NEW: Add regression params
                 }
 
                 print(f'Combined band pattern: {band_pattern}')
@@ -2224,6 +2311,7 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                 traceback.print_exc()
                 errors.append(f"{clean_sample_name}: {str(e)}")
 
+        # ... rest of the function remains the same (summary, status messages, etc.)
         print(f'\n=== SUMMARY ===')
         print(f'Total saved: {saved_count}')
         print(f'Skipped controls: {len(skipped_controls)} - {skipped_controls}')
