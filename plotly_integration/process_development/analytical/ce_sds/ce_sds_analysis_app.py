@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import dash
 import pandas as pd
 import numpy as np
 from dash import dcc, html, Input, Output, State, dash_table
@@ -16,352 +17,792 @@ import io
 app = DjangoDash("CESDSReportViewerApp")
 
 app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
     dcc.Store(id="selected-result-ids"),
     dcc.Store(id="reduced-result-ids"),
     dcc.Store(id="nonreduced-result-ids"),
     dcc.Store(id="standard-regression-params"),
     dcc.Store(id="selected-report"),
 
-    dcc.Tabs(id="main-tabs", value="tab-select-report", persistence=False, children=[
+    dcc.Store(id='url-params', data={}),
+    dcc.Store(id='embedded-mode', data=False),
+    dcc.Interval(id="load-once", interval=1000, n_intervals=0, max_intervals=1),
 
-        # Select Report Tab
-        dcc.Tab(label="Select Report", value="tab-select-report", children=[
-            html.Div([
-                dash_table.DataTable(
-                    id="cesds-report-table",
-                    columns=[
-                        {"name": "Report ID", "id": "id"},
-                        {"name": "Report Name", "id": "report_name"},
-                        {"name": "Project ID", "id": "project_id"},
-                        {"name": "User ID", "id": "user_id"},
-                        {"name": "Date Created", "id": "date_created"},
-                        {"name": "Samples", "id": "num_samples"}
-                    ],
-                    data=[],
-                    row_selectable="single",
-                    filter_action="native",
-                    sort_action="native",
-                    page_size=20,
-                    style_table={"height": "70vh", "overflowY": "auto"},
-                    style_cell={"textAlign": "center", "padding": "8px"},
-                    style_header={
-                        "backgroundColor": "#e9f1fb",
-                        "fontWeight": "bold",
-                        "color": "#0047b3",
-                        "borderBottom": "2px solid #0047b3"
-                    }
-                )
-            ])
-        ]),
+    dcc.Store(id='button-success-trigger', data=0),
+    dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
 
-        # Reduced Tab
-        dcc.Tab(label="Reduced", value="tab-reduced", children=[
-            html.Div([
-                dcc.Tabs(id="reduced-subtabs", value="tab-reduced-chrom", persistence=True, children=[
-                    dcc.Tab(label="Chromatogram", value="tab-reduced-chrom", children=[
-                        html.Div(style={"display": "flex"}, children=[
-                            html.Div([
-                                dcc.Graph(
-                                    id="reduced-chromatogram",
-                                    config={'responsive': True},
-                                    style={"height": "100%"}
-                                )
-                            ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
-
-                            html.Div([
-                                html.H4("Marker Settings"),
-                                html.Label("Marker RT (min):"),
-                                dcc.Input(id="marker-rt", type="number", value=7, step=0.1, style={"width": "100%"}),
-
-                                html.Label("Marker Label:"),
-                                dcc.Input(id="marker-label", type="text", value="10 kDa",
-                                          style={"width": "100%", "marginBottom": "20px"}),
-
-                                html.Hr(),
-                                html.H4("Plot Settings"),
-                                html.Label("Y- Axis Scaling"),
-                                dcc.Input(id="reduced-y-axis-scaling", type="number", value=1.0, step=0.01,
-                                          style={"width": "100%"}),
-                                html.Label("Subplot Vertical Spacing"),
-                                dcc.Input(id="reduced-subplot-vertical-spacing", type="number", value=0.025, step=0.005,
-                                          style={"width": "100%"}),
-
-                                html.Hr(),
-                                html.H4("Peak Detection"),
-
-                                html.Label("Skip Time After Marker (min):"),
-                                dcc.Input(id="skip-time", type="number", value=0.3, step=0.05, style={"width": "100%"}),
-
-                                html.Label("Max Peaks:"),
-                                dcc.Input(id="max-peaks", type="number", value=4, step=1, min=1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Prominence Threshold:"),
-                                dcc.Input(id="prominence-threshold", type="number", value=100.0, step=0.01,
-                                          style={"width": "100%"}),
-
-                                html.Label("Valley Search Window (min):"),
-                                dcc.Input(id="valley-search-window", type="number", value=1.5, step=0.1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Valley Drop Ratio (0–1):"),
-                                dcc.Input(id="valley-drop-ratio", type="number", value=0.2, step=0.05, min=0, max=1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Smoothing Window (odd integer):"),
-                                dcc.Input(id="smoothing-window", type="number", value=3, step=2, min=3,
-                                          style={"width": "100%"}),
-
-                                html.Label("Smoothing Polyorder:"),
-                                dcc.Input(id="smoothing-polyorder", type="number", value=1, step=1, min=1,
-                                          style={"width": "100%", "marginBottom": "20px"}),
-
-                                html.Hr(),
-                                html.H4("Light Chain Timing"),
-                                html.Button("Calculate Light Chain Time", id="calc-light-chain-btn",
-                                            style={"width": "100%", "marginBottom": "10px"}),
-                                dcc.Input(id="light-chain-time", type="number", placeholder="Light Chain Time (min)",
-                                          readOnly=True, style={"width": "100%"})
-
-                            ], style={"width": "20%", "padding": "10px"})
-                        ])
-                    ]),
-                    dcc.Tab(label="Results Table", value="tab-reduced-table", children=[
-                        html.Div([
-                            html.H4("Reduced Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
-                            dash_table.DataTable(
-                                id="reduced-table",
-                                columns=[],  # will be filled by callback
-                                data=[],
-                                style_header={
-                                    'backgroundColor': '#0056b3',  # blue
-                                    'color': 'white',
-                                    'fontWeight': 'bold',
-                                    'textAlign': 'center'
-                                },
-                                style_table={"overflowX": "auto"},
-                                style_cell={"textAlign": "center"},
-                            ),
-                            html.Button("Export Reduced Table", id="export-reduced-btn"),
-                            dcc.Download(id="download-reduced-xlsx")
-                        ]),
-
-                    ])
-                ])
-            ])
-        ]),
-
-        # Non-Reduced Tab
-        dcc.Tab(label="Non-Reduced", value="tab-nonreduced", children=[
-            html.Div([
-                dcc.Tabs(id="nonreduced-subtabs", value="tab-nonreduced-chrom", persistence=True, children=[
-                    dcc.Tab(label="Chromatogram", value="tab-nonreduced-chrom", children=[
-                        html.Div(style={"display": "flex"}, children=[
-                            html.Div([
-                                dcc.Graph(
-                                    id="nonreduced-chromatogram",
-                                    config={'responsive': False},
-                                    # style={"height": "100%"}
-                                )
-                            ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
-
-                            html.Div([
-                                html.H4("Marker Settings"),
-                                html.Label("Marker RT (min):"),
-                                dcc.Input(id="nr-marker-rt", type="number", value=7, step=0.1, style={"width": "100%"}),
-
-                                html.Label("Marker Label:"),
-                                dcc.Input(id="nr-marker-label", type="text", value="10 kDa",
-                                          style={"width": "100%", "marginBottom": "20px"}),
-
-                                html.Hr(),
-                                html.H4("Plot Settings"),
-                                html.Label("Y- Axis Scaling"),
-                                dcc.Input(id="non-reduced-y-axis-scaling", type="number", value=1.0, step=0.01,
-                                          style={"width": "100%"}),
-
-                                html.Label("Subplot Vertical Spacing"),
-                                dcc.Input(id="non-reduced-subplot-vertical-spacing", type="number", value=0.025,
-                                          step=0.005,
-                                          style={"width": "100%"}),
-
-                                html.Hr(),
-                                html.H4("Peak Detection"),
-
-                                html.Label("Skip Time After Marker (min):"),
-                                dcc.Input(id="nr-skip-time", type="number", value=0.3, step=0.05,
-                                          style={"width": "100%"}),
-
-                                html.Label("Max Peaks:"),
-                                dcc.Input(id="nr-max-peaks", type="number", value=3, step=1, min=1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Prominence Threshold:"),
-                                dcc.Input(id="nr-prominence-threshold", type="number", value=100, step=0.01,
-                                          style={"width": "100%"}),
-
-                                html.Label("Valley Search Window (min):"),
-                                dcc.Input(id="nr-valley-search-window", type="number", value=2, step=0.1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Valley Drop Ratio (0–1):"),
-                                dcc.Input(id="nr-valley-drop-ratio", type="number", value=0.2, step=0.05, min=0, max=1,
-                                          style={"width": "100%"}),
-
-                                html.Label("Smoothing Window (odd integer):"),
-                                dcc.Input(id="nr-smoothing-window", type="number", value=3, step=2, min=3,
-                                          style={"width": "100%"}),
-
-                                html.Label("Smoothing Polyorder:"),
-                                dcc.Input(id="nr-smoothing-polyorder", type="number", value=1, step=1, min=1,
-                                          style={"width": "100%", "marginBottom": "20px"}),
-
-                                html.Label("Intact Time (optional):"),
-                                dcc.Input(id="nr-intact-time", type="number", placeholder="Use tallest peak if blank",
-                                          style={"width": "100%", "marginBottom": "20px"}),
-
-                            ], style={"width": "20%", "padding": "10px"})
-                        ])
-                    ]),
-                    dcc.Tab(label="Results Table", value="tab-nonreduced-table", children=[
-                        html.Div([
-                            html.H4("Non-Reduced Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
-                            dash_table.DataTable(
-                                id="nonreduced-table",
-                                columns=[],  # will be filled by callback
-                                data=[],
-                                style_header={
-                                    'backgroundColor': '#0056b3',  # blue
-                                    'color': 'white',
-                                    'fontWeight': 'bold',
-                                    'textAlign': 'center'
-                                },
-                                style_table={"overflowX": "auto"},
-                                style_cell={"textAlign": "center"},
-                            ),
-                            html.Button("Export Reduced Table", id="export-nonreduced-btn"),
-                            dcc.Download(id="download-nonreduced-xlsx")
-                        ]),
-
-                    ])
-                ])
-            ])
-        ]),
-        # Standard Analysis Tab
-        dcc.Tab(label="Standard Analysis", value="tab-std-analysis", children=[
+    # Modal for Select Report
+    html.Div(
+        id="report-modal",
+        style={
+            "display": "none",
+            "position": "fixed",
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0, 0, 0, 0.5)",
+            "zIndex": "1000"
+        },
+        children=[
             html.Div(
-                id='standard-analysis',
+                style={
+                    "position": "relative",
+                    "margin": "2% auto",
+                    "width": "90%",
+                    "maxWidth": "1400px",
+                    "height": "85%",
+                    "backgroundColor": "white",
+                    "borderRadius": "10px",
+                    "padding": "20px",
+                    "boxShadow": "0 5px 15px rgba(0,0,0,0.3)",
+                    "display": "flex",
+                    "flexDirection": "column"
+                },
                 children=[
-                    html.H4("Standard Analysis", style={'text-align': 'center', 'color': '#0056b3'}),
+                    html.Button(
+                        "✕",
+                        id="close-report-modal-btn",
+                        style={
+                            "position": "absolute",
+                            "top": "10px",
+                            "right": "10px",
+                            "fontSize": "24px",
+                            "border": "none",
+                            "backgroundColor": "transparent",
+                            "cursor": "pointer",
+                            "color": "#666"
+                        }
+                    ),
+                    html.H3("Report Management",
+                            style={"marginBottom": "20px", "color": "#0056b3", "textAlign": "center"}),
 
-                    html.Div([
-                        html.Label("Select Standard Sample ID:", style={'color': '#0056b3'}),
-                        dcc.Dropdown(
-                            id='standard-id-dropdown',
-                            placeholder="Select a Standard Sample",
-                            style={'width': '100%'}
-                        )
-                    ], style={'margin-top': '10px'}),
+                    # Tabs for Select/Create
+                    dcc.Tabs(
+                        id="report-tabs",
+                        value="select-tab",
+                        children=[
+                            dcc.Tab(
+                                label="Select Report",
+                                value="select-tab",
+                                style={"height": "100%"},
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "padding": "20px",
+                                            "height": "100%",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "boxSizing": "border-box"
+                                        },
+                                        children=[
+                                            html.H4("Select an Existing Report",
+                                                    style={'marginBottom': '20px', 'color': '#0056b3'}),
 
-                    dcc.Graph(id='standard-peak-plot'),
+                                            # Table container that grows to fill available space
+                                            html.Div(
+                                                style={
+                                                    "flexGrow": 1,
+                                                    "marginBottom": "20px",
+                                                    "minHeight": 0  # Important for Firefox
+                                                },
+                                                children=[
+                                                    dash_table.DataTable(
+                                                        id='report-selection-table',
+                                                        columns=[
+                                                            {"name": "Report ID", "id": "report_id"},
+                                                            {"name": "Report Name", "id": "report_name"},
+                                                            {"name": "Project ID", "id": "project_id"},
+                                                            {"name": "Created By", "id": "user_id"},
+                                                            {"name": "Date Created", "id": "date_created"},
+                                                        ],
+                                                        data=[],
+                                                        row_selectable="single",
+                                                        selected_rows=[],
+                                                        filter_action="native",
+                                                        sort_action="native",
+                                                        page_action="native",
+                                                        page_size=15,  # Increased page size
+                                                        fixed_rows={'headers': True},
+                                                        style_table={
+                                                            'height': '90%',  # Take full height of container
+                                                            'overflowY': 'auto',
+                                                            'overflowX': 'auto',
+                                                            'borderRadius': '5px'
+                                                        },
+                                                        style_cell={
+                                                            'textAlign': 'center',
+                                                            'padding': '12px',
+                                                            'fontSize': '14px',
+                                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                        },
+                                                        style_header={
+                                                            'backgroundColor': '#f8f9fa',
+                                                            'fontWeight': '600',
+                                                            'borderBottom': '2px solid #dee2e6'
+                                                        },
+                                                        style_data={
+                                                            'borderBottom': '1px solid #dee2e6'
+                                                        },
+                                                        style_data_conditional=[
+                                                            {
+                                                                'if': {'row_index': 'odd'},
+                                                                'backgroundColor': '#f8f9fa'
+                                                            }
+                                                        ]
+                                                    )
+                                                ]
+                                            ),
 
-                    html.Div([
-                        html.P("Regression Equation: ", id="regression-equation"),
-                        html.P("R² Value: ", id="r-squared-value"),
-                        html.P("Estimated MW for RT: ", id="estimated-mw"),
-
-                        dcc.Input(
-                            id="rt-input",
-                            type="number",
-                            placeholder="Enter Retention Time",
-                            style={'width': '80%', 'margin-top': '10px'}
-                        ),
-                        html.Button("Calculate MW", id="calculate-mw-button", style={
-                            'background-color': '#0056b3',
-                            'color': 'white',
-                            'border': 'none',
-                            'padding': '10px',
-                            'cursor': 'pointer',
-                            'border-radius': '5px'
-                        }),
-                        dcc.Graph(id='regression-plot', style={'margin-top': '20px'})
-                    ], style={
-                        'margin-top': '20px',
-                        'padding': '10px',
-                        'border': '2px solid #0056b3',
-                        'border-radius': '5px',
-                        'background-color': '#f7f9fc',
-                    }),
-
-                    html.Div([
-                        html.H4("Detected Peaks & Assigned MWs", style={'color': '#0056b3'}),
-                        html.Label("Number of Peaks to Use:"),
-                        dcc.Input(
-                            id="num-std-peaks",
-                            type="number",
-                            value=7,
-                            min=1,
-                            max=20,
-                            step=1,
-                            style={'width': '100%', 'margin-bottom': '10px'}
-                        ),
-                        dash_table.DataTable(
-                            id="std-detected-peak-table",
-                            columns=[
-                                {"name": "Retention Time (min)", "id": "peak_rt", "type": "numeric"},
-                                {"name": "Peak Height", "id": "peak_height", "type": "numeric"},
-                                {"name": "Assigned MW (kDa)", "id": "assigned_mw", "type": "numeric", "editable": True}
-                            ],
-                            data=[],
-                            editable=True,
-                            row_selectable="multi",
-                            style_table={'overflowX': 'auto'},
-                            style_cell={'textAlign': 'center'},
-                            style_header={'fontWeight': 'bold', 'backgroundColor': '#e9f1fb'}
-                        )
-                    ], style={
-                        'margin-top': '20px',
-                        'padding': '10px',
-                        'border': '2px solid #0056b3',
-                        'border-radius': '5px',
-                        'background-color': '#f7f9fc'
-                    })
-                ],
-                style={'padding': '10px'}
+                                            # Buttons at the bottom
+                                            html.Div(
+                                                style={'display': 'flex', 'justifyContent': 'flex-end', 'gap': '10px'},
+                                                children=[
+                                                    html.Button(
+                                                        "Cancel",
+                                                        id="cancel-select-btn",
+                                                        style={
+                                                            'backgroundColor': '#6c757d',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                    html.Button(
+                                                        "Confirm Selection",
+                                                        id="confirm-report-selection",
+                                                        style={
+                                                            'backgroundColor': '#0056b3',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            ),
+                            dcc.Tab(
+                                label="Create Report",
+                                value="create-tab",
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "height": "calc(100vh - 300px)",
+                                            # Adjusted to account for modal padding and header
+                                            "overflow": "hidden"  # Prevent overflow
+                                        },
+                                        children=[
+                                            html.Iframe(
+                                                src="/plotly_integration/dash-app/app/CreateCESDSReportApp/",
+                                                style={
+                                                    "width": "100%",
+                                                    "height": "100%",
+                                                    "border": "none",
+                                                    "display": "block"
+                                                }
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
             )
+        ]
+    ),
+
+    # Top toolbar with action buttons
+    html.Div(
+        id='toolbar-container',
+        style={
+            'display': 'flex',
+            'justifyContent': 'space-between',
+            'alignItems': 'center',
+            'padding': '15px 20px',
+            'backgroundColor': '#f8f9fa',
+            'borderBottom': '1px solid #dee2e6',
+            'gap': '10px'
+        },
+        children=[
+            # Left side - Create Report button
+            html.Div(
+                id='left-toolbar',
+                style={'display': 'flex', 'gap': '10px', 'alignItems': 'center'},
+                children=[
+                    # html.Button([
+                    #     html.Span("➕ ", style={'marginRight': '5px'}),
+                    #     "Create New Report"
+                    # ], id="create-report-btn", style={
+                    #     'backgroundColor': '#0056b3',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
+                    # html.Button([
+                    #     html.Span("📊 ", style={'marginRight': '5px'}),
+                    #     "Select Report"
+                    # ], id="change-report-btn", style={
+                    #     'backgroundColor': '#6c757d',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
+                    html.Button([
+                        html.Span("📊 ", style={'marginRight': '5px'}),
+                        "Select/Create Report"
+                    ], id="select-create-report-btn", style={
+                        'backgroundColor': '#0056b3',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Div([
+                        html.Span("Current Report: ", style={'fontWeight': '600', 'color': '#495057'}),
+                        html.Span("No report selected", id="current-report-text", style={'color': '#6c757d'})
+                    ], style={'marginLeft': '20px', 'fontSize': '14px'})
+                ]
+            ),
+
+            # Right side - Save buttons
+            html.Div(
+                style={'display': 'flex', 'gap': '10px'},
+                children=[
+                    html.Button([
+                        html.Span("💾 ", style={'marginRight': '5px'}),
+                        "Save Report Settings"
+                    ], id="save-settings-btn", style={
+                        'backgroundColor': '#28a745',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    html.Button([
+                        html.Span("🔗 ", style={'marginRight': '5px'}),
+                        "Report Results"
+                    ], id="save-to-lims-btn", style={
+                        'backgroundColor': '#17a2b8',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    }),
+                    # html.Button([
+                    #     html.Span("📄 ", style={'marginRight': '5px'}),
+                    #     "Create PDF Report"
+                    # ], id="create-pdf-btn", style={
+                    #     'backgroundColor': '#dc3545',
+                    #     'color': 'white',
+                    #     'border': 'none',
+                    #     'padding': '10px 20px',
+                    #     'fontSize': '14px',
+                    #     'cursor': 'pointer',
+                    #     'borderRadius': '5px',
+                    #     'fontWeight': '500',
+                    #     'transition': 'all 0.3s ease',
+                    #     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                    # }),
+
+                ]
+            )
+        ]
+    ),
+
+    # Status messages
+    html.Div(id="status-message", style={
+        'padding': '15px',
+        'margin': '10px 20px',
+        'borderRadius': '5px',
+        'display': 'none',
+        'fontSize': '14px',
+        'fontWeight': '500',
+        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+    }),
+
+    # Main content area
+    html.Div(
+        style={
+            'padding': '20px',
+            'backgroundColor': '#f5f5f5',
+            'minHeight': 'calc(100vh - 200px)'
+        },
+        children=[
+
+            dcc.Tabs(id="main-tabs", value="tab-reduced", persistence=False, children=[
+                # Reduced Tab
+                dcc.Tab(label="Reduced", value="tab-reduced", children=[
+                    html.Div([
+                        dcc.Tabs(id="reduced-subtabs", value="tab-reduced-chrom", persistence=True, children=[
+                            dcc.Tab(label="Chromatogram", value="tab-reduced-chrom", children=[
+                                html.Div(style={"display": "flex"}, children=[
+                                    html.Div([
+                                        dcc.Graph(
+                                            id="reduced-chromatogram",
+                                            config={'responsive': True},
+                                            style={"height": "100%"}
+                                        )
+                                    ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
+
+                                    html.Div([
+                                        html.H4("Marker Settings"),
+                                        html.Label("Marker RT (min):"),
+                                        dcc.Input(id="marker-rt", type="number", value=7, step=0.1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Marker Label:"),
+                                        dcc.Input(id="marker-label", type="text", value="10 kDa",
+                                                  style={"width": "100%", "marginBottom": "20px"}),
+
+                                        html.Hr(),
+                                        html.H4("Plot Settings"),
+                                        html.Label("Y- Axis Scaling"),
+                                        dcc.Input(id="reduced-y-axis-scaling", type="number", value=1.0, step=0.01,
+                                                  style={"width": "100%"}),
+                                        html.Label("Subplot Vertical Spacing"),
+                                        dcc.Input(id="reduced-subplot-vertical-spacing", type="number", value=0.025,
+                                                  step=0.005,
+                                                  style={"width": "100%"}),
+
+                                        html.Hr(),
+                                        html.H4("Peak Detection"),
+
+                                        html.Label("Skip Time After Marker (min):"),
+                                        dcc.Input(id="skip-time", type="number", value=0.3, step=0.05,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Max Peaks:"),
+                                        dcc.Input(id="max-peaks", type="number", value=4, step=1, min=1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Prominence Threshold:"),
+                                        dcc.Input(id="prominence-threshold", type="number", value=100.0, step=0.01,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Valley Search Window (min):"),
+                                        dcc.Input(id="valley-search-window", type="number", value=1.5, step=0.1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Valley Drop Ratio (0–1):"),
+                                        dcc.Input(id="valley-drop-ratio", type="number", value=0.2, step=0.05, min=0,
+                                                  max=1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Smoothing Window (odd integer):"),
+                                        dcc.Input(id="smoothing-window", type="number", value=3, step=2, min=3,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Smoothing Polyorder:"),
+                                        dcc.Input(id="smoothing-polyorder", type="number", value=1, step=1, min=1,
+                                                  style={"width": "100%", "marginBottom": "20px"}),
+
+                                        html.Hr(),
+                                        html.H4("Light Chain Timing"),
+                                        html.Button("Calculate Light Chain Time", id="calc-light-chain-btn",
+                                                    style={"width": "100%", "marginBottom": "10px"}),
+                                        dcc.Input(id="light-chain-time", type="number",
+                                                  placeholder="Light Chain Time (min)",
+                                                  readOnly=True, style={"width": "100%"})
+
+                                    ], style={"width": "20%", "padding": "10px"})
+                                ])
+                            ]),
+                            dcc.Tab(label="Results Table", value="tab-reduced-table", children=[
+                                html.Div([
+                                    html.H4("Reduced Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
+                                    dash_table.DataTable(
+                                        id="reduced-table",
+                                        columns=[],  # will be filled by callback
+                                        data=[],
+                                        style_header={
+                                            'backgroundColor': '#0056b3',  # blue
+                                            'color': 'white',
+                                            'fontWeight': 'bold',
+                                            'textAlign': 'center'
+                                        },
+                                        style_table={"overflowX": "auto"},
+                                        style_cell={"textAlign": "center"},
+                                    ),
+                                    html.Button("Export Reduced Table", id="export-reduced-btn"),
+                                    dcc.Download(id="download-reduced-xlsx")
+                                ]),
+
+                            ])
+                        ])
+                    ])
+                ]),
+
+                # Non-Reduced Tab
+                dcc.Tab(label="Non-Reduced", value="tab-nonreduced", children=[
+                    html.Div([
+                        dcc.Tabs(id="nonreduced-subtabs", value="tab-nonreduced-chrom", persistence=True, children=[
+                            dcc.Tab(label="Chromatogram", value="tab-nonreduced-chrom", children=[
+                                html.Div(style={"display": "flex"}, children=[
+                                    html.Div([
+                                        dcc.Graph(
+                                            id="nonreduced-chromatogram",
+                                            config={'responsive': False},
+                                            # style={"height": "100%"}
+                                        )
+                                    ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
+
+                                    html.Div([
+                                        html.H4("Marker Settings"),
+                                        html.Label("Marker RT (min):"),
+                                        dcc.Input(id="nr-marker-rt", type="number", value=7, step=0.1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Marker Label:"),
+                                        dcc.Input(id="nr-marker-label", type="text", value="10 kDa",
+                                                  style={"width": "100%", "marginBottom": "20px"}),
+
+                                        html.Hr(),
+                                        html.H4("Plot Settings"),
+                                        html.Label("Y- Axis Scaling"),
+                                        dcc.Input(id="non-reduced-y-axis-scaling", type="number", value=1.0, step=0.01,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Subplot Vertical Spacing"),
+                                        dcc.Input(id="non-reduced-subplot-vertical-spacing", type="number", value=0.025,
+                                                  step=0.005,
+                                                  style={"width": "100%"}),
+
+                                        html.Hr(),
+                                        html.H4("Peak Detection"),
+
+                                        html.Label("Skip Time After Marker (min):"),
+                                        dcc.Input(id="nr-skip-time", type="number", value=0.3, step=0.05,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Max Peaks:"),
+                                        dcc.Input(id="nr-max-peaks", type="number", value=3, step=1, min=1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Prominence Threshold:"),
+                                        dcc.Input(id="nr-prominence-threshold", type="number", value=100, step=0.01,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Valley Search Window (min):"),
+                                        dcc.Input(id="nr-valley-search-window", type="number", value=2, step=0.1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Valley Drop Ratio (0–1):"),
+                                        dcc.Input(id="nr-valley-drop-ratio", type="number", value=0.2, step=0.05, min=0,
+                                                  max=1,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Smoothing Window (odd integer):"),
+                                        dcc.Input(id="nr-smoothing-window", type="number", value=3, step=2, min=3,
+                                                  style={"width": "100%"}),
+
+                                        html.Label("Smoothing Polyorder:"),
+                                        dcc.Input(id="nr-smoothing-polyorder", type="number", value=1, step=1, min=1,
+                                                  style={"width": "100%", "marginBottom": "20px"}),
+
+                                        html.Label("Intact Time (optional):"),
+                                        dcc.Input(id="nr-intact-time", type="number",
+                                                  placeholder="Use tallest peak if blank",
+                                                  style={"width": "100%", "marginBottom": "20px"}),
+
+                                    ], style={"width": "20%", "padding": "10px"})
+                                ])
+                            ]),
+                            dcc.Tab(label="Results Table", value="tab-nonreduced-table", children=[
+                                html.Div([
+                                    html.H4("Non-Reduced Results Table",
+                                            style={'textAlign': 'center', 'color': '#0056b3'}),
+                                    dash_table.DataTable(
+                                        id="nonreduced-table",
+                                        columns=[],  # will be filled by callback
+                                        data=[],
+                                        style_header={
+                                            'backgroundColor': '#0056b3',  # blue
+                                            'color': 'white',
+                                            'fontWeight': 'bold',
+                                            'textAlign': 'center'
+                                        },
+                                        style_table={"overflowX": "auto"},
+                                        style_cell={"textAlign": "center"},
+                                    ),
+                                    html.Button("Export Reduced Table", id="export-nonreduced-btn"),
+                                    dcc.Download(id="download-nonreduced-xlsx")
+                                ]),
+
+                            ])
+                        ])
+                    ])
+                ]),
+                # Standard Analysis Tab
+                dcc.Tab(label="Standard Analysis", value="tab-std-analysis", children=[
+                    html.Div(
+                        id='standard-analysis',
+                        children=[
+                            html.H4("Standard Analysis", style={'text-align': 'center', 'color': '#0056b3'}),
+
+                            html.Div([
+                                html.Label("Select Standard Sample ID:", style={'color': '#0056b3'}),
+                                dcc.Dropdown(
+                                    id='standard-id-dropdown',
+                                    placeholder="Select a Standard Sample",
+                                    style={'width': '100%'}
+                                )
+                            ], style={'margin-top': '10px'}),
+
+                            dcc.Graph(id='standard-peak-plot'),
+
+                            html.Div([
+                                html.P("Regression Equation: ", id="regression-equation"),
+                                html.P("R² Value: ", id="r-squared-value"),
+                                html.P("Estimated MW for RT: ", id="estimated-mw"),
+
+                                dcc.Input(
+                                    id="rt-input",
+                                    type="number",
+                                    placeholder="Enter Retention Time",
+                                    style={'width': '80%', 'margin-top': '10px'}
+                                ),
+                                html.Button("Calculate MW", id="calculate-mw-button", style={
+                                    'background-color': '#0056b3',
+                                    'color': 'white',
+                                    'border': 'none',
+                                    'padding': '10px',
+                                    'cursor': 'pointer',
+                                    'border-radius': '5px'
+                                }),
+                                dcc.Graph(id='regression-plot', style={'margin-top': '20px'})
+                            ], style={
+                                'margin-top': '20px',
+                                'padding': '10px',
+                                'border': '2px solid #0056b3',
+                                'border-radius': '5px',
+                                'background-color': '#f7f9fc',
+                            }),
+
+                            html.Div([
+                                html.H4("Detected Peaks & Assigned MWs", style={'color': '#0056b3'}),
+                                html.Label("Number of Peaks to Use:"),
+                                dcc.Input(
+                                    id="num-std-peaks",
+                                    type="number",
+                                    value=7,
+                                    min=1,
+                                    max=20,
+                                    step=1,
+                                    style={'width': '100%', 'margin-bottom': '10px'}
+                                ),
+                                dash_table.DataTable(
+                                    id="std-detected-peak-table",
+                                    columns=[
+                                        {"name": "Retention Time (min)", "id": "peak_rt", "type": "numeric"},
+                                        {"name": "Peak Height", "id": "peak_height", "type": "numeric"},
+                                        {"name": "Assigned MW (kDa)", "id": "assigned_mw", "type": "numeric",
+                                         "editable": True}
+                                    ],
+                                    data=[],
+                                    editable=True,
+                                    row_selectable="multi",
+                                    style_table={'overflowX': 'auto'},
+                                    style_cell={'textAlign': 'center'},
+                                    style_header={'fontWeight': 'bold', 'backgroundColor': '#e9f1fb'}
+                                )
+                            ], style={
+                                'margin-top': '20px',
+                                'padding': '10px',
+                                'border': '2px solid #0056b3',
+                                'border-radius': '5px',
+                                'background-color': '#f7f9fc'
+                            })
+                        ],
+                        style={'padding': '10px'}
+                    )
+                ])
+            ]),
         ])
-    ])
 ])
 
 
+# Parse URL parameters
 @app.callback(
-    Output("cesds-report-table", "data"),
-    Input("main-tabs", "value")
+    [Output('url-params', 'data'),
+     Output('embedded-mode', 'data'),
+     Output('selected-report', 'data', allow_duplicate=True)],
+    [Input('url', 'search')],
+    prevent_initial_call='initial_duplicate'
 )
-def load_report_table(tab_value):
-    if tab_value != "tab-select-report":
-        return []
-    reports = CESDSReport.objects.order_by("-date_created")
-    return [{
-        "id": r.id,
-        "report_name": r.report_name,
-        "project_id": r.project_id,
-        "user_id": r.user_id,
-        "date_created": r.date_created.strftime("%Y-%m-%d %H:%M"),
-        "num_samples": len(r.selected_result_ids.split(","))
-    } for r in reports]
+def parse_url_params(search):
+    if not search:
+        return {}, False, None
+
+    # Parse query parameters
+    from urllib.parse import parse_qs
+    params = parse_qs(search.lstrip('?'))
+
+    # Extract parameters
+    url_params = {}
+    embedded = False
+    report_id = None
+
+    if 'embedded' in params:
+        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
+        url_params['embedded'] = embedded
+
+    if 'report_id' in params:
+        try:
+            report_id = int(params['report_id'][0])
+            url_params['report_id'] = report_id
+        except:
+            pass
+
+    return url_params, embedded, report_id
+
+
+@app.callback(
+    [Output("report-modal", "style"),
+     Output("current-report-text", "children")],
+    [Input("select-create-report-btn", "n_clicks"),
+     Input("close-report-modal-btn", "n_clicks"),
+     Input("cancel-select-btn", "n_clicks"),
+     Input("confirm-report-selection", "n_clicks"),
+     Input("load-once", "n_intervals"),
+     Input("url-params", "data")],
+    [State("report-modal", "style"),
+     State("selected-report", "data"),
+     State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data"),
+     State("embedded-mode", "data")],
+    prevent_initial_call=False
+)
+def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
+                        url_params, current_style, selected_report, selected_rows,
+                        table_data, embedded):
+    ctx = dash.callback_context
+
+    # Get the ID of the component that triggered the callback
+    if not ctx.triggered:
+        triggered_id = None
+    else:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Initial load with URL params
+    if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
+        report_id = url_params.get("report_id")
+        try:
+            report = CESDSReport.objects.get(report_id=int(report_id))
+            return current_style, f"{report.report_name}"
+        except CESDSReport.DoesNotExist:
+            return current_style, "Invalid report ID"
+
+    # Handle button clicks
+    if triggered_id == "select-create-report-btn":
+        return {**current_style, "display": "block"}, dash.no_update
+
+    elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
+        return {**current_style, "display": "none"}, dash.no_update
+
+    elif triggered_id == "confirm-report-selection" and selected_rows:
+        selected_report_data = table_data[selected_rows[0]]
+        report_name = selected_report_data.get("report_name", "Unknown Report")
+        return {**current_style, "display": "none"}, f"{report_name}"
+
+    # Default: show report name if selected
+    if selected_report:
+        try:
+            report = CESDSReport.objects.get(report_id=int(selected_report))
+            return current_style, f"{report.report_name}"
+        except CESDSReport.DoesNotExist:
+            return current_style, "Invalid report"
+
+    return current_style, "No report selected"
+
+
+@app.callback(
+    Output("report-selection-table", "data"),
+    [Input("report-modal", "style"),
+     Input("report-tabs", "value")],  # Trigger when modal opens or tab changes
+    prevent_initial_call=True
+)
+def populate_report_table(modal_style, active_tab):
+    """Populate the report selection table when the modal is opened and select tab is active"""
+
+    # Only populate if modal is visible and we're on the select tab
+    if modal_style.get("display") == "block" and active_tab == "select-tab":
+        try:
+            # Fetch all reports with analysis_type=2 for Titer
+            reports = CESDSReport.objects.all().order_by('-date_created')
+
+            report_data = []
+            for report in reports:
+                report_data.append({
+                    "report_id": report.id,
+                    "report_name": report.report_name,
+                    "project_id": report.project_id,
+                    "user_id": report.user_id,
+                    "date_created": report.date_created.strftime("%Y-%m-%d %H:%M") if report.date_created else ""
+                })
+
+            return report_data
+        except Exception as e:
+            print(f"Error fetching reports: {e}")
+            return []
+
+    return dash.no_update
+
+
 
 
 @app.callback(
     Output("selected-result-ids", "data"),
     Output("selected-report", "data"),
-    Input("cesds-report-table", "selected_rows"),
-    State("cesds-report-table", "data")
+    [Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
+    prevent_initial_call=True
 )
-def store_selected_result_ids(selected_rows, table_data):
-    if selected_rows:
+def store_selected_result_ids(confirm_clicks, selected_rows, table_data):
+    if not selected_rows or not confirm_clicks:
+        return dash.no_update
+    elif selected_rows:
         row = table_data[selected_rows[0]]
-        report = CESDSReport.objects.filter(id=row["id"]).first()
+        report = CESDSReport.objects.filter(id=row["report_id"]).first()
         report_name = report.report_name
         if report:
             return [r.strip() for r in report.selected_result_ids.split(",")], report_name
@@ -493,6 +934,7 @@ def shade_peak(fig, df, start_time, end_time, baseline, row, col, label, peak_ti
         row=row,
         col=col
     )
+
 
 def generate_chromatogram_figure_advanced(
         result_df_by_id,
@@ -1276,7 +1718,6 @@ def generate_chromatogram_figure_nonreduced(
     return fig, table_output
 
 
-
 @app.callback(
     [
         Output("nonreduced-chromatogram", "figure"),
@@ -1306,8 +1747,6 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
                         prominence_threshold, valley_search_window, valley_drop_ratio,
                         smoothing_window, smoothing_polyorder, intact_time, regression_params, y_scale,
                         subplot_vertical_spacing, selected_report):
-
-
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
     result_df_by_id = {}
 
