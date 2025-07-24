@@ -15,8 +15,19 @@ from openpyxl import load_workbook
 import io
 import plotly.colors as pc
 import dash_bootstrap_components as dbc
+import pandas as pd
+import numpy as np
+from scipy.signal import savgol_filter, find_peaks
+import plotly.colors as pc
+from math import ceil
+import io
+import dash_bootstrap_components as dbc
+from datetime import datetime
+from django_plotly_dash import DjangoDash
+from dash.exceptions import PreventUpdate
 
-app = DjangoDash("cIEFReportViewerApp")
+app = DjangoDash('cIEFReportViewerApp',
+                 external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME])
 
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -328,25 +339,67 @@ app.layout = html.Div([
                         html.Div([
                             dcc.Graph(
                                 id="electropherogram",
-                                config={'responsive': True},
-                                style={"height": "100%"}
+                                # config={'responsive': True},
+                                # style={"height": "100%"}
                             )
                         ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
 
                         html.Div([
-                            html.H4("STD Detection Settings"),
-                            html.Label("STD Start Cutoff Time (min):"),
-                            dcc.Input(id="std-cutoff-time", type="number", value=12, step=0.1, style={"width": "100%"}),
+                            # Enhanced STD Detection Settings
+                            html.H4("STD Detection Settings", style={
+                                'backgroundColor': '#f8f9fa',
+                                'padding': '10px',
+                                'borderRadius': '5px',
+                                'marginBottom': '15px'
+                            }),
 
-                            html.Label("STD End Cutoff Time (min):"),
-                            dcc.Input(id="std-end-cutoff-time", type="number", value=30, step=0.1,
+                            # Front Standards Time Range
+                            html.Label("Front Standards Time Range:", style={'fontWeight': 'bold'}),
+                            html.Div([
+                                dcc.Input(
+                                    id="std-front-start-time",
+                                    type="number",
+                                    value=0,
+                                    step=0.1,
+                                    placeholder="Start (min)",
+                                    style={"width": "48%", "marginRight": "4%"}
+                                ),
+                                dcc.Input(
+                                    id="std-front-end-time",
+                                    type="number",
+                                    value=20,
+                                    step=0.1,
+                                    placeholder="End (min)",
+                                    style={"width": "48%"}
+                                )
+                            ], style={"display": "flex", "marginBottom": "10px"}),
+
+                            # Back Standards Time Range
+                            html.Label("Back Standards Time Range:", style={'fontWeight': 'bold'}),
+                            html.Div([
+                                dcc.Input(
+                                    id="std-back-start-time",
+                                    type="number",
+                                    value=30,
+                                    step=0.1,
+                                    placeholder="Start (min)",
+                                    style={"width": "48%", "marginRight": "4%"}
+                                ),
+                                dcc.Input(
+                                    id="std-back-end-time",
+                                    type="number",
+                                    value=50,
+                                    step=0.1,
+                                    placeholder="End (min)",
+                                    style={"width": "48%"}
+                                )
+                            ], style={"display": "flex", "marginBottom": "10px"}),
+
+                            html.Label("STD Prominence Threshold:"),
+                            dcc.Input(id="std-prominence-threshold", type="number", value=7000, step=100,
                                       style={"width": "100%"}),
 
-                            html.Label("Prominence Threshold:"),
-                            dcc.Input(id="std-promincence-threshold", type="number", value=7000, step=0.1,
-                                      style={"width": "100%"}),
-
-                            html.Label("Valley Search Window (min):"),
+                            html.Label("STD Valley Search Window (min):"),
                             dcc.Input(id="std-valley-search-window", type="number", value=1, step=0.01,
                                       style={"width": "100%"}),
 
@@ -354,58 +407,118 @@ app.layout = html.Div([
                                 html.Label("Show STD Regression Curve:"),
                                 dbc.Checkbox(
                                     id="show-std-regression",
-                                    value=False,  # default unchecked
+                                    value=False,
                                 )
                             ]),
 
                             html.Hr(),
-                            html.H4("Plot Settings"),
+                            html.H4("Plot Settings", style={
+                                'backgroundColor': '#f8f9fa',
+                                'padding': '10px',
+                                'borderRadius': '5px',
+                                'marginBottom': '15px'
+                            }),
+
+                            # Cut STD Peaks Option
+                            html.Div([
+                                dbc.Checkbox(
+                                    id="cut-std-peaks",
+                                    value=False,
+                                    style={"marginRight": "10px"}
+                                ),
+                                html.Label("Cut STD Peaks (Focus on Sample)", style={'display': 'inline'})
+                            ], style={"display": "flex", "alignItems": "center", "marginBottom": "10px"}),
+
+                            html.Label("Show Minutes Before Peak:"),
+                            dcc.Input(
+                                id="show-minutes-before",
+                                type="number",
+                                value=2,
+                                step=0.5,
+                                min=0,
+                                style={"width": "100%"},
+                                disabled=True
+                            ),
+
+                            html.Label("Show Minutes After Peak:"),
+                            dcc.Input(
+                                id="show-minutes-after",
+                                type="number",
+                                value=3,
+                                step=0.5,
+                                min=0,
+                                style={"width": "100%"},
+                                disabled=True
+                            ),
+
+                            html.Label("Plot Height (pixels):"),
+                            dcc.Input(
+                                id="plot-height",
+                                type="number",
+                                value=600,
+                                step=50,
+                                min=300,
+                                style={"width": "100%"}
+                            ),
+
                             html.Div([
                                 html.Label("Shade Peaks:"),
                                 dbc.Checkbox(
                                     id="shade-peaks",
-                                    value=False,  # default checked
+                                    value=False,
                                 )
                             ]),
+
                             html.Label("AutoScale X Axis:"),
                             dcc.Checklist(
                                 options=[{"label": "", "value": True}],
                                 value=[True],
                                 id="x-axis-autoscale",
                             ),
+
                             html.Label("Number of Columns:"),
                             dcc.Input(
                                 id="num-subplot-cols",
                                 type="number",
-                                value=1,  # default
+                                value=1,
                                 min=1,
                                 step=1,
                                 style={"width": "100%"}
                             ),
+
                             html.Label("X Axis Min:"),
                             dcc.Input(id="x-axis-min", type="number", value=0, step=0.01,
                                       style={"width": "100%"}),
+
                             html.Label("X Axis Max:"),
                             dcc.Input(id="x-axis-max", type="number", value=40, step=0.01,
                                       style={"width": "100%"}),
-                            html.Label("Y- Axis Scaling"),
+
+                            html.Label("Y-Axis Scaling:"),
                             dcc.Input(id="y-axis-scaling", type="number", value=1.0, step=0.01,
                                       style={"width": "100%"}),
-                            html.Label("Subplot Vertical Spacing"),
+
+                            html.Label("Subplot Vertical Spacing:"),
                             dcc.Input(id="subplot-vertical-spacing", type="number", value=0.05, step=0.005,
                                       style={"width": "100%"}),
-                            html.Label("Subplot Horizontal Spacing"),
+
+                            html.Label("Subplot Horizontal Spacing:"),
                             dcc.Input(
                                 id="subplot-horizontal-spacing",
                                 type="number",
-                                value=0.05,  # default value
+                                value=0.05,
                                 step=0.01,
                                 min=0.01,
                                 style={"width": "100%"}
                             ),
 
                             html.Hr(),
-                            html.H4("Peak Detection"),
+                            html.H4("Peak Detection", style={
+                                'backgroundColor': '#f8f9fa',
+                                'padding': '10px',
+                                'borderRadius': '5px',
+                                'marginBottom': '15px'
+                            }),
 
                             html.Label("pI Calculation Method:"),
                             dcc.Dropdown(
@@ -423,7 +536,7 @@ app.layout = html.Div([
                                       style={"width": "100%"}),
 
                             html.Label("Prominence Threshold:"),
-                            dcc.Input(id="prominence-threshold", type="number", value=1000, step=0.01,
+                            dcc.Input(id="prominence-threshold", type="number", value=1000, step=100,
                                       style={"width": "100%"}),
 
                             html.Label("Valley Search Window (min):"),
@@ -445,15 +558,16 @@ app.layout = html.Div([
                         ], style={"width": "20%", "padding": "10px"})
                     ])
                 ]),
+
                 dcc.Tab(label="Results Table", value="tab-table", children=[
                     html.Div([
                         html.H4("cIEF Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
                         dash_table.DataTable(
                             id="cief-table",
-                            columns=[],  # will be filled by callback
+                            columns=[],
                             data=[],
                             style_header={
-                                'backgroundColor': '#0056b3',  # blue
+                                'backgroundColor': '#0056b3',
                                 'color': 'white',
                                 'fontWeight': 'bold',
                                 'textAlign': 'center'
@@ -461,7 +575,17 @@ app.layout = html.Div([
                             style_table={"overflowX": "auto"},
                             style_cell={"textAlign": "center"},
                         ),
-                        html.Button("Export cIEF Table", id="export-cief-btn"),
+                        html.Button("Export cIEF Table", id="export-cief-btn",
+                                    style={
+                                        'marginTop': '20px',
+                                        'backgroundColor': '#28a745',
+                                        'color': 'white',
+                                        'border': 'none',
+                                        'padding': '10px 20px',
+                                        'borderRadius': '5px',
+                                        'cursor': 'pointer',
+                                        'fontSize': '16px'
+                                    }),
                         dcc.Download(id="download-cief-xlsx")
                     ]),
 
@@ -469,6 +593,7 @@ app.layout = html.Div([
             ])
         ])
 ])
+
 # Parse URL parameters
 @app.callback(
     [Output('url-params', 'data'),
@@ -651,14 +776,11 @@ def detect_valley_to_valley_peaks(
         valley_drop_ratio=0.2,
         smoothing_window=11,
         smoothing_polyorder=3,
-
 ):
     """
     Detects peaks using valley-to-valley integration with adaptive valley thresholding.
     Returns a list of dictionaries with peak info.
     """
-    from scipy.signal import savgol_filter, find_peaks
-
     time = df[time_col].values
     signal = df[signal_col].values
 
@@ -731,7 +853,6 @@ def get_color_from_rt(rt, rt_min, rt_max, colorscale="Viridis"):
 
 def generate_chromatogram_figure_advanced(
         result_df_by_id,
-        title=None,
         max_peaks=4,
         prominence_threshold=0.05,
         valley_search_window=3.0,
@@ -742,21 +863,28 @@ def generate_chromatogram_figure_advanced(
         y_scale=1,
         subplot_vertical_spacing=0.25,
         subplot_horizontal_spacing=0.025,
-        baseline_cutoff_time=10,
         x_axis_autoscale=True,
         x_axis_min=None,
         x_axis_max=None,
         plot_std_regression=True,
         std_prominence_threshold=10000,
         std_valley_search_window=1.0,
-        std_end_cutoff_time=30,
+        # New parameters for STD detection time ranges
+        std_front_start_time=0,
+        std_front_end_time=20,
+        std_back_start_time=30,
+        std_back_end_time=50,
         pi_method=None,
         shade_peaks=True,
-        num_subplot_cols=1
-
+        num_subplot_cols=1,
+        plot_height=600,  # New parameter for plot height
+        cut_std_peaks=False,  # New parameter to cut STD peaks
+        show_minutes_before=2,  # Minutes before sample peak
+        show_minutes_after=3,  # Minutes after sample peak
 ):
     if len(result_df_by_id) == 0:
         return go.Figure(), []
+
     num_plots = len(result_df_by_id)
     num_cols = max(1, min(num_subplot_cols, num_plots))
     num_rows = ceil(num_plots / num_cols)
@@ -774,21 +902,20 @@ def generate_chromatogram_figure_advanced(
         specs=specs
     )
 
+    table_data = []
+
     for i, (mid, meta) in enumerate(result_df_by_id.items(), start=1):
         row = (i - 1) // num_cols + 1
         col = (i - 1) % num_cols + 1
 
         df = meta["data"].sort_values("time_min")
-        fig.add_trace(go.Scatter(x=df["time_min"], y=df["channel_1"], mode="lines", name=meta["sample_id"]),
-                      row=row, col=col)
 
-        # STD Peak Detection
-        std_number_front_peaks = 2
-        std_number_back_peaks = 2
+        # Detect front standard peaks in specified time range
+        df_front_std = df[(df["time_min"] >= std_front_start_time) &
+                          (df["time_min"] <= std_front_end_time)]
 
-        # Detect all forward peaks
-        forward_std_peaks, _ = detect_valley_to_valley_peaks(
-            df[df["time_min"] > baseline_cutoff_time],
+        front_std_peaks, _ = detect_valley_to_valley_peaks(
+            df_front_std,
             signal_col="channel_1",
             time_col="time_min",
             max_peaks=10,
@@ -799,16 +926,16 @@ def generate_chromatogram_figure_advanced(
             smoothing_polyorder=smoothing_polyorder
         )
 
-        standards_front = sorted(forward_std_peaks, key=lambda p: p["peak_time"])[:2]
+        # Get top 2 peaks by height in front range
+        standards_front = sorted(front_std_peaks, key=lambda p: p["peak_height"], reverse=True)[:2]
+        standards_front = sorted(standards_front, key=lambda p: p["peak_time"])  # Sort by time
 
-        # Reverse DataFrame for backward peak search
-        df_rev = df[df["time_min"] > std_end_cutoff_time]
-        df_rev = df_rev.iloc[::-1].copy()
-        t_min, t_max = df_rev["time_min"].min(), df_rev["time_min"].max()
-        df_rev["time_min"] = t_max - (df_rev["time_min"] - t_min)  # flip time axis
+        # Detect back standard peaks in specified time range
+        df_back_std = df[(df["time_min"] >= std_back_start_time) &
+                         (df["time_min"] <= std_back_end_time)]
 
-        backward_std_peaks, _ = detect_valley_to_valley_peaks(
-            df_rev,
+        back_std_peaks, _ = detect_valley_to_valley_peaks(
+            df_back_std,
             signal_col="channel_1",
             time_col="time_min",
             max_peaks=10,
@@ -819,111 +946,28 @@ def generate_chromatogram_figure_advanced(
             smoothing_polyorder=smoothing_polyorder
         )
 
-        # Flip times back to original
-        for p in backward_std_peaks:
-            p["peak_time"] = t_max - (p["peak_time"] - t_min)
-            p["start_time"] = t_max - (p["start_time"] - t_min)
-            p["end_time"] = t_max - (p["end_time"] - t_min)
-            p["baseline_time"] = t_max - (p["baseline_time"] - t_min)
-
-        standards_back = sorted(backward_std_peaks, key=lambda p: p["peak_time"], reverse=True)[:2]
+        # Get top 2 peaks by height in back range
+        standards_back = sorted(back_std_peaks, key=lambda p: p["peak_height"], reverse=True)[:2]
+        standards_back = sorted(standards_back, key=lambda p: p["peak_time"])  # Sort by time
 
         # Combine & assign pI values
-        standard_peaks = sorted(standards_front + standards_back, key=lambda p: p["peak_time"])
+        standard_peaks = standards_front + standards_back
         pi_values = [10.0, 9.5, 5.5, 4.0]
         for peak, pi in zip(standard_peaks, pi_values):
             peak["pI"] = pi
 
-        if len(standard_peaks) == std_number_front_peaks + std_number_back_peaks:
-            sample_start = standard_peaks[1]["end_time"] + 0.25  # end of 2nd standard
-            sample_end = standard_peaks[2]["start_time"] - 1  # start of 3rd standard
-            sample_df = df[(df["time_min"] >= sample_start) & (df["time_min"] <= sample_end)]
-            print(f"Sample region from {sample_start:.2f} to {sample_end:.2f} min")
-        elif 1 < len(standards_back) < std_number_back_peaks:
-            sample_start = standard_peaks[1]["end_time"] + 0.25  # end of 2nd standard
-            sample_end = standard_peaks[-1]["start_time"] - 1  # start of 3rd standard
-            sample_df = df[(df["time_min"] >= sample_start) & (df["time_min"] <= sample_end)]
-            print(f"Sample region from {sample_start:.2f} to {sample_end:.2f} min. Error with Back Standard Peaks")
+        # Define sample region - between 2nd front standard and 1st back standard
+        sample_start = standards_front[-1]["end_time"] + 0.25 if len(standards_front) >= 2 else 10
+        sample_end = standards_back[0]["start_time"] - 0.25 if len(standards_back) >= 1 else df["time_min"].max()
 
-        elif len(standards_back) == 0:
-            sample_start = standard_peaks[1]["end_time"] + 0.25  # end of 2nd standard
-            sample_end = df["time_min"].max()
-            sample_df = df[(df["time_min"] >= sample_start) & (df["time_min"] <= sample_end)]
-            print(f"Sample region from {sample_start:.2f} to {sample_end:.2f} min. Error with Back Standard Peaks")
-        elif len(standards_front) < std_number_front_peaks:
-            sample_start = standard_peaks[0]["end_time"] + 0.25  # end of 2nd standard
-            sample_end = standard_peaks[-1]["start_time"] - 1  # start of 3rd standard
-            sample_df = df[(df["time_min"] >= sample_start) & (df["time_min"] <= sample_end)]
-            print(f"Sample region from {sample_start:.2f} to {sample_end:.2f} min. Error with Back Standard Peaks")
-        else:
-            sample_df = df.iloc[0:0]
+        sample_df = df[(df["time_min"] >= sample_start) & (df["time_min"] <= sample_end)]
 
-        for std in standard_peaks:
-            fig.add_annotation(
-                x=std["peak_time"],
-                y=std["peak_height"],
-                text=f"pI {std['pI']}",
-                showarrow=True,
-                arrowhead=2,
-                ax=0,
-                ay=-40,
-                row=row,
-                col=col
-            )
-
+        # Linear regression for pI calculation
+        slope, intercept = None, None
         if len(standard_peaks) >= 2:
-            rt_vals = np.array([p["peak_time"] for p in standard_peaks])
-            pi_vals = np.array([p["pI"] for p in standard_peaks])
-
-            # Linear regression: pI = slope * RT + intercept
-            slope, intercept, r_val, *_ = linregress(rt_vals, pi_vals)
-
-            x_range = np.linspace(df["time_min"].min(), df["time_min"].max(), 200)
-            y_fit = slope * x_range + intercept
-
-            if plot_std_regression:
-                fig.add_trace(
-                    go.Scatter(
-                        x=rt_vals,
-                        y=pi_vals,
-                        mode="markers+text",
-                        name="Standard pI",
-                        # text=[f"{pi:.1f}" for pi in pi_vals],
-                        textposition="top center",
-                        marker=dict(size=8, color="black", symbol="circle"),
-                    ),
-                    row=row, col=col, secondary_y=True  # 👈 this line is critical
-                )
-
-                fig.add_trace(
-                    go.Scatter(
-                        x=x_range,
-                        y=y_fit,
-                        mode="lines",
-                        name="pI Regression",
-                        line=dict(color="red", dash="dash"),
-                    ),
-                    row=row, col=col, secondary_y=True  # 👈 also critical
-                )
-
-                fig.update_yaxes(
-                    title_text="pI",
-                    range=[3, 12],
-                    secondary_y=True,
-                    row=row,
-                    col=col,
-                    tickfont=dict(color="red"),
-                    title_font=dict(color="red")
-                )
-
-                # Setup secondary y-axis
-                fig.update_layout({f'yaxis{i + 1}2': dict(
-                    overlaying=f'y{i + 1}',
-                    side='right',
-                    title=dict(text="pI", font=dict(color="red")),
-                    showgrid=False,
-                    tickfont=dict(color="red")
-                )})
+            x = np.array([p["peak_time"] for p in standard_peaks])
+            y = np.array([p["pI"] for p in standard_peaks])
+            slope, intercept = np.polyfit(x, y, 1)
 
         # Detect sample peaks
         sample_peaks, _ = detect_valley_to_valley_peaks(
@@ -941,23 +985,61 @@ def generate_chromatogram_figure_advanced(
         total_area = sum(p["area"] for p in sample_peaks)
         sample_peaks = sorted(sample_peaks, key=lambda x: x["peak_height"], reverse=True)
 
-        if x_axis_autoscale and sample_peaks:
-            peaks = sorted(sample_peaks, key=lambda p: p["peak_time"])
-            x_start = peaks[0]["start_time"] - 0.5
-            x_end = peaks[-1]["end_time"] + 1
-            fig.update_xaxes(range=[x_start, x_end], row=row, col=col)
-        elif x_axis_autoscale and not sample_peaks:
-            x_start = standard_peaks[0]["start_time"] - 0.5
-            x_end = standard_peaks[-1]["end_time"] + 1
-            fig.update_xaxes(range=[x_start, x_end], row=row, col=col)
-        else:
-            fig.update_xaxes(range=[x_axis_min, x_axis_max], row=row, col=col)
+        # Plot the chromatogram
+        if cut_std_peaks and sample_peaks:
+            # Find the highest sample peak
+            highest_sample_peak = max(sample_peaks, key=lambda p: p["peak_height"])
+            highest_peak_time = highest_sample_peak["peak_time"]
 
-        if sample_peaks:
+            # Calculate display range
+            display_start = highest_peak_time - show_minutes_before
+            display_end = highest_peak_time + show_minutes_after
+
+            # Filter dataframe for display range
+            display_df = df[(df["time_min"] >= display_start) & (df["time_min"] <= display_end)]
+
+            fig.add_trace(
+                go.Scatter(x=display_df["time_min"], y=display_df["channel_1"],
+                           mode="lines", name=meta["sample_id"]),
+                row=row, col=col
+            )
+
+            # Update x-axis range
+            fig.update_xaxes(range=[display_start, display_end], row=row, col=col)
+        else:
+            # Normal display mode
+            fig.add_trace(
+                go.Scatter(x=df["time_min"], y=df["channel_1"],
+                           mode="lines", name=meta["sample_id"]),
+                row=row, col=col
+            )
+
+            if x_axis_autoscale and sample_peaks:
+                peaks = sorted(sample_peaks, key=lambda p: p["peak_time"])
+                x_start = peaks[0]["start_time"] - 0.5
+                x_end = peaks[-1]["end_time"] + 1
+                fig.update_xaxes(range=[x_start, x_end], row=row, col=col)
+            elif not x_axis_autoscale:
+                fig.update_xaxes(range=[x_axis_min, x_axis_max], row=row, col=col)
+
+        # Add standard peaks if not cutting
+        if not cut_std_peaks:
+            for std_peak in standard_peaks:
+                fig.add_annotation(
+                    x=std_peak["peak_time"],
+                    y=std_peak["peak_height"],
+                    text=f"pI {std_peak['pI']:.1f}",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-20,
+                    row=row, col=col
+                )
+
+        # Add sample peaks with pI values
+        if sample_peaks and slope is not None:
             rt_min = min(p["peak_time"] for p in sample_peaks)
             rt_max = max(p["peak_time"] for p in sample_peaks)
-            # rt_min = standard_peaks[1]["peak_time"]
-            # rt_max = standard_peaks[-1]["peak_time"] - 10
 
             for p in sample_peaks:
                 signal_adj = p["signal_segment"] - p["baseline"]
@@ -971,71 +1053,98 @@ def generate_chromatogram_figure_advanced(
                 pI_value = round(slope * rt_for_pi + intercept, 2)
                 pct = (p["area"] / total_area * 100) if total_area else 0
 
-                color = None
+                # Add peak shading if enabled
                 if shade_peaks:
                     color = get_color_from_rt(p["peak_time"], rt_min, rt_max)
-
-                region = df[(df["time_min"] >= p["start_time"]) & (df["time_min"] <= p["end_time"])]
-                if not region.empty:
                     fig.add_trace(
                         go.Scatter(
-                            x=np.concatenate([region["time_min"], region["time_min"][::-1]]),
-                            y=np.concatenate([region["channel_1"], [p["baseline"][0]] * len(region)]),
-                            fill="toself",
+                            x=p["baseline_time"],
+                            y=p["signal_segment"],
+                            fill='tonexty',
                             fillcolor=color,
-                            line=dict(color="rgba(255,255,255,0)"),
+                            line=dict(width=0),
                             showlegend=False,
-                            hoverinfo="skip"
+                            name=f"Peak at {p['peak_time']:.2f}"
                         ),
                         row=row, col=col
                     )
 
+                    fig.add_trace(
+                        go.Scatter(
+                            x=p["baseline_time"],
+                            y=p["baseline"],
+                            line=dict(width=0),
+                            showlegend=False,
+                            name=f"Baseline for {p['peak_time']:.2f}"
+                        ),
+                        row=row, col=col
+                    )
+
+                # Add peak annotation
                 fig.add_annotation(
                     x=p["peak_time"],
                     y=p["peak_height"],
-                    text=f"{pI_value} pI<br>{pct:.1f}%",
+                    text=f"pI {pI_value}<br>{pct:.1f}%",
                     showarrow=True,
-                    arrowhead=1,
+                    arrowhead=2,
                     ax=0,
                     ay=-30,
-                    row=row,
-                    col=col
+                    row=row, col=col
                 )
-                if table_output is not None:
-                    table_output.append({
-                        "Sample Name": meta["sample_id"],
-                        "pI": pI_value,
-                        "%Area": round(pct, 2)
-                    })
 
-                    fig.update_layout(
-                        height=500 * num_rows,
-                        title=title,
-                        showlegend=False,
-                        template="plotly_white",
-                        margin=dict(t=40, b=40, l=40, r=30)
-                    )
-                    print(f'table output: {table_output}')
+                # Collect data for table
+                table_row = {
+                    "Sample ID": meta["sample_id"],
+                    "Peak RT (min)": round(p["peak_time"], 2),
+                    "Peak Height": round(p["peak_height"], 0),
+                    "Area": round(p["area"], 0),
+                    "Area %": round(pct, 1),
+                    "pI": pI_value
+                }
+                table_data.append(table_row)
 
-    # Data Table Creation Logic
-    # After processing all samples, convert the list to a DataFrame
-    peak_df = pd.DataFrame(table_output)
+        # Add regression line if enabled
+        if plot_std_regression and slope is not None and not cut_std_peaks:
+            x_range = np.array([0, 50])
+            y_range = slope * x_range + intercept
 
-    if peak_df.empty:
-        return fig, []
+            fig.add_trace(
+                go.Scatter(
+                    x=x_range,
+                    y=y_range,
+                    mode="lines",
+                    line=dict(color="red", dash="dash"),
+                    name=f"pI = {slope:.3f}*RT + {intercept:.2f}",
+                    showlegend=True
+                ),
+                row=row, col=col,
+                secondary_y=True
+            )
 
-    # Group by 'Sample Name' and aggregate as needed
-    grouped_df = peak_df.groupby('Sample Name').agg({
-        'pI': list,
-        '%Area': list
-    }).reset_index()
+            fig.update_yaxes(
+                title_text="pI",
+                secondary_y=True,
+                row=row, col=col,
+                showgrid=False,
+                tickfont=dict(color="red")
+            )
 
-    grouped_df['pI'] = grouped_df['pI'].apply(lambda x: ', '.join(f"{pi:.2f}" for pi in x))
-    grouped_df['%Area'] = grouped_df['%Area'].apply(lambda x: ', '.join(f"{area:.1f}%" for area in x))
+        # Update y-axis scaling
+        fig.update_yaxes(
+            title_text="Intensity",
+            row=row, col=col,
+            secondary_y=False,
+            range=[df["channel_1"].min() * y_scale, df["channel_1"].max() * y_scale]
+        )
 
-    data = grouped_df.to_dict('records')
+    # Update layout with custom height
+    fig.update_layout(
+        height=plot_height * num_rows,
+        showlegend=True,
+        title_text="cIEF Analysis Results"
+    )
 
-    return fig, data
+    return fig, table_data
 
 
 @app.callback(
@@ -1043,7 +1152,6 @@ def generate_chromatogram_figure_advanced(
      Output("electropherogram", "config"),
      Output("cief-table", "data"),
      Output("cief-table", "columns")],
-
     [
         Input("selected-result-ids", "data"),
         Input("max-peaks", "value"),
@@ -1055,9 +1163,12 @@ def generate_chromatogram_figure_advanced(
         Input("y-axis-scaling", "value"),
         Input("subplot-vertical-spacing", "value"),
         Input("subplot-horizontal-spacing", "value"),
-        Input("std-cutoff-time", "value"),
-        Input("std-end-cutoff-time", "value"),
-        Input("std-promincence-threshold", "value"),
+        # Updated STD detection inputs
+        Input("std-front-start-time", "value"),
+        Input("std-front-end-time", "value"),
+        Input("std-back-start-time", "value"),
+        Input("std-back-end-time", "value"),
+        Input("std-prominence-threshold", "value"),  # Fixed typo
         Input("std-valley-search-window", "value"),
         Input("show-std-regression", "value"),
         Input("x-axis-autoscale", "value"),
@@ -1066,71 +1177,169 @@ def generate_chromatogram_figure_advanced(
         Input("shade-peaks", "value"),
         Input("pi-method", "value"),
         Input("num-subplot-cols", "value"),
-
-        State("selected-report", "data"),
-
-    ]
+        # New inputs for enhanced features
+        Input("plot-height", "value"),
+        Input("cut-std-peaks", "value"),
+        Input("show-minutes-before", "value"),
+        Input("show-minutes-after", "value")
+    ],
+    [State("selected-report", "data")]
 )
-def reduced_callback(result_ids, max_peaks,
-                     prominence_threshold, valley_search_window, valley_drop_ratio,
-                     smoothing_window, smoothing_polyorder, y_scale, subplot_vertical_spacing,
-                     subplot_horizonatal_spacing, std_cutoff_time,
-                     std_end_cutoff_time, std_prominence_threshold, std_valley_search_window, plot_std_regression,
-                     x_axis_autoscale, x_axis_min, x_axis_max, shade_peaks, pi_method, num_subplot_cols,
-                     selected_report):
+def update_analysis(
+        result_ids, max_peaks, prominence_threshold, valley_search_window,
+        valley_drop_ratio, smoothing_window, smoothing_polyorder, y_scale,
+        subplot_vertical_spacing, subplot_horizontal_spacing,
+        # Updated STD parameters
+        std_front_start, std_front_end, std_back_start, std_back_end,
+        std_prominence_threshold, std_valley_search_window, plot_std_regression,
+        x_axis_autoscale, x_axis_min, x_axis_max, shade_peaks, pi_method,
+        num_subplot_cols, plot_height, cut_std_peaks, show_minutes_before,
+        show_minutes_after, selected_report
+):
+    """
+    Updated callback to handle enhanced STD detection with separate time ranges
+    for front and back standards, plus new visualization options.
+    """
+
+    # Handle empty result_ids
+    if not result_ids:
+        empty_fig = go.Figure()
+        empty_fig.add_annotation(
+            text="No data selected. Please select a report.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="gray")
+        )
+        return empty_fig, {}, [], []
+
+    # Fetch metadata and time series data
     metas = CIEFMetadata.objects.filter(id__in=result_ids)
-    result_df_by_id = {
-        str(m.id): {
-            "sample_id": m.sample_id_full,
-            "data": pd.DataFrame(list(
-                CIEFTimeSeries.objects.filter(metadata_id=m.id).values("time_min", "channel_1")
-            )).sort_values("time_min")
-        }
-        for m in metas
-    }
+    result_df_by_id = {}
 
-    # ✅ Initialize table_output as empty list
-    table_output = []
+    for m in metas:
+        df_data = pd.DataFrame(list(
+            CIEFTimeSeries.objects.filter(metadata_id=m.id).values("time_min", "channel_1")
+        ))
 
-    fig, table_data = generate_chromatogram_figure_advanced(
-        result_df_by_id,
-        # title="Reduced Chromatograms with Peak Classification",
-        max_peaks=max_peaks,
-        prominence_threshold=prominence_threshold,
-        valley_search_window=valley_search_window,
-        valley_drop_ratio=valley_drop_ratio,
-        smoothing_window=smoothing_window,
-        smoothing_polyorder=smoothing_polyorder,
-        table_output=table_output,
-        y_scale=y_scale,
-        subplot_vertical_spacing=subplot_vertical_spacing,
-        subplot_horizontal_spacing=subplot_horizonatal_spacing,
-        baseline_cutoff_time=std_cutoff_time,
-        x_axis_autoscale=x_axis_autoscale,
-        x_axis_min=x_axis_min,
-        x_axis_max=x_axis_max,
-        plot_std_regression=plot_std_regression,
-        std_prominence_threshold=std_prominence_threshold,
-        std_valley_search_window=std_valley_search_window,
-        std_end_cutoff_time=std_end_cutoff_time,
-        pi_method=pi_method,
-        shade_peaks=shade_peaks,
-        num_subplot_cols=num_subplot_cols
-    )
-    print(f'table output: {table_output}')
+        if not df_data.empty:
+            result_df_by_id[str(m.id)] = {
+                "sample_id": m.sample_id_full,
+                "data": df_data.sort_values("time_min")
+            }
 
+    # Handle case where no valid data is found
+    if not result_df_by_id:
+        empty_fig = go.Figure()
+        empty_fig.add_annotation(
+            text="No valid data found for selected samples.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="gray")
+        )
+        return empty_fig, {}, [], []
+
+    # Set default values for any None inputs
+    smoothing_window = smoothing_window or 11
+    if smoothing_window % 2 == 0:  # Ensure odd number for Savitzky-Golay filter
+        smoothing_window += 1
+
+    smoothing_polyorder = smoothing_polyorder or 3
+    subplot_vertical_spacing = subplot_vertical_spacing or 0.05
+    subplot_horizontal_spacing = subplot_horizontal_spacing or 0.05
+    plot_height = plot_height or 600
+    show_minutes_before = show_minutes_before or 2
+    show_minutes_after = show_minutes_after or 3
+
+    # Default STD time ranges if not provided
+    std_front_start = std_front_start if std_front_start is not None else 0
+    std_front_end = std_front_end if std_front_end is not None else 20
+    std_back_start = std_back_start if std_back_start is not None else 30
+    std_back_end = std_back_end if std_back_end is not None else 50
+
+    # Generate the enhanced chromatogram figure
+    try:
+        fig, table_data = generate_chromatogram_figure_advanced(
+            result_df_by_id,
+            max_peaks=max_peaks,
+            prominence_threshold=prominence_threshold,
+            valley_search_window=valley_search_window,
+            valley_drop_ratio=valley_drop_ratio,
+            smoothing_window=smoothing_window,
+            smoothing_polyorder=smoothing_polyorder,
+            y_scale=y_scale,
+            subplot_vertical_spacing=subplot_vertical_spacing,
+            subplot_horizontal_spacing=subplot_horizontal_spacing,
+            # New STD detection parameters
+            std_front_start_time=std_front_start,
+            std_front_end_time=std_front_end,
+            std_back_start_time=std_back_start,
+            std_back_end_time=std_back_end,
+            std_prominence_threshold=std_prominence_threshold,
+            std_valley_search_window=std_valley_search_window,
+            # Existing parameters
+            x_axis_autoscale=x_axis_autoscale,
+            x_axis_min=x_axis_min,
+            x_axis_max=x_axis_max,
+            plot_std_regression=plot_std_regression,
+            pi_method=pi_method,
+            shade_peaks=shade_peaks,
+            num_subplot_cols=num_subplot_cols,
+            # New visualization parameters
+            plot_height=plot_height,
+            cut_std_peaks=cut_std_peaks,
+            show_minutes_before=show_minutes_before,
+            show_minutes_after=show_minutes_after
+        )
+    except Exception as e:
+        print(f"Error generating chromatogram: {str(e)}")
+        error_fig = go.Figure()
+        error_fig.add_annotation(
+            text=f"Error generating chromatogram: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color="red")
+        )
+        return error_fig, {}, [], []
+
+    # Create table columns
     columns = [{"name": k, "id": k} for k in table_data[0].keys()] if table_data else []
 
+    # Configure plot export options
     plot_config = {
         'toImageButtonOptions': {
-            'filename': f"{datetime.now().strftime('%Y%m%d')}-R-{selected_report}",
+            'filename': f"{datetime.now().strftime('%Y%m%d')}-cIEF-{selected_report or 'analysis'}",
             'format': 'png',
-            # 'height': 600,
-            # 'width': 800,
-            # 'scale': 2
-        }}
+            'height': plot_height,
+            'width': 1200,
+            'scale': 2
+        },
+        'displayModeBar': True,
+        'displaylogo': False,
+        'modeBarButtonsToRemove': ['pan2d', 'lasso2d', 'select2d'],
+        'toImageButtonOptions': {
+            'format': 'png',
+            'filename': f"{datetime.now().strftime('%Y%m%d')}-cIEF-{selected_report or 'analysis'}",
+            'height': plot_height,
+            'width': 1200,
+            'scale': 2
+        }
+    }
+
+    print(f"Successfully processed {len(result_df_by_id)} samples")
+    print(f"Generated {len(table_data)} table rows")
+
     return fig, plot_config, table_data, columns
 
+
+# Also add the callback to enable/disable cut STD peaks inputs
+@app.callback(
+    [Output("show-minutes-before", "disabled"),
+     Output("show-minutes-after", "disabled")],
+    Input("cut-std-peaks", "value")
+)
+def toggle_cut_inputs(cut_std_peaks):
+    """Enable/disable the minutes before/after inputs based on cut STD peaks checkbox"""
+    return not cut_std_peaks, not cut_std_peaks
 
 @app.callback(
     Output("download-cief-xlsx", "data"),
