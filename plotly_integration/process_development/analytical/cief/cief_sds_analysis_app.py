@@ -1,6 +1,7 @@
 from datetime import datetime
 from math import ceil
 
+import dash
 import pandas as pd
 import numpy as np
 from dash import dcc, html, Input, Output, State, dash_table
@@ -19,219 +20,626 @@ import dash_bootstrap_components as dbc
 app = DjangoDash("cIEFReportViewerApp")
 
 app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
     dcc.Store(id="selected-result-ids"),
     dcc.Store(id="reduced-result-ids"),
     dcc.Store(id="nonreduced-result-ids"),
     dcc.Store(id="standard-regression-params"),
     dcc.Store(id="selected-report"),
+    dcc.Store(id='url-params', data={}),
+    dcc.Store(id='embedded-mode', data=False),
+    dcc.Interval(id="load-once", interval=1000, n_intervals=0, max_intervals=1),
 
-    dcc.Tabs(id="main-tabs", value="tab-select-report", persistence=False, children=[
+    dcc.Store(id='button-success-trigger', data=0),
+    dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
 
-        # Select Report Tab
-        dcc.Tab(label="Select Report", value="tab-select-report", children=[
-            html.Div([
-                dash_table.DataTable(
-                    id="cief-report-table",
-                    columns=[
-                        {"name": "Report Name", "id": "report_name"},
-                        {"name": "Project ID", "id": "project_id"},
-                        {"name": "User ID", "id": "user_id"},
-                        {"name": "Date Created", "id": "date_created"},
-                        {"name": "Samples", "id": "num_samples"}
-                    ],
-                    data=[],
-                    row_selectable="single",
-                    filter_action="native",
-                    sort_action="native",
-                    page_size=20,
-                    style_table={"height": "70vh", "overflowY": "auto"},
-                    style_cell={"textAlign": "center", "padding": "8px"},
-                    style_header={
-                        "backgroundColor": "#e9f1fb",
-                        "fontWeight": "bold",
-                        "color": "#0047b3",
-                        "borderBottom": "2px solid #0047b3"
-                    }
-                )
-            ])
-        ]),
+    # Modal for Select Report - keeping existing functionality
+    html.Div(
+        id="report-modal",
+        style={
+            "display": "none",
+            "position": "fixed",
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0, 0, 0, 0.5)",
+            "zIndex": "1000"
+        },
+        children=[
+            html.Div(
+                style={
+                    "position": "relative",
+                    "margin": "2% auto",
+                    "width": "90%",
+                    "maxWidth": "1400px",
+                    "height": "85%",
+                    "backgroundColor": "white",
+                    "borderRadius": "10px",
+                    "padding": "20px",
+                    "boxShadow": "0 5px 15px rgba(0,0,0,0.3)",
+                    "display": "flex",
+                    "flexDirection": "column"
+                },
+                children=[
+                    html.Button(
+                        "✕",
+                        id="close-report-modal-btn",
+                        style={
+                            "position": "absolute",
+                            "top": "10px",
+                            "right": "10px",
+                            "fontSize": "24px",
+                            "border": "none",
+                            "backgroundColor": "transparent",
+                            "cursor": "pointer",
+                            "color": "#666"
+                        }
+                    ),
+                    html.H3("Report Management",
+                            style={"marginBottom": "20px", "color": "#0056b3", "textAlign": "center"}),
 
-        # Plots
-        dcc.Tab(label="Electropherogram", value="electropherogram", children=[
+                    # Tabs for Select/Create
+                    dcc.Tabs(
+                        id="report-tabs",
+                        value="select-tab",
+                        children=[
+                            dcc.Tab(
+                                label="Select Report",
+                                value="select-tab",
+                                style={"height": "100%"},
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "padding": "20px",
+                                            "height": "100%",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "boxSizing": "border-box"
+                                        },
+                                        children=[
+                                            html.H4("Select an Existing Report",
+                                                    style={'marginBottom': '20px', 'color': '#0056b3'}),
 
-            html.Div(style={"display": "flex"}, children=[
-                html.Div([
-                    dcc.Graph(
-                        id="electropherogram",
-                        config={'responsive': True},
-                        style={"height": "100%"}
+                                            # Table container that grows to fill available space
+                                            html.Div(
+                                                style={
+                                                    "flexGrow": 1,
+                                                    "marginBottom": "20px",
+                                                    "minHeight": 0
+                                                },
+                                                children=[
+                                                    dash_table.DataTable(
+                                                        id='report-selection-table',
+                                                        columns=[
+                                                            {"name": "Report ID", "id": "report_id"},
+                                                            {"name": "Report Name", "id": "report_name"},
+                                                            {"name": "Project ID", "id": "project_id"},
+                                                            {"name": "Created By", "id": "user_id"},
+                                                            {"name": "Date Created", "id": "date_created"},
+                                                        ],
+                                                        data=[],
+                                                        row_selectable="single",
+                                                        selected_rows=[],
+                                                        filter_action="native",
+                                                        sort_action="native",
+                                                        page_action="native",
+                                                        page_size=15,
+                                                        fixed_rows={'headers': True},
+                                                        style_table={
+                                                            'height': '90%',
+                                                            'overflowY': 'auto',
+                                                            'overflowX': 'auto',
+                                                            'borderRadius': '5px'
+                                                        },
+                                                        style_cell={
+                                                            'textAlign': 'center',
+                                                            'padding': '12px',
+                                                            'fontSize': '14px',
+                                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                        },
+                                                        style_header={
+                                                            'backgroundColor': '#f8f9fa',
+                                                            'fontWeight': '600',
+                                                            'borderBottom': '2px solid #dee2e6'
+                                                        },
+                                                        style_data={
+                                                            'borderBottom': '1px solid #dee2e6'
+                                                        },
+                                                        style_data_conditional=[
+                                                            {
+                                                                'if': {'row_index': 'odd'},
+                                                                'backgroundColor': '#f8f9fa'
+                                                            }
+                                                        ]
+                                                    )
+                                                ]
+                                            ),
+
+                                            # Buttons at the bottom
+                                            html.Div(
+                                                style={'display': 'flex', 'justifyContent': 'flex-end', 'gap': '10px'},
+                                                children=[
+                                                    html.Button(
+                                                        "Cancel",
+                                                        id="cancel-select-btn",
+                                                        style={
+                                                            'backgroundColor': '#6c757d',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                    html.Button(
+                                                        "Confirm Selection",
+                                                        id="confirm-report-selection",
+                                                        style={
+                                                            'backgroundColor': '#0056b3',
+                                                            'color': 'white',
+                                                            'padding': '8px 16px',
+                                                            'border': 'none',
+                                                            'borderRadius': '5px',
+                                                            'cursor': 'pointer',
+                                                            'fontSize': '14px',
+                                                            'fontWeight': '500'
+                                                        }
+                                                    ),
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            ),
+                            dcc.Tab(
+                                label="Create Report",
+                                value="create-tab",
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "height": "calc(100vh - 300px)",
+                                            "overflow": "hidden"
+                                        },
+                                        children=[
+                                            html.Iframe(
+                                                src="/plotly_integration/dash-app/app/CreateCIEFReportApp/",
+                                                style={
+                                                    "width": "100%",
+                                                    "height": "100%",
+                                                    "border": "none",
+                                                    "display": "block"
+                                                }
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
                     )
-                ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
+                ]
+            )
+        ]
+    ),
 
-                html.Div([
-                    html.H4("STD Detection Settings"),
-                    html.Label("STD Start Cutoff Time (min):"),
-                    dcc.Input(id="std-cutoff-time", type="number", value=12, step=0.1, style={"width": "100%"}),
-
-                    html.Label("STD End Cutoff Time (min):"),
-                    dcc.Input(id="std-end-cutoff-time", type="number", value=30, step=0.1,
-                              style={"width": "100%"}),
-
-                    html.Label("Prominence Threshold:"),
-                    dcc.Input(id="std-promincence-threshold", type="number", value=7000, step=0.1,
-                              style={"width": "100%"}),
-
-                    html.Label("Valley Search Window (min):"),
-                    dcc.Input(id="std-valley-search-window", type="number", value=1, step=0.01,
-                              style={"width": "100%"}),
-
-                    html.Div([
-                        html.Label("Show STD Regression Curve:"),
-                        dbc.Checkbox(
-                            id="show-std-regression",
-                            value=False,  # default unchecked
-                        )
-                    ]),
-
-                    html.Hr(),
-                    html.H4("Plot Settings"),
-                    html.Div([
-                        html.Label("Shade Peaks:"),
-                        dbc.Checkbox(
-                            id="shade-peaks",
-                            value=False,  # default checked
-                        )
-                    ]),
-                    html.Label("AutoScale X Axis:"),
-                    dcc.Checklist(
-                        options=[{"label": "", "value": True}],
-                        value=[True],
-                        id="x-axis-autoscale",
-                    ),
-                    html.Label("Number of Columns:"),
-                    dcc.Input(
-                        id="num-subplot-cols",
-                        type="number",
-                        value=3,  # default
-                        min=1,
-                        step=1,
-                        style={"width": "100%"}
-                    ),
-                    html.Label("X Axis Min:"),
-                    dcc.Input(id="x-axis-min", type="number", value=0, step=0.01,
-                              style={"width": "100%"}),
-                    html.Label("X Axis Max:"),
-                    dcc.Input(id="x-axis-max", type="number", value=40, step=0.01,
-                              style={"width": "100%"}),
-                    html.Label("Y- Axis Scaling"),
-                    dcc.Input(id="y-axis-scaling", type="number", value=1.0, step=0.01,
-                              style={"width": "100%"}),
-                    html.Label("Subplot Vertical Spacing"),
-                    dcc.Input(id="subplot-vertical-spacing", type="number", value=0.05, step=0.005,
-                              style={"width": "100%"}),
-                    html.Label("Subplot Horizontal Spacing"),
-                    dcc.Input(
-                        id="subplot-horizontal-spacing",
-                        type="number",
-                        value=0.05,  # default value
-                        step=0.01,
-                        min=0.01,
-                        style={"width": "100%"}
-                    ),
-
-                    html.Hr(),
-                    html.H4("Peak Detection"),
-
-                    html.Label("pI Calculation Method:"),
-                    dcc.Dropdown(
-                        id="pi-method",
-                        options=[
-                            {"label": "Peak Max RT", "value": "peak_max"},
-                            {"label": "Weighted RT", "value": "weighted_rt"}
-                        ],
-                        value="peak_max",
-                        style={"width": "100%", "marginBottom": "20px"}
-                    ),
-
-                    html.Label("Max Peaks:"),
-                    dcc.Input(id="max-peaks", type="number", value=3, step=1, min=1,
-                              style={"width": "100%"}),
-
-                    html.Label("Prominence Threshold:"),
-                    dcc.Input(id="prominence-threshold", type="number", value=1000, step=0.01,
-                              style={"width": "100%"}),
-
-                    html.Label("Valley Search Window (min):"),
-                    dcc.Input(id="valley-search-window", type="number", value=0.7, step=0.01,
-                              style={"width": "100%"}),
-
-                    html.Label("Valley Drop Ratio (0–1):"),
-                    dcc.Input(id="valley-drop-ratio", type="number", value=0.3, step=0.05, min=0, max=1,
-                              style={"width": "100%"}),
-
-                    html.Label("Smoothing Window (odd integer):"),
-                    dcc.Input(id="smoothing-window", type="number", value=3, step=2, min=3,
-                              style={"width": "100%"}),
-
-                    html.Label("Smoothing Polyorder:"),
-                    dcc.Input(id="smoothing-polyorder", type="number", value=1, step=1, min=1,
-                              style={"width": "100%", "marginBottom": "20px"}),
-
-                ], style={"width": "20%", "padding": "10px"})
-            ])
-        ]),
-        dcc.Tab(label="Results Table", value="tab-table", children=[
-            html.Div([
-                html.H4("cIEF Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
-                dash_table.DataTable(
-                    id="cief-table",
-                    columns=[],  # will be filled by callback
-                    data=[],
-                    style_header={
-                        'backgroundColor': '#0056b3',  # blue
+    # Modern toolbar with action buttons
+    html.Div(
+        id='toolbar-container',
+        style={
+            'display': 'flex',
+            'justifyContent': 'space-between',
+            'alignItems': 'center',
+            'padding': '20px 30px',
+            'backgroundColor': 'white',
+            'borderRadius': '12px',
+            'margin': '0 30px 30px 30px',
+            'boxShadow': '0 2px 10px rgba(0, 0, 0, 0.08)',
+            'gap': '10px'
+        },
+        children=[
+            # Left side - Create Report button
+            html.Div(
+                id='left-toolbar',
+                style={'display': 'flex', 'gap': '20px', 'alignItems': 'center'},
+                children=[
+                    html.Button([
+                        html.Span("📊 ", style={'marginRight': '5px'}),
+                        "Select/Create Report"
+                    ], id="select-create-report-btn", style={
+                        'backgroundColor': '#0056b3',
                         'color': 'white',
-                        'fontWeight': 'bold',
-                        'textAlign': 'center'
-                    },
-                    style_table={"overflowX": "auto"},
-                    style_cell={"textAlign": "center"},
-                ),
-                html.Button("Export cIEF Table", id="export-cief-btn"),
-                dcc.Download(id="download-cief-xlsx")
-            ]),
+                        'border': 'none',
+                        'padding': '12px 24px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '8px',
+                        'fontWeight': '500',
+                        'transition': 'background-color 0.3s ease'
+                    }),
+                    html.Div([
+                        html.Span("Current Report: ", style={'fontWeight': '600', 'color': '#495057'}),
+                        html.Span("No report selected", id="current-report-text", style={'color': '#6c757d'})
+                    ], style={'marginLeft': '10px', 'fontSize': '15px'})
+                ]
+            ),
 
-        ]),
-    ])
+            # Right side - Save buttons
+            html.Div(
+                style={'display': 'flex', 'gap': '15px'},
+                children=[
+                    html.Button([
+                        html.Span("💾 ", style={'marginRight': '5px'}),
+                        "Save Report Settings"
+                    ], id="save-settings-btn", style={
+                        'backgroundColor': '#28a745',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '12px 24px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '8px',
+                        'fontWeight': '500',
+                        'transition': 'background-color 0.3s ease'
+                    }),
+                    html.Button([
+                        html.Span("🔗 ", style={'marginRight': '5px'}),
+                        "Report Results"
+                    ], id="report-results-btn", style={
+                        'backgroundColor': '#17a2b8',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '12px 24px',
+                        'fontSize': '14px',
+                        'cursor': 'pointer',
+                        'borderRadius': '8px',
+                        'fontWeight': '500',
+                        'transition': 'background-color 0.3s ease'
+                    }),
+                ]
+            )
+        ]
+    ),
+
+    # Status messages with modern styling
+    html.Div(id="status-message", style={
+        'padding': '16px 24px',
+        'margin': '0 30px 20px 30px',
+        'borderRadius': '8px',
+        'display': 'none',
+        'fontSize': '15px',
+        'fontWeight': '500',
+        'boxShadow': '0 2px 8px rgba(0,0,0,0.1)',
+        'transition': 'all 0.3s ease'
+    }),
+
+    html.Div(
+        style={
+            'padding': '0 30px 30px 30px',
+        },
+        children=[
+
+            dcc.Tabs(id="main-tabs", value="tab-select-report", persistence=False, children=[
+
+                # Select Report Tab
+                dcc.Tab(label="Select Report", value="tab-select-report", children=[
+                    html.Div([
+                        dash_table.DataTable(
+                            id="cief-report-table",
+                            columns=[
+                                {"name": "Report Name", "id": "report_name"},
+                                {"name": "Project ID", "id": "project_id"},
+                                {"name": "User ID", "id": "user_id"},
+                                {"name": "Date Created", "id": "date_created"},
+                                {"name": "Samples", "id": "num_samples"}
+                            ],
+                            data=[],
+                            row_selectable="single",
+                            filter_action="native",
+                            sort_action="native",
+                            page_size=20,
+                            style_table={"height": "70vh", "overflowY": "auto"},
+                            style_cell={"textAlign": "center", "padding": "8px"},
+                            style_header={
+                                "backgroundColor": "#e9f1fb",
+                                "fontWeight": "bold",
+                                "color": "#0047b3",
+                                "borderBottom": "2px solid #0047b3"
+                            }
+                        )
+                    ])
+                ]),
+
+                # Plots
+                dcc.Tab(label="Electropherogram", value="electropherogram", children=[
+
+                    html.Div(style={"display": "flex"}, children=[
+                        html.Div([
+                            dcc.Graph(
+                                id="electropherogram",
+                                config={'responsive': True},
+                                style={"height": "100%"}
+                            )
+                        ], style={"width": "80%", "padding": "10px", "minHeight": "1000px"}),
+
+                        html.Div([
+                            html.H4("STD Detection Settings"),
+                            html.Label("STD Start Cutoff Time (min):"),
+                            dcc.Input(id="std-cutoff-time", type="number", value=12, step=0.1, style={"width": "100%"}),
+
+                            html.Label("STD End Cutoff Time (min):"),
+                            dcc.Input(id="std-end-cutoff-time", type="number", value=30, step=0.1,
+                                      style={"width": "100%"}),
+
+                            html.Label("Prominence Threshold:"),
+                            dcc.Input(id="std-promincence-threshold", type="number", value=7000, step=0.1,
+                                      style={"width": "100%"}),
+
+                            html.Label("Valley Search Window (min):"),
+                            dcc.Input(id="std-valley-search-window", type="number", value=1, step=0.01,
+                                      style={"width": "100%"}),
+
+                            html.Div([
+                                html.Label("Show STD Regression Curve:"),
+                                dbc.Checkbox(
+                                    id="show-std-regression",
+                                    value=False,  # default unchecked
+                                )
+                            ]),
+
+                            html.Hr(),
+                            html.H4("Plot Settings"),
+                            html.Div([
+                                html.Label("Shade Peaks:"),
+                                dbc.Checkbox(
+                                    id="shade-peaks",
+                                    value=False,  # default checked
+                                )
+                            ]),
+                            html.Label("AutoScale X Axis:"),
+                            dcc.Checklist(
+                                options=[{"label": "", "value": True}],
+                                value=[True],
+                                id="x-axis-autoscale",
+                            ),
+                            html.Label("Number of Columns:"),
+                            dcc.Input(
+                                id="num-subplot-cols",
+                                type="number",
+                                value=3,  # default
+                                min=1,
+                                step=1,
+                                style={"width": "100%"}
+                            ),
+                            html.Label("X Axis Min:"),
+                            dcc.Input(id="x-axis-min", type="number", value=0, step=0.01,
+                                      style={"width": "100%"}),
+                            html.Label("X Axis Max:"),
+                            dcc.Input(id="x-axis-max", type="number", value=40, step=0.01,
+                                      style={"width": "100%"}),
+                            html.Label("Y- Axis Scaling"),
+                            dcc.Input(id="y-axis-scaling", type="number", value=1.0, step=0.01,
+                                      style={"width": "100%"}),
+                            html.Label("Subplot Vertical Spacing"),
+                            dcc.Input(id="subplot-vertical-spacing", type="number", value=0.05, step=0.005,
+                                      style={"width": "100%"}),
+                            html.Label("Subplot Horizontal Spacing"),
+                            dcc.Input(
+                                id="subplot-horizontal-spacing",
+                                type="number",
+                                value=0.05,  # default value
+                                step=0.01,
+                                min=0.01,
+                                style={"width": "100%"}
+                            ),
+
+                            html.Hr(),
+                            html.H4("Peak Detection"),
+
+                            html.Label("pI Calculation Method:"),
+                            dcc.Dropdown(
+                                id="pi-method",
+                                options=[
+                                    {"label": "Peak Max RT", "value": "peak_max"},
+                                    {"label": "Weighted RT", "value": "weighted_rt"}
+                                ],
+                                value="peak_max",
+                                style={"width": "100%", "marginBottom": "20px"}
+                            ),
+
+                            html.Label("Max Peaks:"),
+                            dcc.Input(id="max-peaks", type="number", value=3, step=1, min=1,
+                                      style={"width": "100%"}),
+
+                            html.Label("Prominence Threshold:"),
+                            dcc.Input(id="prominence-threshold", type="number", value=1000, step=0.01,
+                                      style={"width": "100%"}),
+
+                            html.Label("Valley Search Window (min):"),
+                            dcc.Input(id="valley-search-window", type="number", value=0.7, step=0.01,
+                                      style={"width": "100%"}),
+
+                            html.Label("Valley Drop Ratio (0–1):"),
+                            dcc.Input(id="valley-drop-ratio", type="number", value=0.3, step=0.05, min=0, max=1,
+                                      style={"width": "100%"}),
+
+                            html.Label("Smoothing Window (odd integer):"),
+                            dcc.Input(id="smoothing-window", type="number", value=3, step=2, min=3,
+                                      style={"width": "100%"}),
+
+                            html.Label("Smoothing Polyorder:"),
+                            dcc.Input(id="smoothing-polyorder", type="number", value=1, step=1, min=1,
+                                      style={"width": "100%", "marginBottom": "20px"}),
+
+                        ], style={"width": "20%", "padding": "10px"})
+                    ])
+                ]),
+                dcc.Tab(label="Results Table", value="tab-table", children=[
+                    html.Div([
+                        html.H4("cIEF Results Table", style={'textAlign': 'center', 'color': '#0056b3'}),
+                        dash_table.DataTable(
+                            id="cief-table",
+                            columns=[],  # will be filled by callback
+                            data=[],
+                            style_header={
+                                'backgroundColor': '#0056b3',  # blue
+                                'color': 'white',
+                                'fontWeight': 'bold',
+                                'textAlign': 'center'
+                            },
+                            style_table={"overflowX": "auto"},
+                            style_cell={"textAlign": "center"},
+                        ),
+                        html.Button("Export cIEF Table", id="export-cief-btn"),
+                        dcc.Download(id="download-cief-xlsx")
+                    ]),
+
+                ]),
+            ])
+        ])
 ])
+# Parse URL parameters
+@app.callback(
+    [Output('url-params', 'data'),
+     Output('embedded-mode', 'data'),
+     Output('selected-report', 'data', allow_duplicate=True)],
+    [Input('url', 'search')],
+    prevent_initial_call='initial_duplicate'
+)
+def parse_url_params(search):
+    if not search:
+        return {}, False, None
+
+    # Parse query parameters
+    from urllib.parse import parse_qs
+    params = parse_qs(search.lstrip('?'))
+
+    # Extract parameters
+    url_params = {}
+    embedded = False
+    report_id = None
+
+    if 'embedded' in params:
+        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
+        url_params['embedded'] = embedded
+
+    if 'report_id' in params:
+        try:
+            report_id = int(params['report_id'][0])
+            url_params['report_id'] = report_id
+        except:
+            pass
+
+    return url_params, embedded, report_id
+
+@app.callback(
+    [Output("report-modal", "style"),
+     Output("current-report-text", "children")],
+    [Input("select-create-report-btn", "n_clicks"),
+     Input("close-report-modal-btn", "n_clicks"),
+     Input("cancel-select-btn", "n_clicks"),
+     Input("confirm-report-selection", "n_clicks"),
+     Input("load-once", "n_intervals"),
+     Input("url-params", "data")],
+    [State("report-modal", "style"),
+     State("selected-report", "data"),
+     State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data"),
+     State("embedded-mode", "data")],
+    prevent_initial_call=False
+)
+def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
+                        url_params, current_style, selected_report, selected_rows,
+                        table_data, embedded):
+    ctx = dash.callback_context
+
+    # Get the ID of the component that triggered the callback
+    if not ctx.triggered:
+        triggered_id = None
+    else:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Initial load with URL params
+    if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
+        report_id = url_params.get("report_id")
+        try:
+            report = CIEFReport.objects.get(report_id=int(report_id))
+            return current_style, f"{report.report_name}"
+        except CIEFReport.DoesNotExist:
+            return current_style, "Invalid report ID"
+
+    # Handle button clicks
+    if triggered_id == "select-create-report-btn":
+        return {**current_style, "display": "block"}, dash.no_update
+
+    elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
+        return {**current_style, "display": "none"}, dash.no_update
+
+    elif triggered_id == "confirm-report-selection" and selected_rows:
+        selected_report_data = table_data[selected_rows[0]]
+        report_name = selected_report_data.get("report_name", "Unknown Report")
+        return {**current_style, "display": "none"}, f"{report_name}"
+
+    # Default: show report name if selected
+    if selected_report:
+        try:
+            report = CIEFReport.objects.get(report_id=int(selected_report))
+            return current_style, f"{report.report_name}"
+        except CIEFReport.DoesNotExist:
+            return current_style, "Invalid report"
+
+    return current_style, "No report selected"
 
 
 @app.callback(
-    Output("cief-report-table", "data"),
-    Input("main-tabs", "value")
+    Output("report-selection-table", "data"),
+    [Input("report-modal", "style"),
+     Input("report-tabs", "value")],  # Trigger when modal opens or tab changes
+    prevent_initial_call=True
 )
-def load_report_table(tab_value):
-    if tab_value != "tab-select-report":
-        return []
-    reports = CIEFReport.objects.order_by("-date_created")
-    return [{
-        "report_name": r.report_name,
-        "project_id": r.project_id,
-        "user_id": r.user_id,
-        "date_created": r.date_created.strftime("%Y-%m-%d %H:%M"),
-        "num_samples": len(r.selected_result_ids.split(","))
-    } for r in reports]
+def populate_report_table(modal_style, active_tab):
+    """Populate the report selection table when the modal is opened and select tab is active"""
+
+    # Only populate if modal is visible and we're on the select tab
+    if modal_style.get("display") == "block" and active_tab == "select-tab":
+        try:
+            # Fetch all reports with analysis_type=2 for Titer
+            reports = CIEFReport.objects.all().order_by('-date_created')
+
+            report_data = []
+            for report in reports:
+                report_data.append({
+                    "report_id": report.id,
+                    "report_name": report.report_name,
+                    "project_id": report.project_id,
+                    "user_id": report.user_id,
+                    "date_created": report.date_created.strftime("%Y-%m-%d %H:%M") if report.date_created else ""
+                })
+
+            return report_data
+        except Exception as e:
+            print(f"Error fetching reports: {e}")
+            return []
+
+    return dash.no_update
+
 
 
 @app.callback(
     Output("selected-result-ids", "data"),
     Output("selected-report", "data"),
-    Input("cief-report-table", "selected_rows"),
-    State("cief-report-table", "data")
+    [Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
+    prevent_initial_call=True
 )
-def store_selected_result_ids(selected_rows, table_data):
-    if selected_rows:
+def store_selected_result_ids(confirm_clicks, selected_rows, table_data):
+    if not selected_rows or not confirm_clicks:
+        return dash.no_update
+    elif selected_rows:
         row = table_data[selected_rows[0]]
-        report = CIEFReport.objects.filter(report_name=row["report_name"]).first()
+        report = CIEFReport.objects.filter(id=row["report_id"]).first()
         report_name = report.report_name
         if report:
             return [r.strip() for r in report.selected_result_ids.split(",")], report_name
@@ -602,7 +1010,7 @@ def generate_chromatogram_figure_advanced(
                     table_output.append({
                         "Sample Name": meta["sample_id"],
                         "pI": pI_value,
-                        "%Area": round(pct,2)
+                        "%Area": round(pct, 2)
                     })
 
                     fig.update_layout(
@@ -614,7 +1022,7 @@ def generate_chromatogram_figure_advanced(
                     )
                     print(f'table output: {table_output}')
 
-    #Data Table Creation Logic
+    # Data Table Creation Logic
     # After processing all samples, convert the list to a DataFrame
     peak_df = pd.DataFrame(table_output)
 
