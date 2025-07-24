@@ -1,6 +1,5 @@
 from datetime import datetime
 from math import ceil
-
 import dash
 import pandas as pd
 import numpy as np
@@ -320,36 +319,7 @@ app.layout = html.Div([
         },
         children=[
 
-            dcc.Tabs(id="main-tabs", value="tab-select-report", persistence=False, children=[
-
-                # Select Report Tab
-                dcc.Tab(label="Select Report", value="tab-select-report", children=[
-                    html.Div([
-                        dash_table.DataTable(
-                            id="cief-report-table",
-                            columns=[
-                                {"name": "Report Name", "id": "report_name"},
-                                {"name": "Project ID", "id": "project_id"},
-                                {"name": "User ID", "id": "user_id"},
-                                {"name": "Date Created", "id": "date_created"},
-                                {"name": "Samples", "id": "num_samples"}
-                            ],
-                            data=[],
-                            row_selectable="single",
-                            filter_action="native",
-                            sort_action="native",
-                            page_size=20,
-                            style_table={"height": "70vh", "overflowY": "auto"},
-                            style_cell={"textAlign": "center", "padding": "8px"},
-                            style_header={
-                                "backgroundColor": "#e9f1fb",
-                                "fontWeight": "bold",
-                                "color": "#0047b3",
-                                "borderBottom": "2px solid #0047b3"
-                            }
-                        )
-                    ])
-                ]),
+            dcc.Tabs(id="main-tabs", value="electropherogram", persistence=False, children=[
 
                 # Plots
                 dcc.Tab(label="Electropherogram", value="electropherogram", children=[
@@ -407,7 +377,7 @@ app.layout = html.Div([
                             dcc.Input(
                                 id="num-subplot-cols",
                                 type="number",
-                                value=3,  # default
+                                value=1,  # default
                                 min=1,
                                 step=1,
                                 style={"width": "100%"}
@@ -625,7 +595,6 @@ def populate_report_table(modal_style, active_tab):
     return dash.no_update
 
 
-
 @app.callback(
     Output("selected-result-ids", "data"),
     Output("selected-report", "data"),
@@ -635,16 +604,42 @@ def populate_report_table(modal_style, active_tab):
     prevent_initial_call=True
 )
 def store_selected_result_ids(confirm_clicks, selected_rows, table_data):
-    if not selected_rows or not confirm_clicks:
+    # If no clicks or no selection, don't update
+    if not confirm_clicks:
         return dash.no_update
-    elif selected_rows:
-        row = table_data[selected_rows[0]]
-        report = CIEFReport.objects.filter(id=row["report_id"]).first()
-        report_name = report.report_name
-        if report:
-            return [r.strip() for r in report.selected_result_ids.split(",")], report_name
-    return [], []
 
+    # If no rows selected or no table data, return empty lists
+    if not selected_rows or not table_data:
+        return dash.no_update, dash.no_update
+
+    try:
+        # Get the selected row
+        row = table_data[selected_rows[0]]
+
+        # Get the report
+        report = CIEFReport.objects.filter(id=row.get("report_id")).first()
+
+        if report:
+            # Get report name
+            report_name = report.report_name if report.report_name else ""
+
+            # Parse result IDs, ensuring we return a list
+            if report.selected_result_ids:
+                result_ids = [r.strip() for r in report.selected_result_ids.split(",") if r.strip()]
+                # Return the list of IDs and report name
+                return result_ids if result_ids else [], report_name
+            else:
+                # No result IDs in report
+                return [], report_name
+        else:
+            # Report not found
+            print(f"Report with id {row.get('report_id')} not found")
+            return [], ""
+
+    except Exception as e:
+        print(f"Error in store_selected_result_ids: {e}")
+        # On any error, return empty lists
+        return [], ""
 
 def detect_valley_to_valley_peaks(
         df,
@@ -1014,7 +1009,7 @@ def generate_chromatogram_figure_advanced(
                     })
 
                     fig.update_layout(
-                        height=300 * num_rows,
+                        height=500 * num_rows,
                         title=title,
                         showlegend=False,
                         template="plotly_white",
