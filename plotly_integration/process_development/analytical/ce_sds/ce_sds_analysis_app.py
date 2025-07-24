@@ -422,7 +422,7 @@ app.layout = html.Div([
                                                     html.Label("Subplot Vertical Spacing:",
                                                                style={'fontWeight': '500', 'color': '#6c757d'}),
                                                     dcc.Input(id="reduced-subplot-vertical-spacing", type="number",
-                                                              value=0.025, step=0.005,
+                                                              value=0.04, step=0.005,
                                                               style={"width": "100%", "borderRadius": "6px",
                                                                      "border": "1px solid #ced4da", "padding": "8px"}),
                                                 ]
@@ -625,7 +625,7 @@ app.layout = html.Div([
                                                     html.Label("Subplot Vertical Spacing:",
                                                                style={'fontWeight': '500', 'color': '#6c757d'}),
                                                     dcc.Input(id="non-reduced-subplot-vertical-spacing", type="number",
-                                                              value=0.025, step=0.005,
+                                                              value=0.04, step=0.005,
                                                               style={"width": "100%", "borderRadius": "6px",
                                                                      "border": "1px solid #ced4da", "padding": "8px"}),
                                                 ]
@@ -651,7 +651,7 @@ app.layout = html.Div([
 
                                                     html.Label("Max Peaks:",
                                                                style={'fontWeight': '500', 'color': '#6c757d'}),
-                                                    dcc.Input(id="nr-max-peaks", type="number", value=3, step=1, min=1,
+                                                    dcc.Input(id="nr-max-peaks", type="number", value=5, step=1, min=1,
                                                               style={"width": "100%", "marginBottom": "15px",
                                                                      "borderRadius": "6px",
                                                                      "border": "1px solid #ced4da", "padding": "8px"}),
@@ -1473,178 +1473,6 @@ def generate_chromatogram_figure_advanced(
     return fig, table_output
 
 
-# def generate_chromatogram_figure_advanced(
-#         result_df_by_id,
-#         title="Chromatograms",
-#         marker_rt=None,
-#         marker_label="10 kDa",
-#         skip_time=0.3,
-#         max_peaks=4,
-#         prominence_threshold=0.05,
-#         valley_search_window=3.0,
-#         valley_drop_ratio=0.2,
-#         smoothing_window=11,
-#         smoothing_polyorder=3,
-#         light_chain_time=None,
-#         table_output=None,
-#         regression_slope=None,
-#         regression_intercept=None,
-#         y_scale=1,
-#         subplot_vertical_spacing=0.25,
-# ):
-#     num_rows = len(result_df_by_id)
-#
-#     fig = make_subplots(
-#         rows=num_rows, cols=1,
-#         shared_xaxes=False,
-#         vertical_spacing=subplot_vertical_spacing,
-#         subplot_titles=[meta["sample_id"] for meta in result_df_by_id.values()]
-#     )
-#
-#     for i, (mid, meta) in enumerate(result_df_by_id.items(), start=1):
-#         df = meta["data"]
-#         if df.empty:
-#             continue
-#
-#         fig.add_trace(
-#             go.Scatter(x=df["time_min"], y=df["channel_1"], mode="lines", name=meta["sample_id"]),
-#             row=i, col=1
-#         )
-#
-#         # Marker annotation
-#         marker_peak_time = None
-#         if marker_rt is not None:
-#             df_marker = df[(df["time_min"] >= marker_rt - 0.5) & (df["time_min"] <= marker_rt + 0.5)]
-#             if not df_marker.empty:
-#                 idx = df_marker["channel_1"].idxmax()
-#                 marker_peak_time = df_marker.loc[idx, "time_min"]
-#                 peak_height = df_marker.loc[idx, "channel_1"]
-#
-#                 fig.add_annotation(
-#                     x=marker_peak_time,
-#                     y=peak_height,
-#                     text=f"{marker_label} ({marker_peak_time:.2f} min)",
-#                     showarrow=True,
-#                     arrowhead=1,
-#                     ax=0,
-#                     ay=-40,
-#                     row=i, col=1
-#                 )
-#
-#         # Peak detection
-#         df_after_marker = df[df["time_min"] > (marker_peak_time or 0) + skip_time].copy()
-#         peaks, smoothed = detect_valley_to_valley_peaks(
-#             df_after_marker,
-#             signal_col="channel_1",
-#             time_col="time_min",
-#             max_peaks=max_peaks,
-#             prominence_threshold=prominence_threshold,
-#             valley_search_window=valley_search_window,
-#             valley_drop_ratio=valley_drop_ratio,
-#             smoothing_window=smoothing_window,
-#             smoothing_polyorder=smoothing_polyorder,
-#         )
-#
-#         total_area = sum(p["area"] for p in peaks)
-#         peaks = sorted(peaks, key=lambda x: x["peak_height"], reverse=True)
-#
-#         light_chain = heavy_chain = None
-#         if len(peaks) >= 2:
-#             top2 = peaks[:2]
-#             if top2[0]["peak_time"] < top2[1]["peak_time"]:
-#                 light_chain, heavy_chain = top2[0], top2[1]
-#             else:
-#                 light_chain, heavy_chain = top2[1], top2[0]
-#
-#         percentages = {"LMW": 0.0, "Light Chain": 0.0, "Heavy Chain": 0.0, "HMW": 0.0}
-#
-#         for p in peaks:
-#
-#             # Y Axes Scaling
-#             if not y_scale or y_scale == 1:
-#                 autoscale = True
-#                 fig.update_yaxes(title_text="UV", row=i, col=1)
-#             else:
-#                 autoscale = False
-#                 max_signal = df["channel_1"].max()
-#                 y_max = max_signal * y_scale
-#                 fig.update_yaxes(
-#                     title_text="UV",
-#                     autorange=True,
-#                     autorangeoptions=dict(maxallowed=y_max),
-#                     row=i,
-#                     col=1
-#                 )
-#             fig.update_xaxes(title_text="Time (min)", row=i, col=1)
-#
-#             # Peak Classification and percentage calculation
-#
-#             pct = (p["area"] / total_area * 100) if total_area else 0
-#             label = f"{pct:.1f}%"
-#             class_label = None
-#
-#             if p == light_chain:
-#                 label = f"Light Chain<br>({pct:.1f}%)"
-#                 class_label = "Light Chain"
-#             elif p == heavy_chain:
-#                 label = f"Heavy Chain<br>({pct:.1f}%)"
-#                 class_label = "Heavy Chain"
-#             elif light_chain and p["peak_time"] < light_chain["peak_time"]:
-#                 label = f"LMW<br>({pct:.1f}%)"
-#                 class_label = "LMW"
-#             elif heavy_chain and p["peak_time"] > heavy_chain["peak_time"]:
-#                 label = f"HMW<br>({pct:.1f}%)"
-#                 class_label = "HMW"
-#             else:
-#                 continue
-#
-#             # Optional: Calculate MW
-#             if regression_slope is not None and regression_intercept is not None:
-#                 log_mw = regression_slope * p["peak_time"] + regression_intercept
-#                 mw_kda = np.exp(log_mw)
-#                 label += f"<br>{mw_kda:.1f} kDa"
-#
-#             percentages[class_label] += pct
-#
-#             if autoscale:
-#                 peak_height = p["peak_height"]
-#             elif autoscale == False and p["peak_height"] < y_max:
-#                 peak_height = p["peak_height"]
-#             else:
-#                 peak_height = y_max
-#
-#             shade_peak(
-#                 fig, df,
-#                 start_time=p["start_time"],
-#                 end_time=p["end_time"],
-#                 baseline=p["baseline"][0],
-#                 row=i, col=1,
-#                 label=label,
-#                 peak_time=p["peak_time"],
-#                 peak_height=peak_height,
-#                 class_label=class_label
-#             )
-#
-#         # Append summary to table output
-#         if table_output is not None:
-#             table_output.append({
-#                 "Sample Name": meta["sample_id"],
-#                 "LMW (%)": round(percentages["LMW"], 1),
-#                 "Light Chain (%)": round(percentages["Light Chain"], 1),
-#                 "Heavy Chain (%)": round(percentages["Heavy Chain"], 1),
-#                 "HMW (%)": round(percentages["HMW"], 1),
-#             })
-#
-#     fig.update_layout(
-#         height=300 * num_rows,
-#         title=title,
-#         showlegend=False,
-#         template="plotly_white",
-#         margin=dict(t=40, b=40, l=40, r=30)
-#     )
-#     print(f'table output: {table_output}')
-#     return fig, table_output
-
 
 @app.callback(
     [Output("reduced-chromatogram", "figure"),
@@ -1668,7 +1496,7 @@ def generate_chromatogram_figure_advanced(
         Input("reduced-y-axis-scaling", "value"),
         Input("reduced-subplot-vertical-spacing", "value"),
         Input("main-tabs", "value"),
-        State("selected-report", "data"),
+        Input("selected-report", "data"),
 
     ]
 )
@@ -1676,8 +1504,8 @@ def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                      prominence_threshold, valley_search_window, valley_drop_ratio,
                      smoothing_window, smoothing_polyorder, light_chain_time,
                      regression_params, y_scale, subplot_vertical_spacing,active_tab, selected_report):
-    if active_tab != "tab-reduced":
-        raise PreventUpdate
+    # if active_tab != "tab-reduced":
+    #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
     result_df_by_id = {}
 
@@ -1763,172 +1591,7 @@ def export_nonreduced_table(n_clicks, table_data, report_name):
     return dcc.send_bytes(write_buffer, filename)
 
 
-# def generate_chromatogram_figure_nonreduced(
-#         result_df_by_id,
-#         title="Non-Reduced Chromatograms",
-#         marker_rt=None,
-#         marker_label="10 kDa",
-#         skip_time=0.3,
-#         max_peaks=4,
-#         prominence_threshold=0.05,
-#         valley_search_window=3.0,
-#         valley_drop_ratio=0.2,
-#         smoothing_window=11,
-#         smoothing_polyorder=3,
-#         intact_time=None,
-#         table_output=None,
-#         regression_slope=None,
-#         regression_intercept=None,
-#         y_scale=1,
-#         subplot_vertical_spacing=0.25,
-# ):
-#     num_rows = len(result_df_by_id)
-#     fig = make_subplots(
-#         rows=num_rows, cols=1,
-#         shared_xaxes=False,
-#         vertical_spacing=subplot_vertical_spacing,
-#         subplot_titles=[meta["sample_id"] for meta in result_df_by_id.values()]
-#     )
-#
-#     for i, (mid, meta) in enumerate(result_df_by_id.items(), start=1):
-#         df = meta["data"]
-#         if df.empty:
-#             continue
-#
-#         fig.add_trace(
-#             go.Scatter(x=df["time_min"], y=df["channel_1"], mode="lines", name=meta["sample_id"]),
-#             row=i, col=1
-#         )
-#
-#         marker_peak_time = None
-#         if marker_rt is not None:
-#             df_marker = df[(df["time_min"] >= marker_rt - 0.5) & (df["time_min"] <= marker_rt + 0.5)]
-#             if not df_marker.empty:
-#                 idx = df_marker["channel_1"].idxmax()
-#                 marker_peak_time = df_marker.loc[idx, "time_min"]
-#                 peak_height = df_marker.loc[idx, "channel_1"]
-#
-#                 fig.add_annotation(
-#                     x=marker_peak_time,
-#                     y=peak_height,
-#                     text=f"{marker_label} ({marker_peak_time:.2f} min)",
-#                     showarrow=True,
-#                     arrowhead=1,
-#                     ax=0,
-#                     ay=-40,
-#                     row=i, col=1
-#                 )
-#
-#         df_after_marker = df[df["time_min"] > (marker_peak_time or 0) + skip_time].copy()
-#         peaks, _ = detect_valley_to_valley_peaks(
-#             df_after_marker,
-#             signal_col="channel_1",
-#             time_col="time_min",
-#             max_peaks=max_peaks,
-#             prominence_threshold=prominence_threshold,
-#             valley_search_window=valley_search_window,
-#             valley_drop_ratio=valley_drop_ratio,
-#             smoothing_window=smoothing_window,
-#             smoothing_polyorder=smoothing_polyorder,
-#         )
-#
-#         peaks = sorted(peaks, key=lambda x: x["peak_time"])
-#         total_area = sum(p["area"] for p in peaks)
-#
-#         # Determine intact peak
-#         intact = None
-#         if intact_time:
-#             closest = min(peaks, key=lambda p: abs(p["peak_time"] - intact_time))
-#             intact = closest
-#         elif peaks:
-#             intact = max(peaks, key=lambda p: p["peak_height"])
-#
-#         percentages = {"LMW": 0.0, "Light Chain": 0.0, "Intact": 0.0, "HMW": 0.0}
-#
-#         before_intact = [p for p in peaks if p["peak_time"] < intact["peak_time"]] if intact else []
-#         after_intact = [p for p in peaks if p["peak_time"] > intact["peak_time"]] if intact else []
-#
-#         for p in peaks:
-#             # Y Axes Scaling
-#             if not y_scale or y_scale == 1:
-#                 autoscale = True
-#                 fig.update_yaxes(title_text="UV", row=i, col=1)
-#             else:
-#                 autoscale = False
-#                 max_signal = df["channel_1"].max()
-#                 y_max = max_signal * y_scale
-#                 fig.update_yaxes(
-#                     title_text="UV",
-#                     autorange=True,
-#                     autorangeoptions=dict(maxallowed=y_max),
-#                     row=i,
-#                     col=1
-#                 )
-#             fig.update_xaxes(title_text="Time (min)", row=i, col=1)
-#
-#             pct = (p["area"] / total_area * 100) if total_area else 0
-#             class_label = None
-#
-#             if intact and p["peak_time"] == intact["peak_time"]:
-#                 class_label = "Intact"
-#             elif p in after_intact:
-#                 class_label = "HMW"
-#             elif p in before_intact:
-#                 if len(before_intact) == 1:
-#                     class_label = "LMW"
-#                 elif len(before_intact) >= 2:
-#                     class_label = "LMW" if p == before_intact[0] else "Light Chain"
-#
-#             if not class_label:
-#                 continue
-#
-#             label = f"{class_label}<br>({pct:.1f}%)"
-#
-#             # 🧠 Add MW annotation
-#             if regression_slope is not None and regression_intercept is not None:
-#                 log_mw = regression_slope * p["peak_time"] + regression_intercept
-#                 mw_kda = np.exp(log_mw)
-#                 label += f"<br>{mw_kda:.1f} kDa"
-#
-#             percentages[class_label] += pct
-#
-#             if autoscale:
-#                 peak_height = p["peak_height"]
-#             elif autoscale == False and p["peak_height"] < y_max:
-#                 peak_height = p["peak_height"]
-#             else:
-#                 peak_height = y_max
-#
-#             shade_peak(
-#                 fig, df,
-#                 start_time=p["start_time"],
-#                 end_time=p["end_time"],
-#                 baseline=p["baseline"][0],
-#                 row=i, col=1,
-#                 label=label,
-#                 peak_time=p["peak_time"],
-#                 peak_height=peak_height,
-#                 class_label=class_label
-#             )
-#
-#         if table_output is not None:
-#             table_output.append({
-#                 "Sample Name": meta["sample_id"],
-#                 "LMW (%)": round(percentages["LMW"], 1),
-#                 "Light Chain (%)": round(percentages["Light Chain"], 1),
-#                 "Intact (%)": round(percentages["Intact"], 1),
-#                 "HMW (%)": round(percentages["HMW"], 1),
-#             })
-#
-#     fig.update_layout(
-#         height=300 * num_rows,
-#         title=title,
-#         showlegend=False,
-#         template="plotly_white",
-#         margin=dict(t=40, b=40, l=40, r=30)
-#     )
-#
-#     return fig, table_output
+
 
 def generate_chromatogram_figure_nonreduced(
         result_df_by_id,
@@ -2132,15 +1795,15 @@ def generate_chromatogram_figure_nonreduced(
         Input("non-reduced-y-axis-scaling", "value"),
         Input("non-reduced-subplot-vertical-spacing", "value"),
         Input("main-tabs", "value"),
-        State("selected-report", "data"),
+        Input("selected-report", "data"),
     ]
 )
 def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                         prominence_threshold, valley_search_window, valley_drop_ratio,
                         smoothing_window, smoothing_polyorder, intact_time, regression_params, y_scale,
                         subplot_vertical_spacing, active_tab, selected_report):
-    if active_tab != "tab-nonreduced":
-        raise PreventUpdate
+    # if active_tab != "tab-nonreduced":
+    #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
     result_df_by_id = {}
 
