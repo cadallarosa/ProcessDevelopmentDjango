@@ -32,6 +32,8 @@ app.layout = html.Div([
     dcc.Store(id='button-success-trigger', data=0),
     dcc.Interval(id='button-reset-interval', interval=5000, n_intervals=0, disabled=True),
 
+    dcc.Store(id="lc-hc-times-store", data={}),
+
     # Modal for Select Report - keeping existing functionality
     html.Div(
         id="report-modal",
@@ -1413,11 +1415,15 @@ def generate_chromatogram_figure_advanced(
 
         # Store MW calculations for each peak class (reduced method)
         mw_values = {"LMW": None, "Light Chain": None, "Heavy Chain": None, "HMW": None}
+        peak_times = {"LMW": None, "Light Chain": None, "Heavy Chain": None, "HMW": None}
 
         for p, class_label in classified_peaks:
             pct = (p["area"] / total_area * 100) if total_area else 0
             percentages[class_label] += pct
             label = f"{class_label}<br>({pct:.1f}%)"
+
+            # Store the peak time for this class
+            peak_times[class_label] = p["peak_time"]
 
             # Calculate MW and store it
             if regression_slope is not None and regression_intercept is not None:
@@ -1448,7 +1454,6 @@ def generate_chromatogram_figure_advanced(
         if abs(total_pct - 100) > 1e-2:
             print(f"[DEBUG] {meta['sample_id']} percentages do not sum to 100%: {total_pct:.2f}%")
 
-        # UPDATED: Add MW columns to reduced table output
         if table_output is not None:
             table_output.append({
                 "Sample Name": meta["sample_id"],
@@ -1461,6 +1466,11 @@ def generate_chromatogram_figure_advanced(
                 "Light Chain MW (kDa)": mw_values["Light Chain"],
                 "Heavy Chain MW (kDa)": mw_values["Heavy Chain"],
                 "HMW MW (kDa)": mw_values["HMW"],
+                # Add peak times
+                "LMW Time": peak_times["LMW"],
+                "Light Chain Time": peak_times["Light Chain"],
+                "Heavy Chain Time": peak_times["Heavy Chain"],
+                "HMW Time": peak_times["HMW"],
             })
 
     fig.update_layout(
@@ -1471,7 +1481,6 @@ def generate_chromatogram_figure_advanced(
         margin=dict(t=40, b=40, l=40, r=30)
     )
     return fig, table_output
-
 
 
 @app.callback(
@@ -1503,7 +1512,7 @@ def generate_chromatogram_figure_advanced(
 def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                      prominence_threshold, valley_search_window, valley_drop_ratio,
                      smoothing_window, smoothing_polyorder, light_chain_time,
-                     regression_params, y_scale, subplot_vertical_spacing,active_tab, selected_report):
+                     regression_params, y_scale, subplot_vertical_spacing, active_tab, selected_report):
     # if active_tab != "tab-reduced":
     #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
@@ -1591,8 +1600,6 @@ def export_nonreduced_table(n_clicks, table_data, report_name):
     return dcc.send_bytes(write_buffer, filename)
 
 
-
-
 def generate_chromatogram_figure_nonreduced(
         result_df_by_id,
         title="Non-Reduced Chromatograms",
@@ -1611,9 +1618,27 @@ def generate_chromatogram_figure_nonreduced(
         regression_intercept=None,
         y_scale=1,
         subplot_vertical_spacing=0.25,
+        reduced_table_data=None,
 ):
     if not result_df_by_id:
         return go.Figure(), []
+
+    # Create a lookup dictionary for reduced peak times
+    reduced_peak_times = {}
+    if reduced_table_data:
+        for row in reduced_table_data:
+            sample_name = row.get("Sample Name", "")
+            # Remove R prefix and store
+            clean_name = sample_name.replace("R ", "").strip()
+            if clean_name.startswith("R"):
+                clean_name = clean_name[1:].strip()
+
+            reduced_peak_times[clean_name] = {
+                "lc_time": row.get("Light Chain Time"),
+                "hc_time": row.get("Heavy Chain Time")
+            }
+            print(
+                f"Stored reduced times for {clean_name}: LC={row.get('Light Chain Time')}, HC={row.get('Heavy Chain Time')}")
 
     num_rows = len(result_df_by_id)
     fig = make_subplots(
@@ -1627,6 +1652,20 @@ def generate_chromatogram_figure_nonreduced(
         df = meta["data"]
         if df.empty:
             continue
+
+        # Get the corresponding reduced peak times for this sample
+        sample_name = meta["sample_id"]
+        clean_name = sample_name.replace("NR ", "").strip()
+        if clean_name.startswith("NR"):
+            clean_name = clean_name[2:].strip()
+
+        # Get LC/HC times from reduced data
+        lc_time = None
+        hc_time = None
+        if clean_name in reduced_peak_times:
+            lc_time = reduced_peak_times[clean_name]["lc_time"]
+            hc_time = reduced_peak_times[clean_name]["hc_time"]
+            print(f"Found reduced times for {sample_name} (clean: {clean_name}): LC={lc_time}, HC={hc_time}")
 
         fig.add_trace(
             go.Scatter(x=df["time_min"], y=df["channel_1"], mode="lines", name=meta["sample_id"]),
@@ -1674,26 +1713,40 @@ def generate_chromatogram_figure_nonreduced(
             intact = max(peaks, key=lambda p: p["peak_height"])
 
         classified_peaks = []
-        before_intact = [p for p in peaks if p["peak_time"] < intact["peak_time"]] if intact else []
-        after_intact = [p for p in peaks if p["peak_time"] > intact["peak_time"]] if intact else []
+        peak_times = {"LMW": None, "Light Chain": None, "Heavy Chain": None,"Intact": None, "HMW": None}
+        time_tolerance = 2.5  # ±30 seconds tolerance
 
+        # First pass: identify intact peak
         for p in peaks:
+            if intact and abs(p["peak_time"] - intact["peak_time"]) < 0.1:
+                classified_peaks.append((p, "Intact"))
+                peak_times["Intact"] = p["peak_time"]
+                break
+
+        # Second pass: classify other peaks based on intact position and reduced times
+        for p in peaks:
+            if intact and abs(p["peak_time"] - intact["peak_time"]) < 0.1:
+                continue  # Already classified as intact
+
             class_label = None
-            if intact and p["peak_time"] == intact["peak_time"]:
-                class_label = "Intact"
-            elif p in after_intact:
+
+            if intact and p["peak_time"] > intact["peak_time"]:
                 class_label = "HMW"
-            elif p in before_intact:
-                if len(before_intact) == 1:
+            elif intact and p["peak_time"] < intact["peak_time"]:
+                # Check if it matches LC or HC time from reduced
+                if lc_time and abs(p["peak_time"] - lc_time) <= time_tolerance:
+                    class_label = "Light Chain"
+                elif hc_time and abs(p["peak_time"] - hc_time) <= time_tolerance:
+                    class_label = "Heavy Chain"
+                else:
                     class_label = "LMW"
-                elif len(before_intact) >= 2:
-                    class_label = "LMW" if p == before_intact[0] else "Light Chain"
 
             if class_label:
                 classified_peaks.append((p, class_label))
+                peak_times[class_label] = p["peak_time"]
 
         total_area = sum(p["area"] for p, _ in classified_peaks)
-        percentages = {"LMW": 0.0, "Light Chain": 0.0, "Intact": 0.0, "HMW": 0.0}
+        percentages = {"LMW": 0.0, "Light Chain": 0.0,"Heavy Chain": 0.0, "Intact": 0.0, "HMW": 0.0}
 
         max_signal = df["channel_1"].max()
         if not y_scale or y_scale == 1:
@@ -1746,7 +1799,7 @@ def generate_chromatogram_figure_nonreduced(
         if abs(total_pct - 100) > 1e-2:
             print(f"[DEBUG] {meta['sample_id']} percentages do not sum to 100%: {total_pct:.2f}%")
 
-        # UPDATED: Add MW columns to table output
+        # UPDATED: Add MW columns and peak times to table output
         if table_output is not None:
             table_output.append({
                 "Sample Name": meta["sample_id"],
@@ -1759,6 +1812,11 @@ def generate_chromatogram_figure_nonreduced(
                 "Light Chain MW (kDa)": mw_values["Light Chain"],
                 "Intact MW (kDa)": mw_values["Intact"],
                 "HMW MW (kDa)": mw_values["HMW"],
+                # Add peak times
+                "LMW Time": peak_times["LMW"],
+                "Light Chain Time": peak_times["Light Chain"],
+                "Intact Time": peak_times["Intact"],
+                "HMW Time": peak_times["HMW"],
             })
 
     fig.update_layout(
@@ -1770,7 +1828,6 @@ def generate_chromatogram_figure_nonreduced(
     )
 
     return fig, table_output
-
 
 @app.callback(
     [
@@ -1796,12 +1853,13 @@ def generate_chromatogram_figure_nonreduced(
         Input("non-reduced-subplot-vertical-spacing", "value"),
         Input("main-tabs", "value"),
         Input("selected-report", "data"),
+        Input("reduced-table", "data"),
     ]
 )
 def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                         prominence_threshold, valley_search_window, valley_drop_ratio,
                         smoothing_window, smoothing_polyorder, intact_time, regression_params, y_scale,
-                        subplot_vertical_spacing, active_tab, selected_report):
+                        subplot_vertical_spacing, active_tab, selected_report,reduced_table_data ):
     # if active_tab != "tab-nonreduced":
     #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
@@ -1844,7 +1902,8 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
         regression_slope=slope,
         regression_intercept=intercept,
         y_scale=y_scale,
-        subplot_vertical_spacing=subplot_vertical_spacing
+        subplot_vertical_spacing=subplot_vertical_spacing,
+        reduced_table_data=reduced_table_data
     )
 
     columns = [{"name": k, "id": k} for k in table_data[0].keys()] if table_data else []
