@@ -8,7 +8,7 @@ import pandas as pd
 from django.utils.timezone import is_aware
 
 # Initialize the Dash app
-app = DjangoDash("cIEFReportApp")
+app = DjangoDash("CreateCIEFReportApp")
 
 
 def get_default_columns_and_data():
