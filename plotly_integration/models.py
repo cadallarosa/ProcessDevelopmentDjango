@@ -752,6 +752,7 @@ class CESDSReport(models.Model):
     selected_samples = models.TextField()  # comma-separated sample names
     selected_result_ids = models.TextField()  # comma-separated result_ids
     date_created = models.DateTimeField(auto_now_add=True)
+    settings = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = 'ce_sds_report'
@@ -783,6 +784,12 @@ class CIEFMetadata(models.Model):
 
     class Meta:
         db_table = 'cief_metadata'
+        indexes = [
+            # models.Index(fields=['id']),  # Remove this - Primary key is already indexed
+            models.Index(fields=['sample_id_full']),
+            models.Index(fields=['acquisition_datetime']),
+            models.Index(fields=['sample_set_id']),  # Add this for grouping queries
+        ]
 
     def __str__(self):
         return f"{self.sample_id_full} ({self.sample_set_name})"
@@ -797,6 +804,12 @@ class CIEFTimeSeries(models.Model):
 
     class Meta:
         db_table = 'cief_time_series'
+        indexes = [
+            models.Index(fields=['metadata']),  # Use 'metadata' not 'metadata_id'
+            models.Index(fields=['time_min']),
+            models.Index(fields=['metadata', 'time_min']),  # Composite index
+        ]
+        ordering = ['time_min']
 
     def __str__(self):
         return f"{self.metadata.sample_id_full} - {self.time_min:.3f} min"
@@ -810,9 +823,15 @@ class CIEFReport(models.Model):
     selected_samples = models.TextField()  # comma-separated sample names
     selected_result_ids = models.TextField()  # comma-separated result_ids
     date_created = models.DateTimeField(auto_now_add=True)
+    settings = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = 'cief_report'
+        indexes = [
+            models.Index(fields=['date_created']),
+            models.Index(fields=['user_id']),
+            models.Index(fields=['project_id']),
+        ]
 
 
 # LIMS Sample Tracking
@@ -1162,6 +1181,7 @@ class LimsCiefResult(models.Model):
     acidic_variants = models.FloatField()
     basic_variants = models.FloatField()
     notes = models.TextField(blank=True)
+    band_pattern = models.JSONField(blank=True, null=True)  # Store band pattern data as JSON
 
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="in_progress")
     created_at = models.DateTimeField(auto_now_add=True)

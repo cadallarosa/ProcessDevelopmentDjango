@@ -88,7 +88,8 @@ class PlotlyIntegrationConfig(AppConfig):
                 #cIEF Apps
                 import plotly_integration.process_development.analytical.cief.data_import_app
                 import plotly_integration.process_development.analytical.cief.create_report_app
-                import plotly_integration.process_development.analytical.cief.cief_sds_analysis_app
+                # import plotly_integration.process_development.analytical.cief.cief_sds_analysis_app
+                import plotly_integration.process_development.analytical.cief.cief_analysis_app
 
                 #Lims Apps
                 import plotly_integration.process_development.lims.dn_assignment_app

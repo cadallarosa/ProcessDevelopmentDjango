@@ -759,6 +759,8 @@ def generate_chromatogram_figure_advanced(
         col = (i - 1) % num_cols + 1
 
         df = meta["data"].sort_values("time_min")
+
+
         fig.add_trace(go.Scatter(x=df["time_min"], y=df["channel_1"], mode="lines", name=meta["sample_id"]),
                       row=row, col=col)
 
@@ -904,6 +906,7 @@ def generate_chromatogram_figure_advanced(
                     showgrid=False,
                     tickfont=dict(color="red")
                 )})
+
 
         # Detect sample peaks
         sample_peaks, _ = detect_valley_to_valley_peaks(
