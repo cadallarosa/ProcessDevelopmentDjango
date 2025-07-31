@@ -1026,39 +1026,67 @@ app.layout = html.Div([
 ])
 
 
-# Parse URL parameters
+# Combined URL parsing and report selection
 @app.callback(
     [Output('url-params', 'data'),
      Output('embedded-mode', 'data'),
-     Output('selected-report', 'data', allow_duplicate=True)],
-    [Input('url', 'search')],
-    prevent_initial_call='initial_duplicate'
+     Output('selected-report', 'data'),
+     Output("selected-result-ids", "data")],
+    [Input('url', 'search'),
+     Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
+    prevent_initial_call=False
 )
-def parse_url_params(search):
-    if not search:
-        return {}, False, None
+def parse_url_and_handle_report_selection(search, confirm_clicks, selected_rows, table_data):
+    ctx = dash.callback_context
 
-    # Parse query parameters
-    from urllib.parse import parse_qs
-    params = parse_qs(search.lstrip('?'))
-
-    # Extract parameters
+    # Parse URL parameters
     url_params = {}
     embedded = False
     report_id = None
+    result_ids = []
 
-    if 'embedded' in params:
-        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
-        url_params['embedded'] = embedded
+    if search:
+        # Parse query parameters
+        from urllib.parse import parse_qs
+        params = parse_qs(search.lstrip('?'))
 
-    if 'report_id' in params:
+        # Extract parameters
+        if 'embedded' in params:
+            embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
+            url_params['embedded'] = embedded
+
+        if 'report_id' in params:
+            try:
+                report_id = int(params['report_id'][0])
+                url_params['report_id'] = report_id
+            except:
+                pass
+
+    # Get the ID of the component that triggered the callback
+    if not ctx.triggered:
+        triggered_id = None
+    else:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Handle report selection confirmation
+    if triggered_id == "confirm-report-selection" and selected_rows and confirm_clicks:
+        row = table_data[selected_rows[0]]
+        report = CESDSReport.objects.filter(id=row["report_id"]).first()
+        if report:
+            report_id = report.id
+            result_ids = [r.strip() for r in report.selected_result_ids.split(",")]
+
+    # Handle URL-based report selection
+    elif report_id and not triggered_id == "confirm-report-selection":
         try:
-            report_id = int(params['report_id'][0])
-            url_params['report_id'] = report_id
-        except:
-            pass
+            report = CESDSReport.objects.get(id=int(report_id))
+            result_ids = [r.strip() for r in report.selected_result_ids.split(",")]
+        except CESDSReport.DoesNotExist:
+            result_ids = []
 
-    return url_params, embedded, report_id
+    return url_params, embedded, report_id, result_ids
 
 
 @app.callback(
@@ -1092,7 +1120,7 @@ def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks
     if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
         report_id = url_params.get("report_id")
         try:
-            report = CESDSReport.objects.get(report_id=int(report_id))
+            report = CESDSReport.objects.get(id=int(report_id))
             return current_style, f"{report.report_name}"
         except CESDSReport.DoesNotExist:
             return current_style, "Invalid report ID"
@@ -1151,26 +1179,6 @@ def populate_report_table(modal_style, active_tab):
             return []
 
     return dash.no_update
-
-
-@app.callback(
-    Output("selected-result-ids", "data"),
-    Output("selected-report", "data"),
-    [Input("confirm-report-selection", "n_clicks")],
-    [State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data")],
-    prevent_initial_call=True
-)
-def store_selected_result_ids(confirm_clicks, selected_rows, table_data):
-    if not selected_rows or not confirm_clicks:
-        return dash.no_update
-    elif selected_rows:
-        row = table_data[selected_rows[0]]
-        report = CESDSReport.objects.filter(id=row["report_id"]).first()
-        report_name = report.report_name
-        if report:
-            return [r.strip() for r in report.selected_result_ids.split(",")], report_name
-    return [], []
 
 
 @app.callback(
@@ -1563,9 +1571,11 @@ def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
 
     columns = [{"name": k, "id": k} for k in table_data[0].keys()] if table_data else []
 
+    report_name = CESDSReport.objects.filter(
+        id=selected_report).first().report_name if selected_report else "CESDS_Report"
     plot_config = {
         'toImageButtonOptions': {
-            'filename': f"{datetime.now().strftime('%Y%m%d')}-R-{selected_report}",
+            'filename': f"{datetime.now().strftime('%Y%m%d')}-R-{report_name}",
             'format': 'png',
             # 'height': 600,
             # 'width': 800,
@@ -1581,7 +1591,8 @@ def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
     State("selected-report", "data"),
     prevent_initial_call=True
 )
-def export_nonreduced_table(n_clicks, table_data, report_name):
+def export_nonreduced_table(n_clicks, table_data, selected_report):
+    report_name = CESDSReport.objects.filter(id=selected_report).first().report_name if selected_report else "CESDS_Report"
     filename = f"{report_name}_Reduced.xlsx"
     df = pd.DataFrame(table_data)
 
@@ -1910,9 +1921,12 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
 
     print(f'table output: {table_output}')
 
+    report_name = CESDSReport.objects.filter(
+        id=selected_report).first().report_name if selected_report else "CESDS_Report"
+
     plot_config = {
         'toImageButtonOptions': {
-            'filename': f"{datetime.now().strftime('%Y%m%d')}-NR-{selected_report}",
+            'filename': f"{datetime.now().strftime('%Y%m%d')}-NR-{report_name}",
             'format': 'png',
             # 'height': 600,
             # 'width': 800,
@@ -1929,7 +1943,9 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
     State("selected-report", "data"),
     prevent_initial_call=True
 )
-def export_nonreduced_table(n_clicks, table_data, report_name):
+def export_nonreduced_table(n_clicks, table_data, selected_report):
+    report_name = CESDSReport.objects.filter(
+        id=selected_report).first().report_name if selected_report else "CESDS_Report"
     filename = f"{report_name}_NonReduced.xlsx"
     df = pd.DataFrame(table_data)
 
@@ -2147,17 +2163,17 @@ def auto_select_all_std_peaks(data):
      State("standard-regression-params", "data")],  # ADD: Get regression parameters
     prevent_initial_call=True
 )
-def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_trigger, regression_params):
+def save_to_lims(n_clicks, reduced_data, nonreduced_data, selected_report, current_trigger, regression_params):
     print('=' * 50)
     print('SAVE TO LIMS CALLBACK TRIGGERED')
     print(f'n_clicks: {n_clicks}')
-    print(f'report_name: {report_name}')
+    print(f'selected_report: {selected_report}')
     print(f'reduced_data length: {len(reduced_data) if reduced_data else 0}')
     print(f'nonreduced_data length: {len(nonreduced_data) if nonreduced_data else 0}')
     print(f'regression_params: {regression_params}')
     print('=' * 50)
 
-    if (not reduced_data and not nonreduced_data) or not report_name:
+    if (not reduced_data and not nonreduced_data) or not selected_report:
         print('No data or report name - returning early')
         return "⚠️ No data to link!", {
             "display": "block",
@@ -2171,8 +2187,8 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
 
     try:
         # Get report info
-        print(f'Looking for report with name: {report_name}')
-        report = CESDSReport.objects.filter(report_name=report_name).first()
+        print(f'Looking for report with name: {selected_report}')
+        report = CESDSReport.objects.filter(id=selected_report).first()
         if report:
             project_id = report.project_id
             print(f'Found report - project_id: {project_id}')
@@ -2414,7 +2430,7 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                         'project_id': project_id,
                         'analyst': report.user_id if report else 'Unknown',
                         'sample_date': datetime.now().date(),
-                        'description': f'CE-SDS analysis from report {report_name}'
+                        'description': f'CE-SDS analysis from report {selected_report}'
                     }
                 )
                 print(f'LimsSampleAnalysis {"created" if created else "updated"}: {lims_sample.sample_id}')
@@ -2429,16 +2445,32 @@ def save_to_lims(n_clicks, reduced_data, nonreduced_data, report_name, current_t
                     notes = 'CE-SDS analysis (non-reduced only)'
 
                 print(f'Creating/updating LimsCeSdsResult...')
+
+                # Get or create the CESDSReport (assuming it should exist)
+                try:
+                    cesds_report = CESDSReport.objects.get(id=selected_report)
+                    print(f'Found CESDSReport: {cesds_report.report_name}')
+                except CESDSReport.DoesNotExist:
+                    print(f'CESDSReport with ID {selected_report} not found')
+                    cesds_report = None
+
                 cesds_result, created = LimsCeSdsResult.objects.update_or_create(
                     sample_id=lims_sample,
                     defaults={
                         'purity': sample_data['purity'],
                         'band_pattern': band_pattern,
                         'notes': notes,
-                        'status': 'completed'
+                        'status': 'completed',
+                        'report': cesds_report  # Use the CESDSReport object, not the ID
                     }
                 )
                 print(f'LimsCeSdsResult {"created" if created else "updated"}')
+
+                # Update the OneToOne relationship in LimsSampleAnalysis
+                lims_sample.ce_sds_result = cesds_result
+                lims_sample.save()
+                print(f'Updated LimsSampleAnalysis with ce_sds_result relationship')
+
                 saved_count += 1
                 print(f'Successfully saved combined sample {clean_sample_name}')
 

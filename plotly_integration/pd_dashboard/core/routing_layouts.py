@@ -245,69 +245,80 @@ def create_page_router(app):
 
         # Analytical SEC Route - Full screen, non-scrollable
         elif pathname == "/analytical/sec":
-            # Display full SEC app taking up entire viewport
-            sec_url = "/plotly_integration/dash-app/app/SecReportApp/"
+            try:
+                # Extract report_id from query params
+                report_id = query_params.get('report_id', ['320'])[0]  # Default to 320
+                # Display full SEC app taking up entire viewport
+                sec_url = f"/plotly_integration/dash-app/app/SecReportApp/?report_id={report_id}"
 
-            # Return a special full-screen layout that bypasses normal content container
-            return html.Div([
-                # Minimal header with controls - fixed height
-                html.Div([
+                # Return a special full-screen layout that bypasses normal content container
+                return html.Div([
+                    # Minimal header with controls - fixed height
                     html.Div([
-                        html.H5("SEC Analysis", style={"margin": "0", "color": "#333"}),
-                        dbc.ButtonGroup([
-                            dbc.Button([
-                                html.I(className="fas fa-home me-1"),
-                                "Home"
-                            ], href="#!/", color="outline-secondary", size="sm"),
-                            dbc.Button([
-                                html.I(className="fas fa-external-link-alt me-1"),
-                                "Open in New Tab"
-                            ], href=sec_url, target="_blank", color="outline-primary", size="sm"),
-                            dbc.Button([
-                                html.I(className="fas fa-sync-alt me-1"),
-                                "Refresh"
-                            ], id="refresh-analytical-sec", color="outline-info", size="sm")
-                        ])
-                    ], style={
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "padding": "8px 16px",
-                        "backgroundColor": "#f8f9fa",
-                        "borderBottom": "1px solid #dee2e6"
-                    })
-                ], style={"height": "50px", "flexShrink": "0"}),
+                        html.Div([
+                            html.H5("SEC Analysis", style={"margin": "0", "color": "#333"}),
+                            dbc.ButtonGroup([
+                                dbc.Button([
+                                    html.I(className="fas fa-home me-1"),
+                                    "Home"
+                                ], href="#!/", color="outline-secondary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-external-link-alt me-1"),
+                                    "Open in New Tab"
+                                ], href=sec_url, target="_blank", color="outline-primary", size="sm"),
+                                dbc.Button([
+                                    html.I(className="fas fa-sync-alt me-1"),
+                                    "Refresh"
+                                ], id="refresh-analytical-sec", color="outline-info", size="sm")
+                            ])
+                        ], style={
+                            "display": "flex",
+                            "justifyContent": "space-between",
+                            "alignItems": "center",
+                            "padding": "8px 16px",
+                            "backgroundColor": "#f8f9fa",
+                            "borderBottom": "1px solid #dee2e6"
+                        })
+                    ], style={"height": "50px", "flexShrink": "0"}),
 
-                # Full-height iframe - no scrolling
-                html.Iframe(
-                    src=sec_url,
-                    style={
-                        "width": "100%",
-                        "height": "calc(100vh - 50px)",  # Full viewport height minus header
-                        "border": "none",
-                        "display": "block",
-                        "overflow": "hidden"  # Prevent iframe scrolling
-                    }
-                )
-            ], style={
-                "position": "fixed",  # Fixed positioning to bypass normal layout
-                "top": "0",
-                "left": "220px",  # Account for sidebar width + left margin
-                "right": "20px",  # Right margin
-                "bottom": "0",
-                "height": "100vh",
-                "width": "calc(100vw - 240px)",  # Full width minus sidebar and margins
-                "overflow": "hidden",  # Prevent any scrolling
-                "display": "flex",
-                "flexDirection": "column",
-                "zIndex": "999"  # Ensure it's above other content
-            })
+                    # Full-height iframe - no scrolling
+                    html.Iframe(
+                        src=sec_url,
+                        style={
+                            "width": "100%",
+                            "height": "calc(100vh - 50px)",  # Full viewport height minus header
+                            "border": "none",
+                            "display": "block",
+                            "overflow": "hidden"  # Prevent iframe scrolling
+                        }
+                    )
+                ], style={
+                    "position": "fixed",  # Fixed positioning to bypass normal layout
+                    "top": "0",
+                    "left": "220px",  # Account for sidebar width + left margin
+                    "right": "20px",  # Right margin
+                    "bottom": "0",
+                    "height": "100vh",
+                    "width": "calc(100vw - 240px)",  # Full width minus sidebar and margins
+                    "overflow": "hidden",  # Prevent any scrolling
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "zIndex": "999"  # Ensure it's above other content
+                })
+            except Exception as e:
+                print(f"Error loading SEC report: {e}")
+                return html.Div([
+                    dbc.Alert([
+                        html.H5("Error Loading SEC Report"),
+                        html.P(f"Failed to load SEC report: {str(e)}")
+                    ], color="danger")
+                ])
 
         # SEC Analysis with Report ID parameter
         elif pathname == "/analytical/sec/report":
             try:
                 # Extract report_id from query params
-                report_id = query_params.get('report_id', ['320'])[0]  # Default to 320
+                report_id = query_params.get('report_id', ['0'])[0]  # Default to 320
                 sec_url = f"/plotly_integration/dash-app/app/SecReportEmbeddedApp/?report_id={report_id}"
 
                 return html.Div([
@@ -375,7 +386,11 @@ def create_page_router(app):
 
         # Analytical Titer Route - Full screen, non-scrollable
         elif pathname == "/analytical/titer":
-            titer_url = "/plotly_integration/dash-app/app/TiterAnalysisApp/"
+
+            # Extract report_id from query params
+            report_id = query_params.get('report_id', ['0'])[0]  # Default to 320
+            # Display full Titer app taking up entire viewport
+            titer_url = f"/plotly_integration/dash-app/app/TiterAnalysisApp/?report_id={report_id}"
 
             return html.Div([
                 html.Div([
@@ -431,7 +446,10 @@ def create_page_router(app):
 
         # Analytical CE SDS Route - Full screen, non-scrollable
         elif pathname == "/analytical/ce-sds":
-            cesds_url = "/plotly_integration/dash-app/app/CESDSReportViewerApp/"
+            # Extract report_id from query params
+            report_id = query_params.get('report_id', ['0'])[0]  # Default to 320
+            # Display full CE SDS app taking up entire viewport
+            cesds_url = f"/plotly_integration/dash-app/app/CESDSReportViewerApp/?report_id={report_id}"
 
             return html.Div([
                 html.Div([
@@ -487,7 +505,10 @@ def create_page_router(app):
 
         # Analytical cIEF Route - Full screen, non-scrollable
         elif pathname == "/analytical/cief":
-            cief_url = "/plotly_integration/dash-app/app/cIEFReportViewerApp/"
+            # Extract report_id from query params
+            report_id = query_params.get('report_id', ['0'])[0]  # Default to 320
+            # Display full Titer app taking up entire viewport
+            cief_url = f"/plotly_integration/dash-app/app/cIEFReportViewerApp/?report_id={report_id}"
 
             return html.Div([
                 html.Div([

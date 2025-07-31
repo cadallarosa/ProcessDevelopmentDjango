@@ -64,6 +64,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 #SEC
                 import plotly_integration.dash_apps.Analytical.sec_app_embedded.app
                 import plotly_integration.dash_apps.Analytical.sec_app.app
+                import plotly_integration.dash_apps.Analytical.sec_app.create_sec_report_app
 
                 #Akta
                 import plotly_integration.dash_apps.akta_report_app.main_app

@@ -692,86 +692,265 @@ app.layout = html.Div([
         ]
     )
 ])
+# # Store selected report
+# @app.callback(
+#     Output("selected-report", "data"),
+#     [Input("confirm-report-selection", "n_clicks")],
+#     [State("report-selection-table", "selected_rows"),
+#      State("report-selection-table", "data")],
+#     prevent_initial_call=True
+# )
+# def store_selected_report(confirm_clicks, selected_rows, table_data):
+#     if not selected_rows or not confirm_clicks:
+#         return dash.no_update
+#     selected_row = table_data[selected_rows[0]]
+#     return selected_row["report_id"]
+#
+#
+# # Update results header
+# @app.callback(
+#     Output("results-header", "children"),
+#     [Input("selected-report", "data")],
+#     prevent_initial_call=True
+# )
+# def update_results_header(selected_report):
+#     report_name = selected_report
+#
+#     if not report_name:
+#         return "Titer Results"
+#
+#     report = Report.objects.filter(report_id=report_name).first()
+#
+#     if not report:
+#         return "Report Not Found"
+#
+#     return f"{report.project_id} - {report.report_name}"
+#
+# # Parse URL parameters
+# @app.callback(
+#     [Output('url-params', 'data'),
+#      Output('embedded-mode', 'data'),
+#      Output('selected-report', 'data', allow_duplicate=True)],
+#     [Input('url', 'search')],
+#     prevent_initial_call='initial_duplicate'
+# )
+# def parse_url_params(search):
+#     if not search:
+#         return {}, False, None
+#
+#     # Parse query parameters
+#     from urllib.parse import parse_qs
+#     params = parse_qs(search.lstrip('?'))
+#
+#     # Extract parameters
+#     url_params = {}
+#     embedded = False
+#     report_id = None
+#
+#     if 'embedded' in params:
+#         embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
+#         url_params['embedded'] = embedded
+#
+#     if 'report_id' in params:
+#         try:
+#             report_id = int(params['report_id'][0])
+#             url_params['report_id'] = report_id
+#         except:
+#             pass
+#
+#     return url_params, embedded, report_id
 
+
+# # Update toolbar visibility based on embedded mode
+# @app.callback(
+#     [Output('create-report-btn', 'style'),
+#      Output('change-report-btn', 'style')],
+#     [Input('embedded-mode', 'data')],
+#     prevent_initial_call=False
+# )
+# def update_toolbar_visibility(embedded):
+#     if embedded:
+#         # Hide buttons in embedded mode
+#         hidden_style = {'display': 'none'}
+#         return hidden_style, hidden_style
+#     else:
+#         # Show buttons in normal mode
+#         create_btn_style = {
+#             'backgroundColor': '#0056b3',
+#             'color': 'white',
+#             'border': 'none',
+#             'padding': '10px 20px',
+#             'fontSize': '14px',
+#             'cursor': 'pointer',
+#             'borderRadius': '5px',
+#             'fontWeight': '500',
+#             'transition': 'all 0.3s ease',
+#             'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+#         }
+#
+#         select_btn_style = {
+#             'backgroundColor': '#6c757d',
+#             'color': 'white',
+#             'border': 'none',
+#             'padding': '10px 20px',
+#             'fontSize': '14px',
+#             'cursor': 'pointer',
+#             'borderRadius': '5px',
+#             'fontWeight': '500',
+#             'transition': 'all 0.3s ease',
+#             'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+#         }
+#
+#         return create_btn_style, select_btn_style
+
+
+# @app.callback(
+#     [Output("report-modal", "style"),
+#      Output("current-report-text", "children")],
+#     [Input("select-create-report-btn", "n_clicks"),
+#      Input("close-report-modal-btn", "n_clicks"),
+#      Input("cancel-select-btn", "n_clicks"),
+#      Input("confirm-report-selection", "n_clicks"),
+#      Input("load-once", "n_intervals"),
+#      Input("url-params", "data")],
+#     [State("report-modal", "style"),
+#      State("selected-report", "data"),
+#      State("report-selection-table", "selected_rows"),
+#      State("report-selection-table", "data"),
+#      State("embedded-mode", "data")],
+#     prevent_initial_call=False
+# )
+# def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
+#                         url_params, current_style, selected_report, selected_rows,
+#                         table_data, embedded):
+#     ctx = dash.callback_context
+#
+#     # Get the ID of the component that triggered the callback
+#     if not ctx.triggered:
+#         triggered_id = None
+#     else:
+#         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+#
+#     # Initial load with URL params
+#     if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
+#         report_id = url_params.get("report_id")
+#         try:
+#             report = Report.objects.get(report_id=int(report_id))
+#             return current_style, f"{report.report_name}"
+#         except Report.DoesNotExist:
+#             return current_style, "Invalid report ID"
+#
+#     # Handle button clicks
+#     if triggered_id == "select-create-report-btn":
+#         return {**current_style, "display": "block"}, dash.no_update
+#
+#     elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
+#         return {**current_style, "display": "none"}, dash.no_update
+#
+#     elif triggered_id == "confirm-report-selection" and selected_rows:
+#         selected_report_data = table_data[selected_rows[0]]
+#         report_name = selected_report_data.get("report_name", "Unknown Report")
+#         return {**current_style, "display": "none"}, f"{report_name}"
+#
+#     # Default: show report name if selected
+#     if selected_report:
+#         try:
+#             report = Report.objects.get(report_id=int(selected_report))
+#             return current_style, f"{report.report_name}"
+#         except Report.DoesNotExist:
+#             return current_style, "Invalid report"
+#
+#     return current_style, "No report selected"
 
 # Parse URL parameters
 @app.callback(
-    [Output('url-params', 'data'),
-     Output('embedded-mode', 'data'),
-     Output('selected-report', 'data', allow_duplicate=True)],
+    Output('url-params', 'data'),
     [Input('url', 'search')],
-    prevent_initial_call='initial_duplicate'
+    prevent_initial_call=False
 )
 def parse_url_params(search):
     if not search:
-        return {}, False, None
+        return {}
 
     # Parse query parameters
     from urllib.parse import parse_qs
     params = parse_qs(search.lstrip('?'))
 
-    # Extract parameters
     url_params = {}
-    embedded = False
-    report_id = None
-
-    if 'embedded' in params:
-        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
-        url_params['embedded'] = embedded
-
     if 'report_id' in params:
         try:
             report_id = int(params['report_id'][0])
             url_params['report_id'] = report_id
-        except:
+        except (ValueError, TypeError):
             pass
 
-    return url_params, embedded, report_id
+    return url_params
 
 
-# Update toolbar visibility based on embedded mode
+# SINGLE callback that writes to selected-report (handles both URL and manual selection)
 @app.callback(
-    [Output('create-report-btn', 'style'),
-     Output('change-report-btn', 'style')],
-    [Input('embedded-mode', 'data')],
+    Output("selected-report", "data"),
+    [Input('url-params', 'data'),
+     Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
     prevent_initial_call=False
 )
-def update_toolbar_visibility(embedded):
-    if embedded:
-        # Hide buttons in embedded mode
-        hidden_style = {'display': 'none'}
-        return hidden_style, hidden_style
-    else:
-        # Show buttons in normal mode
-        create_btn_style = {
-            'backgroundColor': '#0056b3',
-            'color': 'white',
-            'border': 'none',
-            'padding': '10px 20px',
-            'fontSize': '14px',
-            'cursor': 'pointer',
-            'borderRadius': '5px',
-            'fontWeight': '500',
-            'transition': 'all 0.3s ease',
-            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-        }
+def update_selected_report(url_params, confirm_clicks, selected_rows, table_data):
+    ctx = dash.callback_context
 
-        select_btn_style = {
-            'backgroundColor': '#6c757d',
-            'color': 'white',
-            'border': 'none',
-            'padding': '10px 20px',
-            'fontSize': '14px',
-            'cursor': 'pointer',
-            'borderRadius': '5px',
-            'fontWeight': '500',
-            'transition': 'all 0.3s ease',
-            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
-        }
+    if not ctx.triggered:
+        return dash.no_update
 
-        return create_btn_style, select_btn_style
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Handle URL parameter changes
+    if triggered_id == "url-params" and url_params and url_params.get("report_id"):
+        report_id = url_params.get("report_id")
+        try:
+            # Verify report exists in database
+            report = Report.objects.filter(report_id=report_id).first()
+            if report:
+                print(f"✅ Found Report {report_id}: {report.report_name}")
+                return report_id
+            else:
+                print(f"❌ Report {report_id} not found")
+        except Exception as e:
+            print(f"Error validating report {report_id}: {e}")
+
+    # Handle manual report selection
+    elif triggered_id == "confirm-report-selection" and confirm_clicks:
+        if selected_rows and table_data:
+            selected_row = table_data[selected_rows[0]]
+            return selected_row["report_id"]
+
+    return dash.no_update
 
 
+# Update results header
+@app.callback(
+    Output("results-header", "children"),
+    [Input("selected-report", "data")],
+    prevent_initial_call=True
+)
+def update_results_header(selected_report):
+    if not selected_report:
+        return "Titer Results"
+
+    try:
+        report_id = int(selected_report)
+        report = Report.objects.filter(report_id=report_id).first()
+
+        if not report:
+            return f"Report {report_id} Not Found"
+
+        return f"{report.project_id} - {report.report_name}"
+
+    except (ValueError, TypeError):
+        return "Invalid Report ID"
+
+
+# Update report modal display
 @app.callback(
     [Output("report-modal", "style"),
      Output("current-report-text", "children")],
@@ -779,34 +958,32 @@ def update_toolbar_visibility(embedded):
      Input("close-report-modal-btn", "n_clicks"),
      Input("cancel-select-btn", "n_clicks"),
      Input("confirm-report-selection", "n_clicks"),
-     Input("load-once", "n_intervals"),
-     Input("url-params", "data")],
+     Input("selected-report", "data")],  # Listen for selected report changes
     [State("report-modal", "style"),
-     State("selected-report", "data"),
      State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data"),
-     State("embedded-mode", "data")],
+     State("report-selection-table", "data")],
     prevent_initial_call=False
 )
-def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
-                        url_params, current_style, selected_report, selected_rows,
-                        table_data, embedded):
+def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks,
+                        selected_report, current_style, selected_rows, table_data):
     ctx = dash.callback_context
 
-    # Get the ID of the component that triggered the callback
     if not ctx.triggered:
         triggered_id = None
     else:
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    # Initial load with URL params
-    if triggered_id == "load-once" and url_params.get("report_id") and not embedded:
-        report_id = url_params.get("report_id")
-        try:
-            report = Report.objects.get(report_id=int(report_id))
-            return current_style, f"{report.report_name}"
-        except Report.DoesNotExist:
-            return current_style, "Invalid report ID"
+    # Handle selected report changes (from store)
+    if triggered_id == "selected-report":
+        if selected_report:
+            try:
+                report = Report.objects.filter(report_id=int(selected_report)).first()
+                if report:
+                    return dash.no_update, f"Report: {report.report_name} (ID: {selected_report})"
+                else:
+                    return dash.no_update, f"Report ID {selected_report} not found"
+            except (ValueError, TypeError):
+                return dash.no_update, f"Invalid report ID: {selected_report}"
 
     # Handle button clicks
     if triggered_id == "select-create-report-btn":
@@ -815,21 +992,24 @@ def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks
     elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
         return {**current_style, "display": "none"}, dash.no_update
 
-    elif triggered_id == "confirm-report-selection" and selected_rows:
+    elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
         selected_report_data = table_data[selected_rows[0]]
         report_name = selected_report_data.get("report_name", "Unknown Report")
-        return {**current_style, "display": "none"}, f"{report_name}"
+        report_id = selected_report_data.get("report_id", "Unknown ID")
+        return {**current_style, "display": "none"}, f"Report: {report_name} (ID: {report_id})"
 
-    # Default: show report name if selected
+    # Default display based on current selected report
     if selected_report:
         try:
-            report = Report.objects.get(report_id=int(selected_report))
-            return current_style, f"{report.report_name}"
-        except Report.DoesNotExist:
-            return current_style, "Invalid report"
+            report = Report.objects.filter(report_id=int(selected_report)).first()
+            if report:
+                return current_style, f"Report: {report.report_name} (ID: {selected_report})"
+            else:
+                return current_style, f"Report ID {selected_report} not found"
+        except (ValueError, TypeError):
+            return current_style, f"Invalid report ID: {selected_report}"
 
     return current_style, "No report selected"
-
 
 @app.callback(
     Output("report-selection-table", "data"),
@@ -940,9 +1120,9 @@ def save_to_lims(n_clicks, table_data, report_id, current_trigger):
         }, current_trigger, True
 
     try:
-        # Get report info for project_id
-        report = Report.objects.get(report_id=report_id)
-        project_id = report.project_id
+        # Get the TiterReport (should already exist)
+        titer_report = Report.objects.get(report_id=report_id)
+        project_id = titer_report.project_id
 
         saved_count = 0
         errors = []
@@ -985,21 +1165,39 @@ def save_to_lims(n_clicks, table_data, report_id, current_trigger):
                     defaults={
                         'sample_type': sample_type,
                         'project_id': project_id,
-                        'analyst': report.user_id or 'Unknown',
+                        'analyst': titer_report.user_id or 'Unknown',
                         'sample_date': datetime.now().date(),
-                        'description': f'Titer analysis from report {report.report_name}'
+                        'description': f'Titer analysis from report {titer_report.report_name}'
                     }
                 )
 
-                # Create or update titer result
-                titer_result, created = LimsTiterResult.objects.update_or_create(
-                    sample_id=lims_sample,
-                    defaults={
-                        'titer': concentration,
-                        'qc_pass': True,
-                        'status': 'completed'
-                    }
-                )
+                # Explicit approach - handle create vs update separately to ensure FK is set
+                try:
+                    # Try to get existing titer result
+                    titer_result = LimsTiterResult.objects.get(sample_id=lims_sample)
+
+                    # Update existing record
+                    print(f"Before update: titer_result.report = {titer_result.report}")
+                    titer_result.titer = concentration
+                    titer_result.qc_pass = True
+                    titer_result.status = 'completed'
+                    titer_result.report = titer_report  # Explicitly set the FK
+                    titer_result.save()
+                    print(f"After update: titer_result.report = {titer_result.report}")
+
+                    print(f"Updated existing titer result for {sample_name} with FK to report {titer_report.report_id}")
+
+                except LimsTiterResult.DoesNotExist:
+                    # Create new record
+                    titer_result = LimsTiterResult.objects.create(
+                        sample_id=lims_sample,
+                        titer=concentration,
+                        qc_pass=True,
+                        status='completed',
+                        report=titer_report  # Set the FK on creation
+                    )
+
+                    print(f"Created new titer result for {sample_name} with FK to report {titer_report.report_id}")
 
                 # Update the relationship in LimsSampleAnalysis
                 lims_sample.titer_result = titer_result
@@ -1008,32 +1206,42 @@ def save_to_lims(n_clicks, table_data, report_id, current_trigger):
                 saved_count += 1
 
             except Exception as e:
-                errors.append(f"{sample_name}: {str(e)}")
+                error_msg = f"{sample_name}: {str(e)}"
+                errors.append(error_msg)
+                print(f"Error processing {sample_name}: {e}")
+                continue
 
-        if errors:
-            message = f"⚠️ Linked {saved_count} results. Errors: {'; '.join(errors[:3])}"
-            if len(errors) > 3:
-                message += f" and {len(errors) - 3} more..."
-            style = {
+        # Success message
+        if saved_count > 0:
+            success_msg = f"✅ Successfully saved {saved_count} titer results to LIMS!"
+            if errors:
+                success_msg += f"\n⚠️ {len(errors)} errors occurred:\n" + "\n".join(errors[:3])
+                if len(errors) > 3:
+                    success_msg += f"\n... and {len(errors) - 3} more"
+
+            return success_msg, {
+                "display": "block",
+                "backgroundColor": "#d1edff",
+                "color": "#0c5460",
+                "border": "1px solid #b8daff"
+            }, current_trigger, True
+        else:
+            return "⚠️ No data was saved to LIMS", {
                 "display": "block",
                 "backgroundColor": "#fff3cd",
                 "color": "#856404",
-                "border": "1px solid #ffeeba"
-            }
-        else:
-            message = f"✅ Successfully linked {saved_count} results to LIMS!"
-            style = {
-                "display": "block",
-                "backgroundColor": "#d4edda",
-                "color": "#155724",
-                "border": "1px solid #c3e6cb"
-            }
+                "border": "1px solid #ffeaa7"
+            }, current_trigger, True
 
-        # Trigger button color change and start timer
-        return message, style, current_trigger + 1, False
-
+    except Report.DoesNotExist:
+        return f"❌ TiterReport with ID {report_id} not found!", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }, current_trigger, True
     except Exception as e:
-        return f"❌ Error linking to LIMS: {str(e)}", {
+        return f"❌ Error saving to LIMS: {str(e)}", {
             "display": "block",
             "backgroundColor": "#f8d7da",
             "color": "#721c24",
@@ -1107,39 +1315,7 @@ def disable_interval_after_reset(n_intervals):
         return True  # Disable interval after first trigger
     return False
 
-# Store selected report
-@app.callback(
-    Output("selected-report", "data"),
-    [Input("confirm-report-selection", "n_clicks")],
-    [State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data")],
-    prevent_initial_call=True
-)
-def store_selected_report(confirm_clicks, selected_rows, table_data):
-    if not selected_rows or not confirm_clicks:
-        return dash.no_update
-    selected_row = table_data[selected_rows[0]]
-    return selected_row["report_id"]
 
-
-# Update results header
-@app.callback(
-    Output("results-header", "children"),
-    [Input("selected-report", "data")],
-    prevent_initial_call=True
-)
-def update_results_header(selected_report):
-    report_name = selected_report
-
-    if not report_name:
-        return "Titer Results"
-
-    report = Report.objects.filter(report_id=report_name).first()
-
-    if not report:
-        return "Report Not Found"
-
-    return f"{report.project_id} - {report.report_name}"
 
 
 def extract_concentration(sample_name):

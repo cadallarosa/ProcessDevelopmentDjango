@@ -1111,6 +1111,8 @@ class LimsTiterResult(models.Model):
     titer = models.FloatField(null=True, blank=True)
     qc_pass = models.BooleanField(default=True)
 
+    report = models.ForeignKey("Report", null=True, blank=True, on_delete=models.SET_NULL)
+
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="in_progress")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1183,6 +1185,8 @@ class LimsCiefResult(models.Model):
     notes = models.TextField(blank=True)
     band_pattern = models.JSONField(blank=True, null=True)  # Store band pattern data as JSON
 
+    report = models.ForeignKey("CIEFReport", null=True, blank=True, on_delete=models.SET_NULL)
+
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="in_progress")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1196,6 +1200,8 @@ class LimsCeSdsResult(models.Model):
     purity = models.FloatField()
     band_pattern = models.JSONField(blank=True, null=True)
     notes = models.TextField(blank=True)
+
+    report = models.ForeignKey("CESDSReport", null=True, blank=True, on_delete=models.SET_NULL)
 
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="in_progress")
     created_at = models.DateTimeField(auto_now_add=True)

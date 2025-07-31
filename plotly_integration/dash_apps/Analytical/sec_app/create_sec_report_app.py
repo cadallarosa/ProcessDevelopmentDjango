@@ -1,27 +1,27 @@
 import pytz
 from dash import dcc, html, Input, Output, State, dash_table
 from django_plotly_dash import DjangoDash
-from plotly_integration.models import CIEFMetadata, CIEFReport
+from plotly_integration.models import SampleMetadata, Report
 from datetime import datetime
 import re
 import pandas as pd
 from django.utils.timezone import is_aware
 
 # Initialize the Dash app
-app = DjangoDash("cIEFReportApp")
+app = DjangoDash("CreateSECReportApp")
 
 
 def get_default_columns_and_data():
-    default_columns = ["sample_id_clean", "id", "acquisition_datetime", "sample_set_name"]
-    samples = CIEFMetadata.objects.all()
+    default_columns = ["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"]
+    samples = SampleMetadata.objects.all()
     columns = [{"name": col.replace("_", " ").title(), "id": col} for col in default_columns]
 
     data = []
     for sample in samples:
         row = {col: getattr(sample, col, None) for col in default_columns}  # ✅ Use `None` instead of erroring out
 
-        if "acquisition_datetime" in row and row["acquisition_datetime"]:
-            dt_value = row["acquisition_datetime"]
+        if "date_acquired" in row and row["date_acquired"]:
+            dt_value = row["date_acquired"]
 
             # ✅ Convert string-based date to datetime
             if isinstance(dt_value, str):
@@ -34,21 +34,21 @@ def get_default_columns_and_data():
             if isinstance(dt_value, datetime) and is_aware(dt_value):
                 dt_value = dt_value.replace(tzinfo=None)
 
-            row["acquisition_datetime"] = dt_value  # ✅ Store corrected value
+            row["date_acquired"] = dt_value  # ✅ Store corrected value
 
         data.append(row)
 
-    # ✅ Sort by `acquisition_datetime` (most recent first) after stripping timezone
+    # ✅ Sort by `date_acquired` (most recent first) after stripping timezone
     data = sorted(
         data,
-        key=lambda x: x["acquisition_datetime"] if x["acquisition_datetime"] else datetime.min,
+        key=lambda x: x["date_acquired"] if x["date_acquired"] else datetime.min,
         reverse=True
     )
 
     # ✅ Convert back to string for display
     for row in data:
-        if row["acquisition_datetime"]:
-            row["acquisition_datetime"] = row["acquisition_datetime"].strftime("%m/%d/%Y %I:%M:%S %p")
+        if row["date_acquired"]:
+            row["date_acquired"] = row["date_acquired"].strftime("%m/%d/%Y %I:%M:%S %p")
 
     return columns, data
 
@@ -69,7 +69,7 @@ app.layout = html.Div(
     },
     children=[
         html.H1(
-            "Sample CIEFReport Submission",
+            "Sample Report Submission",
             style={
                 "textAlign": "center",
                 "color": "#0047b3",
@@ -81,6 +81,19 @@ app.layout = html.Div(
         html.Div(
             style={"marginBottom": "20px"},
             children=[
+                # html.Label("Select Analysis Type:", style={"fontWeight": "bold"}),
+                # dcc.Dropdown(
+                #     id="analysis_type_filter",
+                #     options=[
+                #         {"label": "SEC", "value": "1"},
+                #         {"label": "Titer", "value": "2"}
+                #     ],
+                #     placeholder="Select analysis type",
+                #     multi=False,  # ✅ Only one option can be selected
+                #     clearable=False,  # ✅ Forces selection (prevents blank state)
+                #     style={"marginBottom": "10px"},
+                #     value='1',
+                # ),
                 html.Label("Filter by Sample Type:", style={"fontWeight": "bold"}),
                 dcc.Dropdown(
                     id="sample_type_filter",
@@ -105,45 +118,49 @@ app.layout = html.Div(
             ]
         ),
 
-        # # Column Selection Section
-        # html.Div(
-        #     style={"marginBottom": "20px"},
-        #     children=[
-        #         html.Label("Select Columns to Display in the Table:", style={"fontWeight": "bold"}),
-        #         dcc.Dropdown(
-        #             id="column_selection",
-        #             options=[
-        #                 {"label": "Result ID", "value": "id"},
-        #                 {"label": "Sample Name", "value": "sample_id_clean"},
-        #                 {"label": "Sample Prefix", "value": "sample_prefix"},
-        #                 {"label": "Sample Set Name", "value": "sample_set_name"},
-        #                 {"label": "Sample Set ID", "value": "sample_set_id"},
-        #                 {"label": "Acquisition Date/Time", "value": "acquisition_datetime"},
-        #                 {"label": "User Name", "value": "user_name"},
-        #                 {"label": "Column Name", "value": "column_name"},
-        #                 {"label": "Method Path", "value": "method_path"},
-        #                 {"label": "Data File Path", "value": "data_file_path"},
-        #                 {"label": "Sampling Rate", "value": "sampling_rate"},
-        #                 {"label": "Total Data Points", "value": "total_data_points"},
-        #                 {"label": "X Axis Title", "value": "x_axis_title"},
-        #                 {"label": "Y Axis Title", "value": "y_axis_title"},
-        #                 {"label": "X Axis Multiplier", "value": "x_axis_multiplier"},
-        #                 {"label": "Y Axis Multiplier", "value": "y_axis_multiplier"},
-        #                 {"label": "Original File Name", "value": "original_file_name"}
-        #             ],
-        #             value=[],
-        #             multi=True,
-        #             placeholder="Select columns to display",
-        #             style={
-        #                 "width": "100%",
-        #                 "padding": "10px",
-        #                 "border": "1px solid #ccc",
-        #                 "borderRadius": "5px",
-        #                 "backgroundColor": "white"
-        #             }
-        #         )
-        #     ]
-        # ),
+        # Column Selection Section
+        html.Div(
+            style={"marginBottom": "20px"},
+            children=[
+                html.Label("Select Columns to Display in the Table:", style={"fontWeight": "bold"}),
+                dcc.Dropdown(
+                    id="column_selection",
+                    options=[
+                        {"label": "Result ID", "value": "result_id"},
+                        {"label": "System Name", "value": "system_name"},
+                        {"label": "Project Name", "value": "project_name"},
+                        {"label": "Sample Prefix", "value": "sample_prefix"},
+                        {"label": "Sample Number", "value": "sample_number"},
+                        {"label": "Sample Suffix", "value": "sample_suffix"},
+                        {"label": "Sample Type", "value": "sample_type"},
+                        {"label": "Sample Name", "value": "sample_name"},
+                        {"label": "Sample Set ID", "value": "sample_set_id"},
+                        {"label": "Sample Set Name", "value": "sample_set_name"},
+                        {"label": "Date Acquired", "value": "date_acquired"},
+                        {"label": "Acquired By", "value": "acquired_by"},
+                        {"label": "Run Time", "value": "run_time"},
+                        {"label": "Processing Method", "value": "processing_method"},
+                        {"label": "Processed Channel Description", "value": "processed_channel_description"},
+                        {"label": "Injection Volume", "value": "injection_volume"},
+                        {"label": "Injection ID", "value": "injection_id"},
+                        {"label": "Column Name", "value": "column_name"},
+                        {"label": "Column Serial Number", "value": "column_serial_number"},
+                        {"label": "Instrument Method ID", "value": "instrument_method_id"},
+                        {"label": "Instrument Method Name", "value": "instrument_method_name"}
+                    ],
+                    value=["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"],
+                    multi=True,
+                    placeholder="Select columns to display",
+                    style={
+                        "width": "100%",
+                        "padding": "10px",
+                        "border": "1px solid #ccc",
+                        "borderRadius": "5px",
+                        "backgroundColor": "white"
+                    }
+                )
+            ]
+        ),
 
         # Data Table Section
         html.Div(
@@ -197,14 +214,14 @@ app.layout = html.Div(
             style={"marginBottom": "20px"}
         ),
 
-        # CIEFReport Details
+        # Report Details
         html.Div(
             children=[
-                html.Label("cIEF Report Name:", style={"fontWeight": "bold"}),
+                html.Label("Report Name:", style={"fontWeight": "bold"}),
                 dcc.Input(
                     id="report_name_input",
                     type="text",
-                    placeholder="Enter Report name",
+                    placeholder="Enter report name",
                     style={
                         "width": "100%",
                         "padding": "10px",
@@ -283,7 +300,7 @@ app.layout = html.Div(
 
         # Submit Button
         html.Button(
-            "Submit cIEF Report",
+            "Submit Report",
             id="submit_button",
             n_clicks=0,
             style={
@@ -318,15 +335,19 @@ app.layout = html.Div(
     [Output("sample_table", "columns"),
      Output("sample_table", "data")],
     [Input("sample_type_filter", "value"),
-     Input("sample_set_name_filter", "value")]
+     Input("sample_set_name_filter", "value"),
+     Input("column_selection", "value"),
+     ]
 )
-def update_table(sample_types, sample_set_names):
-    selected_columns = ["id","sample_id_full",  "sample_id_clean", "acquisition_datetime", "sample_set_name"]
+def update_table(sample_types, sample_set_names, selected_columns):
+    # Default columns
+    if not selected_columns:
+        selected_columns = ["sample_name", "result_id", "date_acquired", "sample_set_name", "column_name"]
 
     columns = [{"name": col.replace("_", " ").title(), "id": col} for col in selected_columns]
 
     # Filter data
-    query = CIEFMetadata.objects.all()
+    query = SampleMetadata.objects.filter(sample_type=1)  # ✅ Filter by Analysis Type (1 for SEC)
     if sample_types:
         query = query.filter(sample_prefix__in=sample_types)
     if sample_set_names:
@@ -337,8 +358,8 @@ def update_table(sample_types, sample_set_names):
     for sample in query:
         row = {col: getattr(sample, col, None) for col in selected_columns}  # ✅ Use `None` instead of erroring out
 
-        if "acquisition_datetime" in row and row["acquisition_datetime"]:
-            dt_value = row["acquisition_datetime"]
+        if "date_acquired" in row and row["date_acquired"]:
+            dt_value = row["date_acquired"]
 
             # ✅ Convert string-based date to datetime
             if isinstance(dt_value, str):
@@ -351,82 +372,87 @@ def update_table(sample_types, sample_set_names):
             if isinstance(dt_value, datetime) and is_aware(dt_value):
                 dt_value = dt_value.replace(tzinfo=None)
 
-            row["acquisition_datetime"] = dt_value  # ✅ Store corrected value
+            row["date_acquired"] = dt_value  # ✅ Store corrected value
 
         data.append(row)
 
-        # ✅ Sort by `acquisition_datetime` (most recent first) after stripping timezone
+        # ✅ Sort by `date_acquired` (most recent first) after stripping timezone
     data = sorted(
         data,
-        key=lambda x: x["acquisition_datetime"] if x["acquisition_datetime"] else datetime.min,
+        key=lambda x: x["date_acquired"] if x["date_acquired"] else datetime.min,
         reverse=True
     )
 
     # ✅ Convert back to string for display
     for row in data:
-        if row["acquisition_datetime"]:
-            row["acquisition_datetime"] = row["acquisition_datetime"].strftime("%m/%d/%Y %I:%M:%S %p")
+        if row["date_acquired"]:
+            row["date_acquired"] = row["date_acquired"].strftime("%m/%d/%Y %I:%M:%S %p")
 
     return columns, data
 
 
-# # Dynamically populate Sample Set Name options based on Sample Type
-# @app.callback(
-#     Output("sample_set_name_filter", "options"),
-#     Input("sample_type_filter", "value")
-# )
-# def update_sample_set_options(sample_types):
-#     query = CIEFMetadata.objects.all()
-#     if sample_types:
-#         query = query.filter(sample_prefix__in=sample_types)
-#
-#     sample_set_names = list(query.values_list("sample_set_name", flat=True).distinct())
-#
-#     # Extract the date prefix (YYMMDD) and convert to datetime for sorting
-#     def extract_date(sample_set):
-#         if not sample_set:  # ✅ Handle None values
-#             return datetime.min  # Assign the earliest possible date
-#
-#         try:
-#             date_part = sample_set[:6]  # ✅ Safe slicing
-#             return datetime.strptime(date_part, "%y%m%d")  # Convert to YYYY-MM-DD format
-#         except ValueError:
-#             return datetime.min  # Assign the earliest date if invalid format
-#
-#     # Sort sample sets by extracted date in descending order (most recent first)
-#     sample_set_names_sorted = sorted(sample_set_names, key=extract_date, reverse=True)
-#
-#     return [{"label": name, "value": name} for name in sample_set_names_sorted if name]
-
+# Dynamically populate Sample Set Name options based on Sample Type
 @app.callback(
     Output("sample_set_name_filter", "options"),
-    Input("sample_set_name_filter", "value")
+    Input("sample_type_filter", "value"),
 )
-def populate_sample_set_names(_):
-    sample_set_names = list(
-        CIEFMetadata.objects.values_list("sample_set_name", flat=True).distinct()
-    )
+def update_sample_set_options(sample_types):
+    query = SampleMetadata.objects.filter(sample_type=1)
 
-    def extract_date(name):
+    if sample_types:
+        query = query.filter(sample_prefix__in=sample_types)
+
+    sample_set_names = list(query.values_list("sample_set_name", flat=True).distinct())
+
+    # Extract the date prefix (YYMMDD) and convert to datetime for sorting
+    def extract_date(sample_set):
+        if not sample_set:  # ✅ Handle None values
+            return datetime.min  # Assign the earliest possible date
+
         try:
-            return datetime.strptime(name[:8], "%Y%m%d")  # Parse YYYYMMDD from beginning
-        except Exception:
-            return datetime.min
+            date_part = sample_set[:6]  # ✅ Safe slicing
+            return datetime.strptime(date_part, "%y%m%d")  # Convert to YYYY-MM-DD format
+        except ValueError:
+            return datetime.min  # Assign the earliest date if invalid format
 
-    sorted_names = sorted(filter(None, sample_set_names), key=extract_date, reverse=True)
+    # Sort sample sets by extracted date in descending order (most recent first)
+    sample_set_names_sorted = sorted(sample_set_names, key=extract_date, reverse=True)
 
-    return [{"label": name, "value": name} for name in sorted_names]
+    return [{"label": name, "value": name} for name in sample_set_names_sorted if name]
+
 
 # Select All Button
 @app.callback(
     Output("sample_table", "selected_rows"),
-    Input("select_all_button", "n_clicks"),
-    State("sample_table", "data")
+    [Input("select_all_button", "n_clicks")],
+    [State("sample_table", "data"),
+     State("sample_table", "derived_virtual_data"),
+     State("sample_table", "derived_virtual_indices"),
+     State("sample_table", "selected_rows")]
 )
-def select_all_rows(n_clicks, data):
-    if n_clicks % 2 == 1:
-        return list(range(len(data)))  # Select all rows
-    return []  # Deselect all rows
+def select_all_rows(n_clicks, all_data, filtered_data, filtered_indices, current_selected):
+    """
+    Corrected select all functionality that works with filtered tables.
+
+    Key insight: derived_virtual_indices contains the ORIGINAL indices of filtered rows
+    """
+    if n_clicks == 0:
+        return []
+
+    # When table is filtered, derived_virtual_indices contains the original indices of visible rows
+    if filtered_indices is not None:
+        # Toggle behavior: if all filtered rows are selected, deselect all; otherwise select all filtered
+        if set(filtered_indices) == set(current_selected or []):
+            return []  # Deselect all
+        else:
+            return filtered_indices  # Select all filtered rows
+    else:
+        # No filter applied, work with all data
+        all_indices = list(range(len(all_data)))
+        if set(all_indices) == set(current_selected or []):
+            return []  # Deselect all
+        else:
+            return all_indices  # Select all rows
 
 
 @app.callback(
@@ -436,7 +462,7 @@ def select_all_rows(n_clicks, data):
 )
 def populate_project_ids(selected_project_id):
     # Fetch distinct project IDs
-    project_ids = list(CIEFReport.objects.values_list("project_id", flat=True).distinct())
+    project_ids = list(Report.objects.values_list("project_id", flat=True).distinct())
 
     # Function to extract sorting components
     def extract_sort_key(pid):
@@ -471,7 +497,7 @@ def populate_project_ids(selected_project_id):
     [Input("user_id_dropdown", "value")]
 )
 def populate_user_ids(selected_user_id):
-    user_ids = CIEFReport.objects.values_list("user_id", flat=True).distinct()
+    user_ids = Report.objects.values_list("user_id", flat=True).distinct()
     options = [{"label": uid, "value": uid} for uid in user_ids if uid]
     options.append({"label": "Enter New User ID", "value": "new_user_id"})
 
@@ -495,12 +521,12 @@ def populate_user_ids(selected_user_id):
 
     ]
 )
-def submit_cief_report(n_clicks, report_name, project_id, new_project_id, user_id, new_user_id, comments,
+def submit_report(n_clicks, report_name, project_id, new_project_id, user_id, new_user_id, comments,
                   table_data,
                   selected_rows):
     if n_clicks > 0:
         if not selected_rows:
-            return "No rows selected. Please select rows to include in the cIEF Report."
+            return "No rows selected. Please select rows to include in the report."
 
         # Validate required fields
         if not report_name or (not project_id and not new_project_id) or (not user_id and not new_user_id):
@@ -513,8 +539,8 @@ def submit_cief_report(n_clicks, report_name, project_id, new_project_id, user_i
         data = []
         for i in selected_rows:
             row = table_data[i]
-            sample_name = row.get("sample_id_clean")
-            result_id = table_data[i].get("id")
+            sample_name = row.get("sample_name")
+            result_id = table_data[i].get("result_id")
             if result_id:
                 data.append((sample_name, str(result_id)))
 
@@ -522,30 +548,28 @@ def submit_cief_report(n_clicks, report_name, project_id, new_project_id, user_i
             return "No matching result IDs found for selected samples."
 
         # Sort by sample name and extract lists
-        df = pd.DataFrame(data, columns=["sample_id_clean", "id"])
-        df = df.sort_values(by="sample_id_clean", ascending=True)
-        sorted_samples = df["sample_id_clean"].tolist()
-        sorted_result_ids = df["id"].tolist()
+        df = pd.DataFrame(data, columns=["sample_name", "result_id"])
+        df = df.sort_values(by="sample_name", ascending=True)
+        sorted_samples = df["sample_name"].tolist()
+        sorted_result_ids = df["result_id"].tolist()
 
         sample_names_str = ",".join(sorted_samples)
         result_ids_str = ",".join(sorted_result_ids)
 
-        if comments:
-            comments = comments
-
-
-        # Store CIEFReport with timestamp
+        # Store report with timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        CIEFReport.objects.create(
+        Report.objects.create(
             report_name=report_name,
             project_id=final_project_id,
             user_id=final_user_id,
-            comments=comments or 'No comments provided.',
+            comments=comments,
             selected_samples=sample_names_str,
             selected_result_ids=result_ids_str,
             date_created=timestamp,
+            analysis_type=1,
+            department=1
         )
 
-        return f"ciEF Report '{report_name}' created successfully with {len(sorted_samples)} samples."
+        return f"Report '{report_name}' created successfully with {len(sorted_samples)} samples."
 
     return "No action performed."

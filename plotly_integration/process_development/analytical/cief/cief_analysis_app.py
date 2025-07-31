@@ -15,7 +15,7 @@ import base64
 import io
 import json
 import colorsys
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import sys
 import time  # For timing debug
@@ -722,10 +722,21 @@ app.layout = dbc.Container([
     dcc.Store(id='embedded-mode'),
     dcc.Store(id='selected-report'),
     dcc.Store(id='selected-result-ids'),
+    dcc.Store(id='settings-loaded', data=False),
+    dcc.Store(id='main-peak-trigger', data=0),
+    dcc.Store(id='main-peak-settings',
+              data={'mode': 'auto', 'time': None, 'applied_time': None}),
+
+    dcc.Store(id='applied-main-peak-mode', data='auto'),
+    dcc.Store(id='applied-main-peak-time', data=None),
+
 
     # URL and interval components
     dcc.Location(id='url', refresh=False),
     dcc.Interval(id='load-once', interval=1000, n_intervals=0, max_intervals=1),
+
+    dcc.Store(id='button-reset-trigger'),
+    dcc.Interval(id='button-reset-interval', interval=10000, n_intervals=0, disabled=True),
 
     # Report modal
     html.Div(
@@ -895,7 +906,7 @@ app.layout = dbc.Container([
                                         },
                                         children=[
                                             html.Iframe(
-                                                src="/plotly_integration/dash-app/app/CreateCESDSReportApp/",
+                                                src="/plotly_integration/dash-app/app/cIEFReportApp/",
                                                 style={
                                                     "width": "100%",
                                                     "height": "100%",
@@ -1186,17 +1197,41 @@ app.layout = dbc.Container([
                                 ], className="mb-2"),
 
                                 dbc.Card([
-                                    dbc.CardHeader("Main Peak", className="py-2"),
+                                    dbc.CardHeader("Main Peak Selection", className="py-2"),
                                     dbc.CardBody([
-                                        dbc.Label("Time (min):"),
-                                        dbc.Input(id='main-peak-time', type='number', step=0.1, size="sm"),
-                                        dbc.ButtonGroup([
-                                            dbc.Button('Closest', id='find-closest-peak', color="primary",
-                                                       size="sm"),
-                                            dbc.Button('Highest', id='find-highest-peak', color="success",
-                                                       size="sm"),
-                                        ], className="mt-2", size="sm"),
-                                        html.Div(id='main-peak-info', className="mt-2 small text-success"),
+                                        # Selection mode radio buttons
+                                        dbc.Label("Selection Mode:", className="fw-bold"),
+                                        dbc.RadioItems(
+                                            id='main-peak-mode',
+                                            options=[
+                                                {'label': 'Auto (Highest)', 'value': 'auto'},
+                                                {'label': 'Manual Time', 'value': 'manual'}
+                                            ],
+                                            value='auto',
+                                            inline=True,
+                                            className="mb-2"
+                                        ),
+
+                                        # Manual time input (conditional visibility)
+                                        html.Div([
+                                            dbc.Label("Time (min):"),
+                                            dbc.Input(
+                                                id='main-peak-time',
+                                                type='number',
+                                                step=0.01,
+                                                size="sm",
+                                                placeholder="Enter time"
+                                            ),
+                                        ], id='main-peak-time-container'),
+
+                                        # Single Apply button
+                                        dbc.Button('Apply', id='apply-main-peak', color="info",
+                                                   size="sm", className="mt-2 w-100"),
+
+                                        # Status/info display
+                                        html.Div(id='main-peak-info', className="mt-2 small"),
+
+                                        # Store for main peak settings
                                     ], className="p-2")
                                 ]),
 
@@ -1270,38 +1305,95 @@ app.layout = dbc.Container([
 
 
 # Callbacks
+
 @app.callback(
-    [Output('url-params', 'data'),
-     Output('embedded-mode', 'data'),
-     Output('selected-report', 'data', allow_duplicate=True)],
+    Output('url-params', 'data'),
     [Input('url', 'search')],
-    prevent_initial_call='initial_duplicate'
+    prevent_initial_call=False
 )
 def parse_url_params(search):
     if not search:
-        return {}, False, None
+        return {}
 
+    # Parse query parameters
     from urllib.parse import parse_qs
     params = parse_qs(search.lstrip('?'))
 
     url_params = {}
-    embedded = False
-    report_id = None
-
-    if 'embedded' in params:
-        embedded = params['embedded'][0].lower() in ['true', '1', 'yes']
-        url_params['embedded'] = embedded
-
     if 'report_id' in params:
         try:
             report_id = int(params['report_id'][0])
             url_params['report_id'] = report_id
-        except:
+        except (ValueError, TypeError):
             pass
 
-    return url_params, embedded, report_id
+    return url_params
 
 
+# SINGLE callback that writes to selected-report (handles both URL and manual selection)
+@app.callback(
+    Output("selected-report", "data"),
+    [Input('url-params', 'data'),
+     Input("confirm-report-selection", "n_clicks")],
+    [State("report-selection-table", "selected_rows"),
+     State("report-selection-table", "data")],
+    prevent_initial_call=False
+)
+def update_selected_report(url_params, confirm_clicks, selected_rows, table_data):
+    ctx = dash.callback_context
+
+    if not ctx.triggered:
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # Handle URL parameter changes
+    if triggered_id == "url-params" and url_params and url_params.get("report_id"):
+        report_id = url_params.get("report_id")
+        try:
+            # Verify report exists in database - use CIEFReport and id field
+            report = CIEFReport.objects.filter(id=report_id).first()
+            if report:
+                print(f"✅ Found CIEFReport {report_id}: {report.report_name}")
+                return report_id
+            else:
+                print(f"❌ CIEFReport {report_id} not found")
+        except Exception as e:
+            print(f"Error validating CIEFReport {report_id}: {e}")
+
+    # Handle manual report selection
+    elif triggered_id == "confirm-report-selection" and confirm_clicks:
+        if selected_rows and table_data:
+            selected_row = table_data[selected_rows[0]]
+            return selected_row["report_id"]
+
+    return dash.no_update
+
+
+# Update results header
+@app.callback(
+    Output("results-header", "children"),
+    [Input("selected-report", "data")],
+    prevent_initial_call=True
+)
+def update_results_header(selected_report):
+    if not selected_report:
+        return "cIEF Results"
+
+    try:
+        report_id = int(selected_report)
+        report = CIEFReport.objects.filter(id=report_id).first()
+
+        if not report:
+            return f"Report {report_id} Not Found"
+
+        return f"{report.project_id} - {report.report_name}"
+
+    except (ValueError, TypeError):
+        return "Invalid Report ID"
+
+
+# Update report modal display
 @app.callback(
     [Output("report-modal", "style"),
      Output("current-report-text", "children")],
@@ -1309,18 +1401,14 @@ def parse_url_params(search):
      Input("close-report-modal-btn", "n_clicks"),
      Input("cancel-select-btn", "n_clicks"),
      Input("confirm-report-selection", "n_clicks"),
-     Input("load-once", "n_intervals"),
-     Input("url-params", "data")],
+     Input("selected-report", "data")],  # Listen for selected report changes
     [State("report-modal", "style"),
-     State("selected-report", "data"),
      State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data"),
-     State("embedded-mode", "data")],
+     State("report-selection-table", "data")],
     prevent_initial_call=False
 )
-def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks, load_interval,
-                        url_params, current_style, selected_report, selected_rows,
-                        table_data, embedded):
+def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks,
+                        selected_report, current_style, selected_rows, table_data):
     ctx = dash.callback_context
 
     if not ctx.triggered:
@@ -1328,31 +1416,41 @@ def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks
     else:
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    if triggered_id == "load-once" and url_params and url_params.get("report_id") and not embedded:
-        report_id = url_params.get("report_id")
-        try:
-            report = CIEFReport.objects.get(id=int(report_id))
-            return current_style, f"{report.report_name}"
-        except CIEFReport.DoesNotExist:
-            return current_style, "Invalid report ID"
+    # Handle selected report changes (from store)
+    if triggered_id == "selected-report":
+        if selected_report:
+            try:
+                report = CIEFReport.objects.filter(id=int(selected_report)).first()
+                if report:
+                    return dash.no_update, f"Report: {report.report_name} (ID: {selected_report})"
+                else:
+                    return dash.no_update, f"Report ID {selected_report} not found"
+            except (ValueError, TypeError):
+                return dash.no_update, f"Invalid report ID: {selected_report}"
 
+    # Handle button clicks
     if triggered_id == "select-create-report-btn":
         return {**current_style, "display": "block"}, dash.no_update
 
     elif triggered_id in ["close-report-modal-btn", "cancel-select-btn"]:
         return {**current_style, "display": "none"}, dash.no_update
 
-    elif triggered_id == "confirm-report-selection" and selected_rows:
+    elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
         selected_report_data = table_data[selected_rows[0]]
         report_name = selected_report_data.get("report_name", "Unknown Report")
-        return {**current_style, "display": "none"}, f"{report_name}"
+        report_id = selected_report_data.get("report_id", "Unknown ID")
+        return {**current_style, "display": "none"}, f"Report: {report_name} (ID: {report_id})"
 
+    # Default display based on current selected report
     if selected_report:
         try:
-            report = CIEFReport.objects.get(report_name=selected_report)
-            return current_style, f"{report.report_name}"
-        except CIEFReport.DoesNotExist:
-            return current_style, "Invalid report"
+            report = CIEFReport.objects.filter(id=int(selected_report)).first()
+            if report:
+                return current_style, f"Report: {report.report_name} (ID: {selected_report})"
+            else:
+                return current_style, f"Report ID {selected_report} not found"
+        except (ValueError, TypeError):
+            return current_style, f"Invalid report ID: {selected_report}"
 
     return current_style, "No report selected"
 
@@ -1360,18 +1458,22 @@ def toggle_report_modal(open_clicks, close_clicks, cancel_clicks, confirm_clicks
 @app.callback(
     Output("report-selection-table", "data"),
     [Input("report-modal", "style"),
-     Input("report-tabs", "value")],
+     Input("report-tabs", "value")],  # Trigger when modal opens or tab changes
     prevent_initial_call=True
 )
 def populate_report_table(modal_style, active_tab):
+    """Populate the report selection table when the modal is opened and select tab is active"""
+
+    # Only populate if modal is visible and we're on the select tab
     if modal_style.get("display") == "block" and active_tab == "select-tab":
         try:
+            # Fetch all CIEFReports
             reports = CIEFReport.objects.all().order_by('-date_created')
 
             report_data = []
             for report in reports:
                 report_data.append({
-                    "report_id": report.id,
+                    "report_id": report.id,  # Use id field for CIEFReport
                     "report_name": report.report_name,
                     "project_id": report.project_id,
                     "user_id": report.user_id,
@@ -1386,9 +1488,9 @@ def populate_report_table(modal_style, active_tab):
     return dash.no_update
 
 
+# Load settings and result IDs when report is selected
 @app.callback(
     [Output("selected-result-ids", "data"),
-     Output("selected-report", "data"),
      Output('plot-height', 'value'),
      Output('plots-per-row', 'value'),
      Output('detection-method', 'value'),
@@ -1406,29 +1508,41 @@ def populate_report_table(modal_style, active_tab):
      Output('std-end-cutoff', 'value'),
      Output('n-peaks', 'value'),
      Output('show-peaks', 'value'),
-     Output('zoom-view-dropdown', 'value')],
-    [Input("confirm-report-selection", "n_clicks")],
-    [State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data")],
+     Output('zoom-view-dropdown', 'value'),
+     # ADD THESE NEW OUTPUTS FOR MAIN PEAK SELECTION
+     Output('main-peak-mode', 'value'),
+     Output('main-peak-time', 'value'),
+     Output('main-peak-settings', 'data'),
+     Output('settings-loaded', 'data')],
+    [Input("selected-report", "data")],
     prevent_initial_call=True
 )
-def store_selected_result_ids_and_load_settings(confirm_clicks, selected_rows, table_data):
-    if not selected_rows or not confirm_clicks:
-        return (dash.no_update,) * 19
+def load_report_settings_and_result_ids(selected_report_id):
+    """Load settings and result IDs when a report is selected"""
+    if not selected_report_id:
+        return (dash.no_update,) * 23  # UPDATE COUNT TO 22
 
-    row = table_data[selected_rows[0]]
-    report = CIEFReport.objects.filter(id=row["report_id"]).first()
+    try:
+        report = CIEFReport.objects.filter(id=int(selected_report_id)).first()
 
-    if report:
+        if not report:
+            return (dash.no_update,) * 23  # UPDATE COUNT TO 22
+
         # Get result IDs
-        result_ids = [r.strip() for r in report.selected_result_ids.split(",")]
+        result_ids = [r.strip() for r in report.selected_result_ids.split(",") if r.strip()]
 
         # Load settings from JSON if available
-        settings = report.settings if report.settings else {}
+        settings = report.settings if hasattr(report, 'settings') and report.settings else {}
 
+        # CREATE MAIN PEAK SETTINGS DATA
+        main_peak_settings = {
+            'mode': settings.get('main_peak_mode', 'auto'),
+            'time': settings.get('main_peak_time'),
+            'applied_time': settings.get('main_peak_applied_time')
+        }
+        settings_loaded = True
         return (
             result_ids,
-            report.report_name,
             settings.get('plot_height', 400),
             settings.get('plots_per_row', 1),
             settings.get('detection_method', 'gaussian'),
@@ -1444,12 +1558,20 @@ def store_selected_result_ids_and_load_settings(confirm_clicks, selected_rows, t
             settings.get('zero_threshold', 1),
             settings.get('std_start_cutoff', 15),
             settings.get('std_end_cutoff', 25),
-            settings.get('n_peaks', 8),  # Default to 8
+            settings.get('n_peaks', 8),
             settings.get('show_peaks', 'top_n'),
-            settings.get('zoom_view', 'all')
+            settings.get('zoom_view', 'all'),
+            # ADD MAIN PEAK SETTINGS
+            settings.get('main_peak_mode', 'auto'),
+            settings.get('main_peak_time'),
+            main_peak_settings,
+            settings_loaded
         )
 
-    return ([], [],) + (dash.no_update,) * 17
+
+    except Exception as e:
+        print(f"Error loading settings for report {selected_report_id}: {e}")
+        return (dash.no_update,) * 23  # UPDATE COUNT TO 22
 
 
 @app.callback(
@@ -1474,21 +1596,27 @@ def store_selected_result_ids_and_load_settings(confirm_clicks, selected_rows, t
      State('std-end-cutoff', 'value'),
      State('n-peaks', 'value'),
      State('show-peaks', 'value'),
-     State('zoom-view-dropdown', 'value')],
+     State('zoom-view-dropdown', 'value'),
+     # ADD THESE NEW STATES FOR MAIN PEAK SELECTION
+     State('main-peak-mode', 'value'),
+     State('main-peak-time', 'value'),
+     State('main-peak-settings', 'data')],
     prevent_initial_call=True
 )
 def save_settings(n_clicks, selected_report, plot_height, plots_per_row, detection_method,
                   boundary_method, baseline_method, baseline_window, height_threshold,
                   prominence, min_distance, smooth_window, min_width, smooth_factor,
                   zero_threshold, std_start_cutoff, std_end_cutoff,
-                  n_peaks, show_peaks, zoom_view):
+                  n_peaks, show_peaks, zoom_view,
+                  # ADD THESE NEW PARAMETERS
+                  main_peak_mode, main_peak_time, main_peak_settings):
     if not n_clicks or not selected_report:
         return dash.no_update, dash.no_update
 
     try:
-        report = CIEFReport.objects.get(report_name=selected_report)
+        report = CIEFReport.objects.get(id=int(selected_report))
 
-        # Create settings dictionary
+        # Create settings dictionary - ADD MAIN PEAK SETTINGS
         settings = {
             'plot_height': plot_height,
             'plots_per_row': plots_per_row,
@@ -1507,7 +1635,11 @@ def save_settings(n_clicks, selected_report, plot_height, plots_per_row, detecti
             'std_end_cutoff': std_end_cutoff,
             'n_peaks': n_peaks,
             'show_peaks': show_peaks,
-            'zoom_view': zoom_view
+            'zoom_view': zoom_view,
+            # ADD MAIN PEAK SETTINGS
+            'main_peak_mode': main_peak_mode,
+            'main_peak_time': main_peak_time,
+            'main_peak_applied_time': main_peak_settings.get('applied_time') if main_peak_settings else None
         }
 
         # Save to JSON field
@@ -1545,6 +1677,54 @@ def save_settings(n_clicks, selected_report, plot_height, plots_per_row, detecti
                 })
 
 
+# Simple callback to show/hide manual time input
+@app.callback(
+    Output('main-peak-time-container', 'style'),
+    [Input('main-peak-mode', 'value')]
+)
+def update_main_peak_controls(mode):
+    if mode == 'manual':
+        return {'display': 'block'}  # Show time input
+    else:
+        return {'display': 'none'}  # Hide time input
+
+
+# Fix the apply_main_peak_settings callback to use consistent field names:
+
+
+@app.callback(
+    [Output('applied-main-peak-mode', 'data'),
+     Output('applied-main-peak-time', 'data'),
+     Output('main-peak-info', 'children')],
+    [Input('apply-main-peak', 'n_clicks'),
+     Input("settings-loaded", "data")],
+    [State('main-peak-mode', 'value'),
+     State('main-peak-time', 'value')],
+    prevent_initial_call=True
+)
+def apply_main_peak_settings(n_clicks, settings_loaded, mode, time_value):
+    print(f"=== APPLY CALLBACK ===")
+    print(f"n_clicks: {n_clicks}")
+    print(f"settings_loaded: {settings_loaded}")
+    print(f"mode: {mode}")
+    print(f"time_value: {time_value}")
+
+    # If no triggers, do nothing
+    if not n_clicks and not settings_loaded:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Apply the current UI values regardless of trigger
+    if mode == 'auto':
+        message = "✅ Applied: Auto (highest peak)"
+        return 'auto', None, html.Div(message, style={'color': 'green', 'fontWeight': 'bold'})
+    else:
+        if time_value is not None:
+            message = f"✅ Applied: Manual peak at {time_value:.2f} min"
+            return 'manual', time_value, html.Div(message, style={'color': 'green', 'fontWeight': 'bold'})
+        else:
+            message = "⚠️ Please enter a time value"
+            return dash.no_update, dash.no_update, html.Div(message, style={'color': 'orange'})
+
 @app.callback(
     [Output('electropherogram-container', 'children'),
      Output('sample-selector', 'options'),
@@ -1568,7 +1748,9 @@ def save_settings(n_clicks, selected_report, plot_height, plots_per_row, detecti
      Input('std-end-cutoff', 'value'),
      Input('n-peaks', 'value'),
      Input('show-peaks', 'value'),
-     Input('zoom-view-dropdown', 'value')]
+     Input('zoom-view-dropdown', 'value'),
+     Input('applied-main-peak-mode', 'data'),
+     Input('applied-main-peak-time', 'data')]
 )
 def update_electropherogram_from_report(result_ids, plot_height, plots_per_row,
                                         detection_method, boundary_method, baseline_method,
@@ -1576,9 +1758,11 @@ def update_electropherogram_from_report(result_ids, plot_height, plots_per_row,
                                         min_distance, smooth_window, min_width,
                                         smooth_factor, zero_threshold,
                                         std_start_cutoff, std_end_cutoff,
-                                        n_peaks, show_peaks, zoom_view):
+                                        n_peaks, show_peaks, zoom_view, applied_mode, applied_time):
     """Load data from database and create electropherogram plots with debugging"""
-
+    print(f"=== MAIN FUNCTION CALLED ===")
+    print(f"applied_mode: {applied_mode}")
+    print(f"applied_time: {applied_time}")
     start_time = time.time()
     debug_times = {}
 
@@ -1730,9 +1914,27 @@ def update_electropherogram_from_report(result_ids, plot_height, plots_per_row,
             # Find main peak first (needed for balanced filtering)
             main_peak_idx = None
             if len(sample_peaks) > 0:
-                sample_heights = [(sp, signal[sp]) for sp in sample_peaks]
-                if sample_heights:
-                    main_peak_idx = max(sample_heights, key=lambda x: x[1])[0]
+                if applied_mode == 'manual' and applied_time is not None:
+                    # Manual mode - find peak closest to specified time
+                    try:
+                        peak_times = time_array[sample_peaks]
+                        closest_peak_idx = np.argmin(np.abs(peak_times - applied_time))
+                        main_peak_idx = sample_peaks[closest_peak_idx]
+                        print(
+                            f"Manual main peak: target={applied_time:.2f} min, found peak at {time_array[main_peak_idx]:.2f} min")
+                    except Exception as e:
+                        print(f"Error in manual peak selection: {e}, falling back to auto")
+                        sample_heights = [(sp, signal[sp]) for sp in sample_peaks]
+                        if sample_heights:
+                            main_peak_idx = max(sample_heights, key=lambda x: x[1])[0]
+                            print(
+                                f"Auto main peak (error fallback): highest peak at {time_array[main_peak_idx]:.2f} min")
+                else:
+                    # Auto mode - find highest peak (default behavior)
+                    sample_heights = [(sp, signal[sp]) for sp in sample_peaks]
+                    if sample_heights:
+                        main_peak_idx = max(sample_heights, key=lambda x: x[1])[0]
+                        print(f"Auto main peak: highest peak at {time_array[main_peak_idx]:.2f} min")
 
             # Filter peaks with balanced representation
             filtered_sample_peaks = filter_top_n_sample_peaks(
@@ -2259,6 +2461,7 @@ def export_results(n_clicks, analysis_data):
 
     return dcc.send_bytes(output.getvalue(), filename)
 
+
 # Report results callback
 @app.callback(
     [Output('threshold-params', 'style'),
@@ -2280,3 +2483,169 @@ def update_parameter_visibility(method):
     return styles
 
 
+@app.callback(
+    [Output("report-results-btn", "style"),
+     Output("report-results-btn", "children")],
+    Input("report-results-btn", "n_clicks"),
+    State("analysis-results", "data"),
+    State("selected-report", "data"),
+    prevent_initial_call=True
+)
+def link_cief_results_to_lims(n_clicks, analysis_data, selected_report):
+    """Link cIEF species distribution results to LIMS tables"""
+    from django.utils import timezone
+
+    base_style = {
+        'backgroundColor': '#17a2b8',
+        'color': 'white',
+        'border': 'none',
+        'padding': '12px 24px',
+        'fontSize': '14px',
+        'cursor': 'pointer',
+        'borderRadius': '8px',
+        'fontWeight': '500',
+        'transition': 'background-color 0.3s ease'
+    }
+
+    original_text = [html.Span("🔗 ", style={'marginRight': '5px'}), "Report Results"]
+
+    if not analysis_data or not selected_report:
+        # Red for failure
+        error_style = {**base_style, 'backgroundColor': '#dc3545'}
+        error_text = [html.Span("❌ ", style={'marginRight': '5px'}), "No Data/Report"]
+        return error_style, error_text
+
+    # Get the report object
+    try:
+        report = CIEFReport.objects.get(report_name=selected_report)
+    except CIEFReport.DoesNotExist:
+        error_style = {**base_style, 'backgroundColor': '#dc3545'}
+        error_text = [html.Span("❌ ", style={'marginRight': '5px'}), "Report Not Found"]
+        return error_style, error_text
+
+    summary_data = analysis_data.get('summary', [])
+    if not summary_data:
+        error_style = {**base_style, 'backgroundColor': '#dc3545'}
+        error_text = [html.Span("❌ ", style={'marginRight': '5px'}), "No Data Available"]
+        return error_style, error_text
+
+    success_count = 0
+    failed_samples = []
+
+    def safe_float(value):
+        """Safely convert percentage string to float"""
+        try:
+            # Remove % sign and convert to float
+            cleaned = str(value).replace('%', '').strip()
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return 0.0
+
+    for row in summary_data:
+        sample_id = str(row.get("Sample ID")).strip()
+
+        try:
+            # Extract values from the species distribution data
+            basic_percent = safe_float(row.get("Basic (%)", 0))
+            main_peak_percent = safe_float(row.get("Main Peak (%)", 0))
+            acidic_percent = safe_float(row.get("Acidic (%)", 0))
+
+            # Get the LIMS sample
+            sample = LimsSampleAnalysis.objects.get(sample_id=sample_id)
+
+            # Explicit approach - handle create vs update separately to ensure FK is set
+            try:
+                # Try to get existing cIEF result
+                cief_result = LimsCiefResult.objects.get(sample_id=sample)
+
+                # Update existing record
+                print(f"Before update: cief_result.report = {cief_result.report}")
+                cief_result.main_peak = main_peak_percent
+                cief_result.acidic_variants = acidic_percent
+                cief_result.basic_variants = basic_percent
+                cief_result.status = "complete"
+                cief_result.report = report  # Explicitly set the FK to the report object
+                cief_result.updated_at = timezone.now()
+                cief_result.save()
+                print(f"After update: cief_result.report = {cief_result.report}")
+
+                print(f"Updated existing cIEF result for {sample_id} with FK to report {report.id}")
+
+            except LimsCiefResult.DoesNotExist:
+                # Create new record
+                cief_result = LimsCiefResult.objects.create(
+                    sample_id=sample,
+                    main_peak=main_peak_percent,
+                    acidic_variants=acidic_percent,
+                    basic_variants=basic_percent,
+                    status="complete",
+                    report=report,  # Set the FK to the report object on creation
+                    updated_at=timezone.now()
+                )
+
+                print(f"Created new cIEF result for {sample_id} with FK to report {report.id}")
+
+            # Update the relationship in LimsSampleAnalysis
+            sample.cief_result = cief_result
+            sample.save()
+            success_count += 1
+            print(f"SUCCESS: Processed {sample_id}, total success count: {success_count}")
+
+        except Exception as e:
+            print(f"ERROR processing {sample_id}: {str(e)}")
+            failed_samples.append(f"{sample_id} (Error: {str(e)})")
+
+    print(f"FINAL RESULTS: success_count={success_count}, failed_samples={len(failed_samples)}")
+
+    # Simplified success/failure logic
+    if success_count > 0:
+        # Green for success
+        success_style = {**base_style, 'backgroundColor': '#28a745'}
+        success_text = [html.Span("✅ ", style={'marginRight': '5px'}), f"Linked {success_count} Results"]
+        return success_style, success_text
+    else:
+        # Red for complete failure
+        error_style = {**base_style, 'backgroundColor': '#dc3545'}
+        error_text = [html.Span("❌ ", style={'marginRight': '5px'}), "Failed - No Results Linked"]
+        return error_style, error_text
+
+
+# Callback to trigger reset timer
+@app.callback(
+    [Output('button-reset-interval', 'disabled'),
+     Output('button-reset-trigger', 'data')],
+    Input("report-results-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def start_reset_timer(n_clicks):
+    """Start 10-second timer to reset button"""
+    return False, n_clicks  # Enable interval and store click count
+
+
+# Callback to reset button after 10 seconds
+@app.callback(
+    [Output("report-results-btn", "style", allow_duplicate=True),
+     Output("report-results-btn", "children", allow_duplicate=True),
+     Output('button-reset-interval', 'disabled', allow_duplicate=True)],
+    Input('button-reset-interval', 'n_intervals'),
+    State('button-reset-trigger', 'data'),
+    prevent_initial_call=True
+)
+def reset_button_after_delay(n_intervals, trigger_data):
+    """Reset button to original style after 10 seconds"""
+    if n_intervals > 0 and trigger_data:
+        base_style = {
+            'backgroundColor': '#17a2b8',
+            'color': 'white',
+            'border': 'none',
+            'padding': '12px 24px',
+            'fontSize': '14px',
+            'cursor': 'pointer',
+            'borderRadius': '8px',
+            'fontWeight': '500',
+            'transition': 'background-color 0.3s ease'
+        }
+        original_text = [html.Span("🔗 ", style={'marginRight': '5px'}), "Report Results"]
+        return base_style, original_text, True  # Reset style and disable interval
+
+    return dash.no_update, dash.no_update, dash.no_update

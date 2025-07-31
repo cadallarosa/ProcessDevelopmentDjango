@@ -14,7 +14,7 @@ from plotly_integration.pd_dashboard.main_app import app
 from plotly_integration.models import (
     LimsSampleSet, LimsSampleSetMembership, LimsSampleAnalysis,
     LimsSecResult, LimsTiterResult, LimsCiefResult, LimsCeSdsResult,
-    LimsUpstreamSamples, Report
+    LimsUpstreamSamples, Report, SampleMetadata
 )
 
 
@@ -161,32 +161,158 @@ def create_single_analysis_card(config, sample_set_id, sample_ids, has_data):
     """Create a single analysis card with button and collapsible content"""
     card_id = config['type'].lower().replace('-', '')
 
-    # Create link button based on analysis type
+    # Create link button based on analysis type - all using regular apps
     if config['type'] == 'SEC':
-        # Check for existing SEC reports
-        sec_reports = Report.objects.filter(
-            analysis_type=1,
-            project_id=LimsSampleSet.objects.get(id=sample_set_id).project_id
-        ).order_by('-date_created')
+        # Check for existing SEC results with reports
+        try:
+            from plotly_integration.models import LimsSampleSet, LimsSampleSetMembership
 
-        if sec_reports.exists():
-            latest_report = sec_reports.first()
-            button_href = f"/plotly_dash/sec_report_embedded/?report_id={latest_report.report_id}"
-            button_text = "View SEC Report"
-            button_color = "success"
-            button_target = "_blank"
-        else:
-            # For new SEC analysis
-            button_href = f"/plotly_dash/sec_report_embedded/?sample_set_id={sample_set_id}"
+            # Get the sample set
+            sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+
+            # Get all sample analysis records in this sample set
+            sample_memberships = LimsSampleSetMembership.objects.filter(
+                sample_set=sample_set
+            ).select_related('sample')
+
+            # Check if any of these samples have SEC results with reports
+            samples_with_sec_reports = []
+            for membership in sample_memberships:
+                sample_analysis = membership.sample
+                # Check if this sample has a SEC result
+                if sample_analysis.sec_result and sample_analysis.sec_result.report:
+                    samples_with_sec_reports.append(sample_analysis.sec_result)
+
+            if samples_with_sec_reports:
+                # Get the most recent report
+                latest_sec_result = max(samples_with_sec_reports, key=lambda x: x.report.date_created)
+                latest_report = latest_sec_result.report
+                button_href = f"#!/analytical/sec?report_id={latest_report.report_id}"
+                button_text = f"View SEC Report ({latest_report.report_name})"
+                button_color = "success"
+            else:
+                button_href = f"#!/analytical/sec"
+                button_text = "Launch SEC Analysis"
+                button_color = "primary"
+
+        except (ImportError, LimsSampleSet.DoesNotExist) as e:
+            button_href = f"#!/analytical/sec"
             button_text = "Launch SEC Analysis"
             button_color = "primary"
-            button_target = "_blank"
-    else:
-        # Generic button for other analysis types - adjust these URLs based on your actual embedded apps
-        button_href = f"/plotly_dash/{card_id}_embedded/?sample_set_id={sample_set_id}"
-        button_text = f"Launch {config['title']}"
-        button_color = config['color']
-        button_target = "_blank"
+
+    elif config['type'] == 'Titer':
+        # Check for existing Titer results with reports
+        try:
+            from plotly_integration.models import LimsSampleSet, LimsSampleSetMembership
+
+            # Get the sample set
+            sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+
+            # Get all sample analysis records in this sample set
+            sample_memberships = LimsSampleSetMembership.objects.filter(
+                sample_set=sample_set
+            ).select_related('sample')
+
+            # Check if any of these samples have Titer results with reports
+            samples_with_titer_reports = []
+            for membership in sample_memberships:
+                sample_analysis = membership.sample
+                # Check if this sample has a Titer result with a report
+                if sample_analysis.titer_result and sample_analysis.titer_result.report:
+                    samples_with_titer_reports.append(sample_analysis.titer_result)
+
+            if samples_with_titer_reports:
+                # Get the most recent report
+                latest_titer_result = max(samples_with_titer_reports, key=lambda x: x.report.date_created)
+                latest_report = latest_titer_result.report
+                button_href = f"#!/analytical/titer?report_id={latest_report.report_id}"
+                button_text = f"View Titer Report ({latest_report.report_name})"
+                button_color = "success"
+            else:
+                button_href = f"#!/analytical/titer"
+                button_text = "Launch Titer Analysis"
+                button_color = "primary"
+
+        except (ImportError, LimsSampleSet.DoesNotExist) as e:
+            button_href = f"#!/analytical/titer"
+            button_text = "Launch Titer Analysis"
+            button_color = "primary"
+
+    elif config['type'] == 'CE-SDS':
+        # Check for existing CE-SDS results with reports
+        try:
+            from plotly_integration.models import LimsSampleSet, LimsSampleSetMembership
+
+            # Get the sample set
+            sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+
+            # Get all sample analysis records in this sample set
+            sample_memberships = LimsSampleSetMembership.objects.filter(
+                sample_set=sample_set
+            ).select_related('sample')
+
+            # Check if any of these samples have CE-SDS results with reports
+            samples_with_cesds_reports = []
+            for membership in sample_memberships:
+                sample_analysis = membership.sample
+                # Check if this sample has a CE-SDS result with a report
+                if sample_analysis.ce_sds_result and sample_analysis.ce_sds_result.report:
+                    samples_with_cesds_reports.append(sample_analysis.ce_sds_result)
+
+            if samples_with_cesds_reports:
+                # Get the most recent report
+                latest_cesds_result = max(samples_with_cesds_reports, key=lambda x: x.report.date_created)
+                latest_report = latest_cesds_result.report
+                button_href = f"#!/analytical/ce-sds?report_id={latest_report.id}"
+                button_text = f"View CE-SDS Report ({latest_report.report_name})"
+                button_color = "success"
+            else:
+                button_href = f"#!/analytical/ce-sds"
+                button_text = "Launch CE-SDS Analysis"
+                button_color = "primary"
+
+        except (ImportError, LimsSampleSet.DoesNotExist) as e:
+            button_href = f"#!/analytical/ce-sds"
+            button_text = "Launch CE-SDS Analysis"
+            button_color = "primary"
+
+    elif config['type'] == 'cIEF':
+        # Check for existing cIEF results with reports
+        try:
+            from plotly_integration.models import LimsSampleSet, LimsSampleSetMembership
+
+            # Get the sample set
+            sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+
+            # Get all sample analysis records in this sample set
+            sample_memberships = LimsSampleSetMembership.objects.filter(
+                sample_set=sample_set
+            ).select_related('sample')
+
+            # Check if any of these samples have cIEF results with reports
+            samples_with_cief_reports = []
+            for membership in sample_memberships:
+                sample_analysis = membership.sample
+                # Check if this sample has a cIEF result with a report
+                if sample_analysis.cief_result and sample_analysis.cief_result.report:
+                    samples_with_cief_reports.append(sample_analysis.cief_result)
+
+            if samples_with_cief_reports:
+                # Get the most recent report
+                latest_cief_result = max(samples_with_cief_reports, key=lambda x: x.report.date_created)
+                latest_report = latest_cief_result.report
+                button_href = f"#!/analytical/cief?report_id={latest_report.id}"
+                button_text = f"View cIEF Report ({latest_report.report_name})"
+                button_color = "success"
+            else:
+                button_href = f"#!/analytical/cief"
+                button_text = "Launch cIEF Analysis"
+                button_color = "primary"
+
+        except (ImportError, LimsSampleSet.DoesNotExist) as e:
+            button_href = f"#!/analytical/cief"
+            button_text = "Launch cIEF Analysis"
+            button_color = "primary"
 
     return dbc.Card([
         dbc.CardHeader([
@@ -203,8 +329,7 @@ def create_single_analysis_card(config, sample_set_id, sample_ids, has_data):
                         href=button_href,
                         color=button_color,
                         size="sm",
-                        className="me-2",
-                        target=button_target if 'button_target' in locals() else None
+                        className="me-2"
                     ),
                     dbc.Button(
                         html.I(className="fas fa-chevron-down"),

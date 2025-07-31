@@ -40,21 +40,21 @@ app.layout = html.Div(
                 }),
                 html.Div(
                     children=[
-                        dcc.Link(
-                            html.Button("Database Management", style={
-                                'width': '250px',
-                                'height': '60px',
-                                'font-size': '18px',
-                                'color': '#ffffff',
-                                'background-color': '#007bff',
-                                'border': 'none',
-                                'border-radius': '8px',
-                                'cursor': 'pointer',
-                                'box-shadow': '2px 2px 5px rgba(0, 0, 0, 0.2)'
-                            }),
-                            href="http://localhost:8000/plotly_integration/dash-app/app/DatabaseManagerApp/",
-                            target="_blank"
-                        ),
+                        # dcc.Link(
+                        #     html.Button("Database Management", style={
+                        #         'width': '250px',
+                        #         'height': '60px',
+                        #         'font-size': '18px',
+                        #         'color': '#ffffff',
+                        #         'background-color': '#007bff',
+                        #         'border': 'none',
+                        #         'border-radius': '8px',
+                        #         'cursor': 'pointer',
+                        #         'box-shadow': '2px 2px 5px rgba(0, 0, 0, 0.2)'
+                        #     }),
+                        #     href="http://localhost:8000/plotly_integration/dash-app/app/DatabaseManagerApp/",
+                        #     target="_blank"
+                        # ),
                         dcc.Link(
                             html.Button("Create Report", style={
                                 'width': '250px',
