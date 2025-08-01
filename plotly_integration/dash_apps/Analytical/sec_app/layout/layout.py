@@ -201,7 +201,7 @@ app_layout = html.Div([
                                                 {"name": "Created By", "id": "user_id"},
                                                 {"name": "Date Created", "id": "date_created"},
                                             ],
-                                            page_size=15,
+                                            page_size=10,
                                             sort_action="native",
                                             filter_action="native",
                                             row_selectable="single",

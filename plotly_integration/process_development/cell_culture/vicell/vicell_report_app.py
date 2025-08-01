@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from dash import dcc, html, Input, Output, State, MATCH, dash_table
 from django_plotly_dash import DjangoDash
 import pandas as pd
-from plotly_integration.models import ViCellData, ViCellReport
+from plotly_integration.models import ViCellData
 import json
 from datetime import datetime
 import re
@@ -39,19 +39,41 @@ INITIAL_COLUMNS = [
     {"name": "Avg Viable Diameter (µm)", "id": "average_viable_diameter"},
 ]
 
+# Define columns for the edit data table
+EDIT_DATA_COLUMNS = [
+    {"name": "ID", "id": "id", "editable": False},
+    {"name": "Sample ID", "id": "sample_id", "editable": True},
+    {"name": "Date/Time", "id": "date_time", "editable": False},
+    {"name": "Experiment", "id": "experiment", "editable": True},
+    {"name": "Reactor Type", "id": "reactor_type", "editable": True},
+    {"name": "Reactor Number", "id": "reactor_number", "editable": True},
+    {"name": "Day", "id": "day", "editable": True},
+    {"name": "Special", "id": "special", "editable": False},
+    {"name": "Cell Count", "id": "cell_count", "editable": False, "format": {"specifier": ".0f"}},
+    {"name": "Viable Cells", "id": "viable_cells", "editable": False,
+     "format": {"specifier": ".0f"}},
+    {"name": "Total Cells/mL", "id": "total_cells_per_ml", "editable": False,
+     "format": {"specifier": ".2f"}},
+    {"name": "Viable Cells/mL", "id": "viable_cells_per_ml", "editable": False,
+     "format": {"specifier": ".2f"}},
+    {"name": "Viability (%)", "id": "viability", "editable": False, "format": {"specifier": ".1f"}},
+    {"name": "Sample Type", "id": "sample_type", "editable": False},
+]
+
 # Main layout with modals and stores
 app.layout = html.Div(
     children=[
         # Stores for state management
-        dcc.Store(id="selected-report", data=None),
+        dcc.Store(id="selected-experiment", data=None),
         dcc.Store(id="embedded-mode", data=False),
         dcc.Store(id="url-params", data={}),
+        dcc.Store(id="edit-data-store", data=[]),
         dcc.Location(id="url", refresh=False),
         dcc.Interval(id="load-once", interval=1000, n_intervals=0, max_intervals=1),
 
-        # Modal for Create Report iframe
+        # Modal for Edit Data
         html.Div(
-            id="create-report-modal",
+            id="edit-data-modal",
             style={
                 "display": "none",
                 "position": "fixed",
@@ -66,19 +88,21 @@ app.layout = html.Div(
                 html.Div(
                     style={
                         "position": "relative",
-                        "margin": "5% auto",
-                        "width": "1300px",
-                        "maxWidth": "90%",
-                        "height": "80%",
+                        "margin": "2% auto",
+                        "width": "95%",
+                        "maxWidth": "1600px",
+                        "height": "90%",
                         "backgroundColor": "white",
                         "borderRadius": "10px",
                         "padding": "20px",
-                        "boxShadow": "0 5px 15px rgba(0,0,0,0.3)"
+                        "boxShadow": "0 5px 15px rgba(0,0,0,0.3)",
+                        "display": "flex",
+                        "flexDirection": "column"
                     },
                     children=[
                         html.Button(
                             "✕",
-                            id="close-modal-btn",
+                            id="close-edit-data-modal-btn",
                             style={
                                 "position": "absolute",
                                 "top": "10px",
@@ -90,23 +114,118 @@ app.layout = html.Div(
                                 "color": "#666"
                             }
                         ),
-                        html.H3("Create New ViCell Report", style={"marginBottom": "20px", "color": "#0056b3"}),
-                        html.Iframe(
-                            src="/plotly_integration/dash-app/app/ViCellCreateReportApp/",
+                        html.Div(
                             style={
-                                "width": "100%",
-                                "height": "calc(100% - 60px)",
-                                "border": "none"
+                                "display": "flex",
+                                "justifyContent": "space-between",
+                                "alignItems": "center",
+                                "marginBottom": "20px"
+                            },
+                            children=[
+                                html.H3("Edit ViCell Data", style={"color": "#0056b3", "margin": "0"}),
+                                html.Div(
+                                    style={"display": "flex", "gap": "10px"},
+                                    children=[
+                                        html.Button(
+                                            "Save Changes",
+                                            id="save-changes-btn",
+                                            style={
+                                                "backgroundColor": "#28a745",
+                                                "color": "white",
+                                                "border": "none",
+                                                "padding": "10px 20px",
+                                                "fontSize": "14px",
+                                                "cursor": "pointer",
+                                                "borderRadius": "5px",
+                                                "fontWeight": "500",
+                                                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                                            }
+                                        ),
+                                        html.Button(
+                                            "Refresh Data",
+                                            id="refresh-data-btn",
+                                            style={
+                                                "backgroundColor": "#17a2b8",
+                                                "color": "white",
+                                                "border": "none",
+                                                "padding": "10px 20px",
+                                                "fontSize": "14px",
+                                                "cursor": "pointer",
+                                                "borderRadius": "5px",
+                                                "fontWeight": "500",
+                                                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                                            }
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        html.Div(
+                            id="save-status-message",
+                            style={
+                                "marginBottom": "10px",
+                                "padding": "10px",
+                                "borderRadius": "5px",
+                                "display": "none"
                             }
+                        ),
+                        html.Div(
+                            style={"flex": "1", "overflowY": "auto"},
+                            children=[
+                                dash_table.DataTable(
+                                    id="edit-data-table",
+                                    columns=EDIT_DATA_COLUMNS,
+                                    data=[],
+                                    page_size=25,
+                                    editable=True,
+                                    row_deletable=False,
+                                    style_table={
+                                        "overflowX": "auto",
+                                        "borderRadius": "8px",
+                                        "height": "100%"
+                                    },
+                                    style_header={
+                                        "backgroundColor": "#e9f1fb",
+                                        "fontWeight": "bold",
+                                        "textAlign": "center",
+                                        "color": "#0047b3",
+                                        "fontSize": "12px"
+                                    },
+                                    style_cell={
+                                        "textAlign": "center",
+                                        "padding": "8px",
+                                        "borderBottom": "1px solid #ccc",
+                                        "fontFamily": "Arial, sans-serif",
+                                        "fontSize": "12px",
+                                        "minWidth": "80px",
+                                        "maxWidth": "150px",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis"
+                                    },
+                                    style_data={"backgroundColor": "white", "color": "#333"},
+                                    style_data_conditional=[
+                                        {
+                                            "if": {"row_index": "odd"},
+                                            "backgroundColor": "#f8f9fa",
+                                        },
+                                        {
+                                            "if": {"column_editable": True},
+                                            "backgroundColor": "#fff3cd",
+                                        }
+                                    ],
+                                    filter_action="native",
+                                    sort_action="native"
+                                )
+                            ]
                         )
                     ]
                 )
             ]
         ),
 
-        # Modal for Select Report
+        # Modal for Select Experiment
         html.Div(
-            id="select-report-modal",
+            id="select-experiment-modal",
             style={
                 "display": "none",
                 "position": "fixed",
@@ -135,7 +254,7 @@ app.layout = html.Div(
                     children=[
                         html.Button(
                             "✕",
-                            id="close-select-report-btn",
+                            id="close-select-experiment-btn",
                             style={
                                 "position": "absolute",
                                 "top": "10px",
@@ -147,18 +266,14 @@ app.layout = html.Div(
                                 "color": "#666"
                             }
                         ),
-                        html.H3("Select ViCell Report", style={"marginBottom": "20px", "color": "#0056b3"}),
+                        html.H3("Select Experiment", style={"marginBottom": "20px", "color": "#0056b3"}),
                         html.Div(
                             style={"flex": "1", "overflowY": "auto", "marginBottom": "20px"},
                             children=[
                                 dash_table.DataTable(
-                                    id="report-selection-table",
+                                    id="experiment-selection-table",
                                     columns=[
-                                        {"name": "Report Name", "id": "report_name"},
-                                        {"name": "Project ID", "id": "project_id"},
-                                        {"name": "User ID", "id": "user_id"},
-                                        {"name": "Date Created", "id": "date_created"},
-                                        {"name": "Comments", "id": "comments"}
+                                        {"name": "Experiment", "id": "experiment"}
                                     ],
                                     data=[],
                                     row_selectable="single",
@@ -202,8 +317,8 @@ app.layout = html.Div(
                             ]
                         ),
                         html.Button(
-                            "Select Report",
-                            id="confirm-report-selection",
+                            "Select Experiment",
+                            id="confirm-experiment-selection",
                             style={
                                 "backgroundColor": "#0056b3",
                                 "color": "white",
@@ -237,29 +352,13 @@ app.layout = html.Div(
                 "gap": "10px"
             },
             children=[
-                # Left side - Create Report button
+                # Left side - buttons
                 html.Div(
                     style={"display": "flex", "gap": "10px"},
                     children=[
                         html.Button(
-                            "Create New Report",
-                            id="create-report-btn",
-                            style={
-                                "backgroundColor": "#0056b3",
-                                "color": "white",
-                                "border": "none",
-                                "padding": "10px 20px",
-                                "fontSize": "14px",
-                                "cursor": "pointer",
-                                "borderRadius": "5px",
-                                "fontWeight": "500",
-                                "transition": "all 0.3s ease",
-                                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
-                            }
-                        ),
-                        html.Button(
-                            "Select Report",
-                            id="change-report-btn",
+                            "Select Experiment",
+                            id="change-experiment-btn",
                             style={
                                 "backgroundColor": "#6c757d",
                                 "color": "white",
@@ -272,12 +371,28 @@ app.layout = html.Div(
                                 "transition": "all 0.3s ease",
                                 "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
                             }
+                        ),
+                        html.Button(
+                            "Edit Data",
+                            id="edit-data-btn",
+                            style={
+                                "backgroundColor": "#dc3545",
+                                "color": "white",
+                                "border": "none",
+                                "padding": "10px 20px",
+                                "fontSize": "14px",
+                                "cursor": "pointer",
+                                "borderRadius": "5px",
+                                "fontWeight": "500",
+                                "transition": "all 0.3s ease",
+                                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                            }
                         )
                     ]
                 ),
-                # Right side - Current report display
+                # Right side - Current experiment display
                 html.Div(
-                    id="current-report-text",
+                    id="current-experiment-text",
                     style={
                         "fontSize": "16px",
                         "color": "#495057",
@@ -290,28 +405,69 @@ app.layout = html.Div(
         # Main content area
         html.Div(
             children=[
-                # Report dropdown (hidden when using modals)
-                html.Div(
-                    style={"display": "none"},
-                    children=[
-                        dcc.Dropdown(
-                            id="report-dropdown",
-                            placeholder="Select a report",
-                            style={"width": "400px"}
-                        )
-                    ]
-                ),
-
-                # Tab content - Summary tab moved to the end
+                # Tab content with improved styling
                 dcc.Tabs(
                     id="variable-tabs",
-                    value="viable_cells_per_ml",  # Default to first metric
+                    value="viable_cells_per_ml",
                     children=[
-                        *[dcc.Tab(label=label, value=var, style={"backgroundColor": "#f8f9fa"})
-                          for var, label in VARIABLES.items()],
-                        dcc.Tab(label="Summary", value="summary", style={"backgroundColor": "#f8f9fa"}),
+                        *[dcc.Tab(
+                            label=label,
+                            value=var,
+                            style={
+                                'borderTop': '1px solid #d6d6d6',
+                                'borderBottom': '1px solid #d6d6d6',
+                                'borderLeft': '1px solid #d6d6d6',
+                                'borderRight': '1px solid #d6d6d6',
+                                'backgroundColor': '#f9f9f9',
+                                'color': '#666',
+                                'padding': '16px 28px',
+                                'fontWeight': '500',
+                                'fontSize': '15px'
+                            },
+                            selected_style={
+                                'borderTop': '1px solid #d6d6d6',
+                                'borderBottom': '1px solid #d6d6d6',
+                                'borderLeft': '1px solid #d6d6d6',
+                                'borderRight': '1px solid #d6d6d6',
+                                'backgroundColor': '#119DFF',
+                                'color': 'white',
+                                'padding': '16px 28px',
+                                'fontWeight': '600',
+                                'fontSize': '15px'
+                            }
+                        ) for var, label in VARIABLES.items()],
+                        dcc.Tab(
+                            label="Summary",
+                            value="summary",
+                            style={
+                                'borderTop': '1px solid #d6d6d6',
+                                'borderBottom': '1px solid #d6d6d6',
+                                'borderLeft': '1px solid #d6d6d6',
+                                'borderRight': '1px solid #d6d6d6',
+                                'backgroundColor': '#f9f9f9',
+                                'color': '#666',
+                                'padding': '16px 28px',
+                                'fontWeight': '500',
+                                'fontSize': '15px'
+                            },
+                            selected_style={
+                                'borderTop': '1px solid #d6d6d6',
+                                'borderBottom': '1px solid #d6d6d6',
+                                'borderLeft': '1px solid #d6d6d6',
+                                'borderRight': '1px solid #d6d6d6',
+                                'backgroundColor': '#119DFF',
+                                'color': 'white',
+                                'padding': '16px 28px',
+                                'fontWeight': '600',
+                                'fontSize': '15px'
+                            }
+                        ),
                     ],
-                    style={"marginTop": "20px", "marginBottom": "20px"}
+                    style={
+                        'height': '54px',
+                        'marginTop': '20px',
+                        'marginBottom': '20px'
+                    }
                 ),
 
                 # Summary container
@@ -319,7 +475,7 @@ app.layout = html.Div(
                     id="summary-container",
                     style={"marginTop": "20px", "display": "block"},
                     children=[
-                        html.H3("Report Summary", style={"marginBottom": "20px", "color": "#0047b3"}),
+                        html.H3("Experiment Summary", style={"marginBottom": "20px", "color": "#0047b3"}),
                         dcc.Dropdown(
                             id="subset-dropdown",
                             placeholder="Select Reactor Number to View",
@@ -391,26 +547,23 @@ def parse_url_params(search):
 
     url_params = {}
     embedded = False
-    report_id = None
+    experiment = None
 
     if "embedded" in params:
         embedded = params["embedded"][0].lower() in ["true", "1", "yes"]
         url_params["embedded"] = embedded
 
-    if "report_id" in params:
-        try:
-            report_id = int(params["report_id"][0])
-            url_params["report_id"] = report_id
-        except:
-            pass
+    if "experiment" in params:
+        experiment = params["experiment"][0]
+        url_params["experiment"] = experiment
 
     return url_params, embedded
 
 
 # Update toolbar visibility based on embedded mode
 @app.callback(
-    [Output("create-report-btn", "style"),
-     Output("change-report-btn", "style")],
+    [Output("change-experiment-btn", "style"),
+     Output("edit-data-btn", "style")],
     [Input("embedded-mode", "data")],
     prevent_initial_call=False
 )
@@ -421,19 +574,6 @@ def update_toolbar_visibility(embedded):
         return hidden_style, hidden_style
     else:
         # Show buttons in normal mode
-        create_btn_style = {
-            "backgroundColor": "#0056b3",
-            "color": "white",
-            "border": "none",
-            "padding": "10px 20px",
-            "fontSize": "14px",
-            "cursor": "pointer",
-            "borderRadius": "5px",
-            "fontWeight": "500",
-            "transition": "all 0.3s ease",
-            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
-        }
-
         select_btn_style = {
             "backgroundColor": "#6c757d",
             "color": "white",
@@ -447,52 +587,65 @@ def update_toolbar_visibility(embedded):
             "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
         }
 
-        return create_btn_style, select_btn_style
+        edit_btn_style = {
+            "backgroundColor": "#dc3545",
+            "color": "white",
+            "border": "none",
+            "padding": "10px 20px",
+            "fontSize": "14px",
+            "cursor": "pointer",
+            "borderRadius": "5px",
+            "fontWeight": "500",
+            "transition": "all 0.3s ease",
+            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+        }
+
+        return select_btn_style, edit_btn_style
 
 
-# Callback to show/hide Create Report modal
+# Callback to show/hide Edit Data modal
 @app.callback(
-    Output("create-report-modal", "style"),
-    [Input("create-report-btn", "n_clicks"),
-     Input("close-modal-btn", "n_clicks")],
-    [State("create-report-modal", "style")],
+    Output("edit-data-modal", "style"),
+    [Input("edit-data-btn", "n_clicks"),
+     Input("close-edit-data-modal-btn", "n_clicks")],
+    [State("edit-data-modal", "style")],
     prevent_initial_call=True
 )
-def toggle_create_modal(open_clicks, close_clicks, current_style):
+def toggle_edit_data_modal(open_clicks, close_clicks, current_style):
     ctx = dash.callback_context
     if not ctx.triggered:
         return current_style
 
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    if button_id == "create-report-btn":
+    if button_id == "edit-data-btn":
         return {**current_style, "display": "block"}
-    elif button_id == "close-modal-btn":
+    elif button_id == "close-edit-data-modal-btn":
         return {**current_style, "display": "none"}
 
     return current_style
 
 
-# Callback to show/hide Select Report modal and populate reports
+# Callback to show/hide Select Experiment modal and populate experiments
 @app.callback(
-    [Output("select-report-modal", "style"),
-     Output("report-selection-table", "data"),
-     Output("current-report-text", "children")],
-    [Input("change-report-btn", "n_clicks"),
-     Input("close-select-report-btn", "n_clicks"),
-     Input("confirm-report-selection", "n_clicks"),
+    [Output("select-experiment-modal", "style"),
+     Output("experiment-selection-table", "data"),
+     Output("current-experiment-text", "children")],
+    [Input("change-experiment-btn", "n_clicks"),
+     Input("close-select-experiment-btn", "n_clicks"),
+     Input("confirm-experiment-selection", "n_clicks"),
      Input("load-once", "n_intervals"),
      Input("url-params", "data")],
-    [State("select-report-modal", "style"),
-     State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data"),
+    [State("select-experiment-modal", "style"),
+     State("experiment-selection-table", "selected_rows"),
+     State("experiment-selection-table", "data"),
      State("embedded-mode", "data"),
-     State("selected-report", "data")],
+     State("selected-experiment", "data")],
     prevent_initial_call=False
 )
 def toggle_select_modal(change_clicks, close_clicks, confirm_clicks, load_interval,
                         url_params, current_style, selected_rows, table_data,
-                        embedded, current_report_id):
+                        embedded, current_experiment):
     ctx = dash.callback_context
 
     # Get trigger ID
@@ -501,91 +654,60 @@ def toggle_select_modal(change_clicks, close_clicks, confirm_clicks, load_interv
     else:
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    # Fetch reports for table
-    reports = ViCellReport.objects.all().order_by("-date_created")
-    reports_data = [
-        {
-            "id": r.id,
-            "report_name": r.report_name,
-            "project_id": r.project_id or "",
-            "user_id": r.user_id or "",
-            "date_created": r.date_created.strftime("%Y-%m-%d %H:%M:%S"),
-            "comments": r.comments or ""
-        }
-        for r in reports
-    ]
+    # Fetch experiments for table - only sample_type=1 - SIMPLIFIED
+    experiments_query = ViCellData.objects.filter(
+        sample_type=1,
+        experiment__isnull=False
+    ).exclude(experiment="").values("experiment").distinct().order_by("-experiment")
 
-    # Determine current report text
-    current_text = "No report selected"
-    if current_report_id:
-        report = next((r for r in reports_data if r["id"] == current_report_id), None)
-        if report:
-            current_text = f"Current Report: {report['report_name']}"
+    experiments_data = [{"experiment": exp_obj["experiment"]} for exp_obj in experiments_query]
 
-    # Handle modal visibility
-    if triggered_id == "change-report-btn":
-        return {**current_style, "display": "block"}, reports_data, current_text
-    elif triggered_id == "close-select-report-btn":
-        return {**current_style, "display": "none"}, reports_data, current_text
-    elif triggered_id == "confirm-report-selection" and selected_rows:
-        # Report will be selected by another callback
-        return {**current_style, "display": "none"}, reports_data, current_text
+    # Determine current experiment text
+    current_text = "No experiment selected"
+    if current_experiment:
+        current_text = f"Current Experiment: {current_experiment}"
+
+    # Handle modal visibility - simplified without auto-select
+    if triggered_id == "change-experiment-btn":
+        return {**current_style, "display": "block"}, experiments_data, current_text
+    elif triggered_id == "close-select-experiment-btn":
+        return {**current_style, "display": "none"}, experiments_data, current_text
+    elif triggered_id == "confirm-experiment-selection" and selected_rows and table_data:
+        # Experiment will be selected by another callback, close modal
+        return {**current_style, "display": "none"}, experiments_data, current_text
     elif triggered_id == "load-once":
-        # Initial load - check for URL params
-        if not embedded and "report_id" not in url_params and not current_report_id:
-            # Auto-open select modal if no report selected
-            return {**current_style, "display": "block"}, reports_data, current_text
+        # Initial load - don't auto-open modal, just return current state
+        pass
 
-    return current_style, reports_data, current_text
+    return current_style, experiments_data, current_text
 
 
-# Update selected report from modal
+# Update selected experiment from modal
 @app.callback(
-    [Output("selected-report", "data"),
-     Output("report-dropdown", "value")],
-    [Input("confirm-report-selection", "n_clicks"),
+    Output("selected-experiment", "data"),
+    [Input("confirm-experiment-selection", "n_clicks"),
      Input("url-params", "data")],
-    [State("report-selection-table", "selected_rows"),
-     State("report-selection-table", "data")],
+    [State("experiment-selection-table", "selected_rows"),
+     State("experiment-selection-table", "data")],
     prevent_initial_call=False
 )
-def update_selected_report(confirm_clicks, url_params, selected_rows, table_data):
+def update_selected_experiment(confirm_clicks, url_params, selected_rows, table_data):
     ctx = dash.callback_context
 
     if not ctx.triggered:
-        return None, None
+        return None
 
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    if triggered_id == "url-params" and "report_id" in url_params:
+    if triggered_id == "url-params" and "experiment" in url_params:
         # Load from URL
-        return url_params["report_id"], url_params["report_id"]
-    elif triggered_id == "confirm-report-selection" and selected_rows and table_data:
+        return url_params["experiment"]
+    elif triggered_id == "confirm-experiment-selection" and selected_rows and table_data:
         # Load from selection
-        selected_report = table_data[selected_rows[0]]
-        return selected_report["id"], selected_report["id"]
+        selected_experiment = table_data[selected_rows[0]]
+        return selected_experiment["experiment"]
 
-    return None, None
-
-
-# Populate Report Dropdown (keep existing functionality)
-@app.callback(
-    Output("report-dropdown", "options"),
-    [Input("report-dropdown", "value")],
-    [State("selected-report", "data")]
-)
-def populate_report_dropdown(dropdown_value, selected_report_id):
-    reports = ViCellReport.objects.all().order_by("-date_created")
-
-    if not reports:
-        return []
-
-    options = [
-        {"label": f"{r.report_name} (Created: {r.date_created.strftime('%Y-%m-%d %H:%M:%S')})", "value": r.id}
-        for r in reports
-    ]
-
-    return options
+    return None
 
 
 # Toggle between summary and graph views
@@ -610,18 +732,171 @@ def toggle_view(selected_tab):
     return summary_style, graph_style
 
 
-# Keep all existing callbacks from the original vicell_report_app.py below this line
-# (process_and_sort_samples, update_reactor_number_dropdown, update_summary_table, update_graph, etc.)
+@app.callback(
+    [Output("edit-data-table", "data"),
+     Output("edit-data-store", "data")],
+    [Input("edit-data-btn", "n_clicks"),
+     Input("refresh-data-btn", "n_clicks")],
+    [State("selected-experiment", "data")],
+    prevent_initial_call=True
+)
+def load_edit_data(edit_btn_clicks, refresh_clicks, selected_experiment):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return [], []
 
-def process_and_sort_samples(sample_names):
-    """
-    - Fetches parsed data from the ViCellData table instead of re-parsing.
-    - Groups by `sample_id` and queries ViCellData to get data.
-    - Returns a separate DataFrame for each unique `experiment`.
-    """
+    try:
+        # Query ViCellData for the selected experiment with sample_type=1
+        if selected_experiment:
+            vicell_data = ViCellData.objects.filter(
+                experiment=selected_experiment,
+                sample_type=1
+            ).order_by("-day", "reactor_type", "reactor_number")
+        else:
+            # If no experiment selected, show all sample_type=1 data
+            vicell_data = ViCellData.objects.filter(sample_type=1).order_by(
+                "-experiment", "reactor_type", "reactor_number", "day"
+            )
 
-    # Query `ViCellData` for multiple samples at once
-    samples = ViCellData.objects.filter(sample_id__in=sample_names).values(
+        # Convert to list of dictionaries for DataTable
+        data = []
+        for record in vicell_data:
+            row = {
+                "id": record.id,
+                "sample_id": record.sample_id,
+                "date_time": record.date_time.strftime("%m/%d/%Y %H:%M:%S") if record.date_time else "",
+                "experiment": record.experiment or "",
+                "day": record.day,
+                "reactor_type": record.reactor_type or "",
+                "reactor_number": record.reactor_number,
+                "special": record.special or "",
+                "cell_count": record.cell_count,
+                "viable_cells": record.viable_cells,
+                "total_cells_per_ml": record.total_cells_per_ml,
+                "viable_cells_per_ml": record.viable_cells_per_ml,
+                "viability": record.viability,
+                "sample_type": record.sample_type,
+            }
+            data.append(row)
+
+        print(f"Loaded {len(data)} records for editing")
+        return data, data
+    except Exception as e:
+        print(f"Error loading edit data: {e}")
+        return [], []
+
+
+# Save changes to database
+@app.callback(
+    [Output("save-status-message", "children"),
+     Output("save-status-message", "style")],
+    [Input("save-changes-btn", "n_clicks")],
+    [State("edit-data-table", "data"),
+     State("edit-data-store", "data")],
+    prevent_initial_call=True
+)
+def save_changes(save_clicks, current_data, original_data):
+    if not save_clicks or not current_data:
+        return "", {"display": "none"}
+
+    try:
+        changes_made = 0
+        errors = []
+
+        # Create dictionaries for easy comparison
+        original_dict = {row["id"]: row for row in original_data}
+
+        for row in current_data:
+            record_id = row["id"]
+            original_row = original_dict.get(record_id)
+
+            if not original_row:
+                continue
+
+            # Check if any editable fields have changed
+            editable_fields = ["sample_id", "experiment", "day", "reactor_type", "reactor_number"]
+            has_changes = False
+
+            for field in editable_fields:
+                if str(row.get(field, "")) != str(original_row.get(field, "")):
+                    has_changes = True
+                    break
+
+            if has_changes:
+                try:
+                    # Get the database record
+                    vicell_record = ViCellData.objects.get(id=record_id)
+
+                    # Update the editable fields
+                    vicell_record.sample_id = row.get("sample_id", "")
+                    vicell_record.experiment = row.get("experiment", "")
+                    vicell_record.day = row.get("day") if row.get("day") not in [None, ""] else None
+                    vicell_record.reactor_type = row.get("reactor_type", "")
+                    vicell_record.reactor_number = row.get("reactor_number") if row.get("reactor_number") not in [None,
+                                                                                                                  ""] else None
+
+                    # Save the record
+                    vicell_record.save()
+                    changes_made += 1
+
+                except Exception as e:
+                    errors.append(f"Error updating record {record_id}: {str(e)}")
+
+        # Prepare status message
+        if changes_made > 0 and not errors:
+            message = f"Successfully saved {changes_made} changes!"
+            style = {
+                "display": "block",
+                "backgroundColor": "#d4edda",
+                "color": "#155724",
+                "border": "1px solid #c3e6cb"
+            }
+        elif changes_made > 0 and errors:
+            message = f"Saved {changes_made} changes with {len(errors)} errors. Errors: {'; '.join(errors[:3])}"
+            style = {
+                "display": "block",
+                "backgroundColor": "#fff3cd",
+                "color": "#856404",
+                "border": "1px solid #ffeaa7"
+            }
+        elif errors:
+            message = f"Failed to save changes. Errors: {'; '.join(errors[:3])}"
+            style = {
+                "display": "block",
+                "backgroundColor": "#f8d7da",
+                "color": "#721c24",
+                "border": "1px solid #f5c6cb"
+            }
+        else:
+            message = "No changes detected."
+            style = {
+                "display": "block",
+                "backgroundColor": "#d1ecf1",
+                "color": "#0c5460",
+                "border": "1px solid #bee5eb"
+            }
+
+        return message, style
+
+    except Exception as e:
+        return f"Error saving changes: {str(e)}", {
+            "display": "block",
+            "backgroundColor": "#f8d7da",
+            "color": "#721c24",
+            "border": "1px solid #f5c6cb"
+        }
+
+
+def process_and_sort_samples_by_experiment(experiment):
+    """
+    Fetches data for a specific experiment with sample_type=1.
+    Groups by reactor_number for plotting.
+    """
+    # Query ViCellData for the experiment with sample_type=1
+    samples = ViCellData.objects.filter(
+        experiment=experiment,
+        sample_type=1
+    ).values(
         "sample_id", "experiment", "day", "reactor_type", "reactor_number", "special",
         "date_time", "cell_count", "viable_cells", "total_cells_per_ml", "viable_cells_per_ml",
         "viability", "average_diameter", "average_viable_diameter", "average_circularity",
@@ -631,39 +906,21 @@ def process_and_sort_samples(sample_names):
     df = pd.DataFrame(list(samples))
 
     if df.empty:
-        print("⚠️ No valid samples found.")
+        print(f"⚠️ No valid samples found for experiment {experiment}.")
         return {}
 
     # Sort by reactor number, day, and special condition
     df_sorted = df.sort_values(by=["reactor_number", "day", "special"], ascending=[True, True, True])
 
-    # Group by `reactor_number` to organize data properly
-    sample_groups = df_sorted.groupby("reactor_number")["sample_id"].apply(list).to_dict()
-
+    # Group by reactor_number to organize data properly
     grouped_data = {}
 
-    for reactor_number, result_names in sample_groups.items():
-        print(f"🔍 Querying ViCellData for Reactor Number: {reactor_number}, Samples: {result_names}")
-
-        # Fetch ViCellData for the grouped samples
-        vicell_data = ViCellData.objects.filter(sample_id__in=result_names).values(
-            "sample_id", "day", "date_time", "cell_count", "viable_cells", "total_cells_per_ml",
-            "viable_cells_per_ml", "viability", "average_diameter", "average_viable_diameter",
-            "average_circularity", "average_viable_circularity", "reactor_type"
-        )
-
-        vicell_df = pd.DataFrame(list(vicell_data))
-
-        if not vicell_df.empty:
-            grouped_data[reactor_number] = vicell_df
+    for reactor_number in df_sorted["reactor_number"].dropna().unique():
+        reactor_df = df_sorted[df_sorted["reactor_number"] == reactor_number]
+        if not reactor_df.empty:
+            grouped_data[reactor_number] = reactor_df
         else:
             print(f"⚠️ No matching data found for Reactor Number {reactor_number}")
-            grouped_data[reactor_number] = pd.DataFrame(
-                columns=["sample_id", "day", "date_time", "cell_count", "viable_cells",
-                         "total_cells_per_ml", "viable_cells_per_ml", "viability", "average_diameter",
-                         "average_viable_diameter", "average_circularity", "average_viable_circularity",
-                         "reactor_type"]
-            )
 
     return grouped_data
 
@@ -671,24 +928,20 @@ def process_and_sort_samples(sample_names):
 @app.callback(
     [Output("subset-dropdown", "options"),
      Output("subset-dropdown", "value")],
-    [Input("selected-report", "data")]
+    [Input("selected-experiment", "data")]
 )
-def update_reactor_number_dropdown(selected_report_id):
-    """Populate dropdown with available reactor numbers from the selected report."""
-    if not selected_report_id:
+def update_reactor_number_dropdown(selected_experiment):
+    """Populate dropdown with available reactor numbers from the selected experiment."""
+    if not selected_experiment:
         return [], None
 
-    report = ViCellReport.objects.filter(id=selected_report_id).first()
-    if not report or not report.selected_result_ids:
-        return [], None
-
-    sample_ids = [s.strip() for s in report.selected_result_ids.split(",") if s.strip()]
-
-    # Query all distinct reactor numbers, ignoring NULL values
+    # Query all distinct reactor numbers for this experiment with sample_type=1
     reactors = list(
-        ViCellData.objects.filter(id__in=sample_ids, reactor_number__isnull=False)
-        .values_list("reactor_number", flat=True)
-        .distinct()
+        ViCellData.objects.filter(
+            experiment=selected_experiment,
+            sample_type=1,
+            reactor_number__isnull=False
+        ).values_list("reactor_number", flat=True).distinct()
     )
 
     # Ensure reactors are sorted numerically
@@ -707,26 +960,18 @@ def update_reactor_number_dropdown(selected_report_id):
 @app.callback(
     Output("subset-table", "data"),
     [Input("subset-dropdown", "value"),
-     Input("selected-report", "data")]
+     Input("selected-experiment", "data")]
 )
-def update_summary_table(selected_reactor, selected_report_id):
-    """Populate table with data when a reactor number is selected from the selected report."""
-    if not selected_report_id or not selected_reactor:
-        print("⚠️ No reactor or report selected.")
+def update_summary_table(selected_reactor, selected_experiment):
+    """Populate table with data when a reactor number is selected from the selected experiment."""
+    if not selected_experiment or not selected_reactor:
+        print("⚠️ No reactor or experiment selected.")
         return []
 
-    # Fetch the selected report
-    report = ViCellReport.objects.filter(id=selected_report_id).first()
-    if not report or not report.selected_result_ids:
-        print("⚠️ Report not found or contains no selected results.")
-        return []
-
-    # Get sample IDs from report
-    sample_ids = [s.strip() for s in report.selected_result_ids.split(",") if s.strip()]
-
-    # Query ViCellData for the selected reactor
+    # Query ViCellData for the selected reactor and experiment with sample_type=1
     vicell_data = ViCellData.objects.filter(
-        id__in=sample_ids,
+        experiment=selected_experiment,
+        sample_type=1,
         reactor_number=selected_reactor
     ).order_by("day", "special")
 
@@ -750,40 +995,27 @@ def update_summary_table(selected_reactor, selected_report_id):
 
 @app.callback(
     Output("variable-graph-container", "children"),
-    [Input("selected-report", "data"),
+    [Input("selected-experiment", "data"),
      Input("variable-tabs", "value")],
     prevent_initial_call=True
 )
-def update_graph(selected_report_id, selected_variable):
+def update_graph(selected_experiment, selected_variable):
     """
     Updates the graph based on the selected variable tab.
-    Each graph plots different `reactor_number` groups over time using `day` as the x-axis.
+    Each graph plots different reactor_number groups over time using day as the x-axis.
     """
     if selected_variable is None:
         return "⚠️ No variable selected."
-    if selected_variable == "summary":
+    if selected_variable in ["summary"]:
         return None
-    if not selected_report_id:
-        return "⚠️ No report selected."
+    if not selected_experiment:
+        return "⚠️ No experiment selected."
 
-    report = ViCellReport.objects.filter(id=selected_report_id).first()
-    if not report:
-        return "⚠️ Report not found."
-
-    if not report.selected_result_ids:
-        return "⚠️ No selected result IDs found in this report."
-
-    sample_ids = [s.strip() for s in report.selected_result_ids.split(",") if s.strip()]
-    sample_names = list(ViCellData.objects.filter(id__in=sample_ids).values_list("sample_id", flat=True))
-
-    if not sample_names:
-        return "⚠️ No valid sample names found."
-
-    # Use the existing process_and_sort_samples function
-    grouped_data = process_and_sort_samples(sample_names)
+    # Use the new function to get experiment data
+    grouped_data = process_and_sort_samples_by_experiment(selected_experiment)
 
     if not grouped_data:
-        return "⚠️ No data available to plot."
+        return "⚠️ No data available to plot for this experiment."
 
     # Special handling for growth rate and doubling time analysis
     if selected_variable == "growth_rate":
@@ -821,7 +1053,7 @@ def update_graph(selected_report_id, selected_variable):
     # Update layout
     fig.update_layout(
         title={
-            'text': f"{VARIABLES.get(selected_variable, selected_variable)} Over Time",
+            'text': f"{VARIABLES.get(selected_variable, selected_variable)} Over Time - {selected_experiment}",
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20}
@@ -845,7 +1077,7 @@ def update_graph(selected_report_id, selected_variable):
             borderwidth=1
         ),
         font=dict(family="Arial, sans-serif", size=14),
-        margin=dict(l=80, r=150, t=100, b=80),
+        margin=dict(l=120, r=220, t=140, b=120),
         autosize=True
     )
 
@@ -960,7 +1192,7 @@ def create_growth_rate_analysis(grouped_data):
         template="plotly_white",
         plot_bgcolor='rgba(245, 245, 250, 0.5)',
         paper_bgcolor='white',
-        margin=dict(l=80, r=80, t=100, b=80),
+        margin=dict(l=120, r=120, t=140, b=120),
         autosize=True
     )
 
@@ -1043,7 +1275,7 @@ def create_doubling_time_analysis(grouped_data):
             bordercolor="rgba(0, 0, 0, 0.2)",
             borderwidth=1
         ),
-        margin=dict(l=80, r=150, t=100, b=80),
+        margin=dict(l=120, r=220, t=140, b=120),
         autosize=True
     )
 

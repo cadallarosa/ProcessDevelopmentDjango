@@ -248,7 +248,7 @@ def normalize_sample_names(metadata_dict):
     sample_suffix = ""
 
     # List of terms to check for in sample name (prefix or suffix)
-    prefix_suffix_check = ["FB", "UP", "PD", "STD"]
+    prefix_suffix_check = ["FB", "UP", "PD","FD", "STD"]
 
     # Check for prefix dynamically (case insensitive)
     for term in prefix_suffix_check:

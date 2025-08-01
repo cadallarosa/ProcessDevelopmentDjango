@@ -17,6 +17,12 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
     cols = num_cols
     rows = (num_samples // cols) + (num_samples % cols > 0)
 
+    if rows >2:
+        vertical_spacing = (1 / (rows - 1)) * 0.15
+    elif rows == 1 :
+        vertical_spacing = 0.05
+    print(f"Vertical spacing set to: {vertical_spacing}")
+
     region_colors = {
         "HMW": "rgba(255, 87, 87, 0.85)",  # Coral Red
         "MP": "rgba(72, 149, 239, 0.85)",  # Sky Blue

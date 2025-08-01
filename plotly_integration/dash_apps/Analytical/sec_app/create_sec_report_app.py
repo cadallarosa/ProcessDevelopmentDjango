@@ -99,6 +99,7 @@ app.layout = html.Div(
                     id="sample_type_filter",
                     options=[
                         {"label": "PD", "value": "PD"},
+                        {"label": "FD", "value": "FD"},
                         {"label": "UP", "value": "UP"},
                         {"label": "FB", "value": "FB"}
                     ],
@@ -352,7 +353,6 @@ def update_table(sample_types, sample_set_names, selected_columns):
         query = query.filter(sample_prefix__in=sample_types)
     if sample_set_names:
         query = query.filter(sample_set_name__in=sample_set_names)
-
 
     data = []
     for sample in query:

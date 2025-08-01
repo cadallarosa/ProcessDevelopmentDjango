@@ -247,9 +247,12 @@ def create_page_router(app):
         elif pathname == "/analytical/sec":
             try:
                 # Extract report_id from query params
-                report_id = query_params.get('report_id', ['320'])[0]  # Default to 320
+                report_id = query_params.get('report_id')
                 # Display full SEC app taking up entire viewport
-                sec_url = f"/plotly_integration/dash-app/app/SecReportApp/?report_id={report_id}"
+                if report_id:
+                    sec_url = f"/plotly_integration/dash-app/app/SecReportApp/?report_id={report_id}"
+                else:
+                    sec_url = "/plotly_integration/dash-app/app/SecReportApp/"
 
                 # Return a special full-screen layout that bypasses normal content container
                 return html.Div([
