@@ -214,6 +214,102 @@ def parse_all_sample_ids_complete():
     print(f"Cleared (no pattern): {stats['cleared_records']}")
     print("=" * 70)
 
+def parse_new_sample_ids_complete():
+    """
+    Parse ALL sample_id values with the complete parser.
+    Extracts Project ID, Clone ID, Experiment, Day, Reactor info, and Special markers.
+    """
+
+    # Get all records
+    all_records = ViCellData.objects.filter(experiment__isnull=True)
+    total_count = all_records.count()
+
+    print(f"Processing {total_count} records with complete parser...")
+    print("Extracting: Project ID, Clone ID, Experiment, Day, Reactor, Special markers")
+    print("-" * 70)
+
+    updated_count = 0
+    batch_size = 1000
+
+    # Statistics
+    stats = {
+        'parsed_experiments': 0,
+        'found_project_ids': 0,
+        'found_clone_ids': 0,
+        'found_reactors': 0,
+        'cleared_records': 0
+    }
+
+    # Process in batches for better performance
+    for i in range(0, total_count, batch_size):
+        batch = all_records[i:i + batch_size]
+        batch_updates = []
+
+        for record in batch:
+            # Parse the sample_id
+            parsed = parse_sample_id_complete(record.sample_id)
+
+            # Always update to ensure we clear old incorrect data
+            record.experiment = parsed['experiment']
+            record.day = parsed['day']
+            record.reactor_type = parsed['reactor_type']
+            record.reactor_number = parsed['reactor_number']
+            record.special = parsed['special']
+            record.sample_type = parsed['sample_type']
+
+            # Note: You'll need to add project_id and clone_id fields to your model
+            # record.project_id = parsed['project_id']
+            # record.clone_id = parsed['clone_id']
+
+            batch_updates.append(record)
+            updated_count += 1
+
+            # Update statistics
+            if parsed['experiment']:
+                stats['parsed_experiments'] += 1
+            if parsed['project_id']:
+                stats['found_project_ids'] += 1
+            if parsed['clone_id']:
+                stats['found_clone_ids'] += 1
+            if parsed['reactor_type']:
+                stats['found_reactors'] += 1
+
+            # Show results (limit output to avoid spam)
+            if any(parsed[key] is not None for key in ['experiment', 'day', 'reactor_type', 'reactor_number']) or \
+                    parsed['project_id'] or parsed['clone_id']:
+                if updated_count <= 100:  # Show first 100 detailed results
+                    print(f"{record.sample_id}")
+                    print(
+                        f"  -> project:{parsed['project_id']}, clone:{parsed['clone_id']}, exp:{parsed['experiment']}, day:{parsed['day']}, reactor:{parsed['reactor_type']}{parsed['reactor_number']}, special:{parsed['special']}")
+            else:
+                stats['cleared_records'] += 1
+                if stats['cleared_records'] <= 20:  # Show first 20 cleared
+                    print(f"{record.sample_id} -> CLEARED")
+
+        # Bulk update this batch
+        if batch_updates:
+            with transaction.atomic():
+                ViCellData.objects.bulk_update(
+                    batch_updates,
+                    ['experiment', 'day', 'reactor_type', 'reactor_number', 'special', 'sample_type']
+                    # Add 'project_id', 'clone_id' when you add those fields to model
+                )
+
+        # Progress update
+        processed = min(i + batch_size, total_count)
+        if processed % 5000 == 0:  # Every 5000 records
+            print(f"Processed: {processed}/{total_count}")
+
+    print("\n" + "=" * 70)
+    print("COMPLETE PARSING FINISHED!")
+    print(f"Total records: {total_count}")
+    print(f"Found experiments (E##): {stats['parsed_experiments']}")
+    print(f"Found project IDs (SI-##): {stats['found_project_ids']}")
+    print(f"Found clone IDs (#Letter#): {stats['found_clone_ids']}")
+    print(f"Found reactor info: {stats['found_reactors']}")
+    print(f"Cleared (no pattern): {stats['cleared_records']}")
+    print("=" * 70)
+
 
 def test_complete_parser():
     """Test the complete parser with various real patterns"""
@@ -269,6 +365,13 @@ def parse_all_sample_ids():
     """
     return parse_all_sample_ids_complete()
 
+def parse_new_sample_ids():
+    """
+    Main function to parse all sample IDs with the comprehensive parser.
+    Run this in Django console: parse_all_sample_ids()
+    """
+    return parse_new_sample_ids_complete()
+
 
 # Quick test function
 def test_parser():
@@ -277,3 +380,4 @@ def test_parser():
 
 # Just run this:
 # parse_all_sample_ids()
+# parse_new_sample_ids_complete()
