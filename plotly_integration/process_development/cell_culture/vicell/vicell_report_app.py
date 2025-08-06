@@ -49,15 +49,15 @@ EDIT_DATA_COLUMNS = [
     {"name": "Reactor Number", "id": "reactor_number", "editable": True},
     {"name": "Day", "id": "day", "editable": True},
     {"name": "Special", "id": "special", "editable": False},
+    {"name": "Viable Cells/mL", "id": "viable_cells_per_ml", "editable": False,
+     "format": {"specifier": ".2f"}},
+    {"name": "Viability (%)", "id": "viability", "editable": False, "format": {"specifier": ".1f"}},
     {"name": "Cell Count", "id": "cell_count", "editable": False, "format": {"specifier": ".0f"}},
     {"name": "Viable Cells", "id": "viable_cells", "editable": False,
      "format": {"specifier": ".0f"}},
     {"name": "Total Cells/mL", "id": "total_cells_per_ml", "editable": False,
      "format": {"specifier": ".2f"}},
-    {"name": "Viable Cells/mL", "id": "viable_cells_per_ml", "editable": False,
-     "format": {"specifier": ".2f"}},
-    {"name": "Viability (%)", "id": "viability", "editable": False, "format": {"specifier": ".1f"}},
-    {"name": "Sample Type", "id": "sample_type", "editable": False},
+    {"name": "Sample Type", "id": "sample_type", "editable": False, 'hidden': True},
 ]
 
 # Main layout with modals and stores
