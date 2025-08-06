@@ -198,12 +198,37 @@ def update_standard_plot(standard_id):
     fig.add_trace(
         go.Scatter(x=df_time["time"], y=df_time["channel_1"], mode='lines', name=f"STD {standard_id} - Channel 1"))
 
-    # Ensure annotation is placed at the correct peak height from time series
+    # Modern styled annotations without collision detection
     for _, row in df_peaks.iterrows():
         y_value = get_closest_time_series_value(row["peak_retention_time"])
         if y_value is not None:
-            fig.add_annotation(x=row["peak_retention_time"], y=y_value, text=row["peak_name"], showarrow=True,
-                               arrowhead=2)
+            fig.add_annotation(
+                x=row["peak_retention_time"], 
+                y=y_value, 
+                text=f"<b>{row['peak_name']}</b>",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor="rgba(37, 99, 235, 0.8)",
+                font=dict(
+                    size=10,
+                    color="white",
+                    family="system-ui, -apple-system, sans-serif"
+                ),
+                bgcolor="rgba(37, 99, 235, 0.9)",
+                bordercolor="rgba(255, 255, 255, 0.3)",
+                borderwidth=0,
+                borderpad=7,  # Increased padding for more rounded appearance
+                xanchor="center",
+                yanchor="bottom",
+                opacity=0.95,
+                # Properties to help create rounded visual effect
+                hoverlabel=dict(
+                    bgcolor="rgba(37, 99, 235, 0.9)",
+                    bordercolor="rgba(255, 255, 255, 0.3)"
+                )
+            )
 
     fig.update_layout(title=f"Time Series for Standard ID {standard_id}", xaxis_title="Time (min)",
                       yaxis_title="UV280", template="plotly_white")

@@ -23,7 +23,7 @@ app_layout = html.Div([
     dcc.Store(id='button-success-trigger', data=0),
     dcc.Interval(id="button-reset-interval", interval=3000, n_intervals=0, disabled=True),
 
-    # Enhanced toolbar with modern styling
+    # Consistent toolbar matching other analytical apps
     html.Div(
         id='toolbar-container',
         style={
@@ -31,12 +31,9 @@ app_layout = html.Div([
             'justifyContent': 'space-between',
             'alignItems': 'center',
             'padding': '15px 20px',
-            'backgroundColor': '#ffffff',
-            'borderBottom': '1px solid #e3e6ea',
-            'gap': '10px',
-            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
-            'position': 'relative',
-            'zIndex': '10'
+            'backgroundColor': '#f8f9fa',
+            'borderBottom': '1px solid #dee2e6',
+            'gap': '10px'
         },
         children=[
             # Left side - Single Select/Create Report button
@@ -47,18 +44,16 @@ app_layout = html.Div([
                         html.Span("📊 ", style={'marginRight': '5px'}),
                         "Select/Create Report"
                     ], id="select-create-report-btn", style={
-                        'backgroundColor': '#2563eb',
+                        'backgroundColor': '#0056b3',
                         'color': 'white',
                         'border': 'none',
-                        'padding': '12px 24px',
+                        'padding': '10px 20px',
                         'fontSize': '14px',
                         'cursor': 'pointer',
-                        'borderRadius': '12px',
-                        'fontWeight': '600',
-                        'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)',
-                        'position': 'relative',
-                        'overflow': 'hidden'
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
                     html.Div([
                         html.Span(id="current-report-text", children="No report selected",
@@ -75,42 +70,38 @@ app_layout = html.Div([
                         html.Span("💾 ", style={'marginRight': '5px'}),
                         "Save Settings"
                     ], id="save-plot-settings", style={
-                        'backgroundColor': '#059669',
+                        'backgroundColor': '#28a745',
                         'color': 'white',
                         'border': 'none',
-                        'padding': '12px 20px',
+                        'padding': '10px 20px',
                         'fontSize': '14px',
                         'cursor': 'pointer',
-                        'borderRadius': '10px',
-                        'fontWeight': '600',
-                        'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        'boxShadow': '0 4px 12px rgba(5, 150, 105, 0.25)',
-                        'position': 'relative',
-                        'overflow': 'hidden'
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     }),
                     html.Button([
                         html.Span("📈 ", style={'marginRight': '5px'}),
                         "Report Results"
                     ], id="report-results-btn", style={
-                        'backgroundColor': '#0891b2',
+                        'backgroundColor': '#17a2b8',
                         'color': 'white',
                         'border': 'none',
-                        'padding': '12px 20px',
+                        'padding': '10px 20px',
                         'fontSize': '14px',
                         'cursor': 'pointer',
-                        'borderRadius': '10px',
-                        'fontWeight': '600',
-                        'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        'boxShadow': '0 4px 12px rgba(8, 145, 178, 0.25)',
-                        'position': 'relative',
-                        'overflow': 'hidden'
+                        'borderRadius': '5px',
+                        'fontWeight': '500',
+                        'transition': 'all 0.3s ease',
+                        'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                     })
                 ]
             )
         ]
     ),
 
-    # Enhanced Modal for Select/Create Report
+    # Single Modal for Select/Create Report (matching callback ID)
     html.Div(
         id="report-modal",
         style={
@@ -121,49 +112,39 @@ app_layout = html.Div([
             'top': '0',
             'width': '100%',
             'height': '100%',
-            'backgroundColor': 'rgba(0,0,0,0.6)',
-            'backdropFilter': 'blur(4px)',
-            'overflow': 'auto',
-            'animation': 'fadeIn 0.3s ease-out'
+            'backgroundColor': 'rgba(0,0,0,0.5)',
+            'overflow': 'auto'
         },
         children=[
             html.Div(
                 style={
                     'backgroundColor': 'white',
-                    'margin': '40px auto',
-                    'padding': '32px',
+                    'margin': '50px auto',
+                    'padding': '20px',
                     'border': 'none',
-                    'borderRadius': '20px',
+                    'borderRadius': '8px',
                     'width': '90%',
                     'maxWidth': '1200px',
-                    'maxHeight': '85vh',
+                    'maxHeight': '90vh',
                     'overflow': 'auto',
-                    'boxShadow': '0 25px 50px -12px rgba(0,0,0,0.25)',
-                    'position': 'relative',
-                    'transform': 'scale(1)',
-                    'animation': 'modalSlideUp 0.3s ease-out'
+                    'boxShadow': '0 4px 6px rgba(0,0,0,0.1)',
+                    'position': 'relative'
                 },
                 children=[
                     # Modal header with tabs
                     html.Div([
                         html.Button("×", id="close-report-modal-btn", style={
                             'position': 'absolute',
-                            'top': '16px',
-                            'right': '16px',
-                            'background': '#f3f4f6',
+                            'top': '0',
+                            'right': '0',
+                            'background': 'none',
                             'border': 'none',
-                            'fontSize': '20px',
+                            'fontSize': '24px',
                             'cursor': 'pointer',
-                            'color': '#6b7280',
-                            'padding': '8px',
-                            'width': '36px',
-                            'height': '36px',
-                            'borderRadius': '50%',
-                            'display': 'flex',
-                            'alignItems': 'center',
-                            'justifyContent': 'center',
-                            'transition': 'all 0.2s ease',
-                            'hover': {'backgroundColor': '#e5e7eb', 'transform': 'scale(1.1)'}
+                            'color': '#6c757d',
+                            'padding': '0',
+                            'width': '30px',
+                            'height': '30px'
                         })
                     ], style={'position': 'relative', 'borderBottom': '1px solid #dee2e6', 'paddingBottom': '15px',
                               'marginBottom': '20px'}),
@@ -228,58 +209,45 @@ app_layout = html.Div([
                                                     style_table={'overflowX': 'auto'},
                                                     style_cell={
                                                         'textAlign': 'center',
-                                                        'padding': '12px 16px',
-                                                        'fontFamily': 'system-ui, -apple-system, sans-serif',
+                                                        'padding': '12px',
+                                                        'fontFamily': 'Arial, sans-serif',
                                                         'fontSize': '14px',
-                                                        'border': '1px solid #e5e7eb',  # Visible borders back
-                                                        'borderCollapse': 'collapse'
+                                                        'border': '1px solid #dee2e6'
                                                     },
                                                     style_header={
-                                                        'backgroundColor': '#f8fafc',
-                                                        'fontWeight': '700',
-                                                        'border': '1px solid #d1d5db',  # Visible header borders back
-                                                        'color': '#374151',
-                                                        'textTransform': 'uppercase',
-                                                        'fontSize': '12px',
-                                                        'letterSpacing': '0.5px'
+                                                        'backgroundColor': '#f8f9fa',
+                                                        'fontWeight': '600',
+                                                        'borderBottom': '2px solid #dee2e6'
                                                     },
                                                     style_data={
-                                                        'backgroundColor': 'white',
-                                                        'color': '#374151',
-                                                        'border': '1px solid #e5e7eb'  # Visible data borders back
+                                                        'borderBottom': '1px solid #dee2e6'
                                                     },
                                                     style_data_conditional=[
                                                         {
                                                             'if': {'row_index': 'odd'},
-                                                            'backgroundColor': '#fafbfc'
+                                                            'backgroundColor': '#f8f9fa'
                                                         },
                                                         {
                                                             "if": {"state": "active"},
-                                                            "backgroundColor": "#eff6ff",
-                                                            "border": "1px solid #3b82f6",
-                                                            "borderRadius": "8px",
-                                                            "boxShadow": "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                                                            "backgroundColor": "#e3f2fd",
+                                                            "border": "1px solid #2196f3"
                                                         },
                                                         {
                                                             "if": {"state": "selected"},
-                                                            "backgroundColor": "#dbeafe",
-                                                            "fontWeight": "600",
-                                                            "color": "#1e40af",
-                                                            "borderRadius": "8px"
+                                                            "backgroundColor": "#bbdefb",
+                                                            "fontWeight": "600"
                                                         }
                                                     ]
                                                 )
                                     ], style={
-                                        'width': '100%',
+                                        'width': '98%',
                                         'margin': 'auto',
-                                        'padding': '20px',
-                                        'border': 'none',  # Remove border
-                                        'borderRadius': '16px',
-                                        'backgroundColor': '#ffffff',  # Clean white background
-                                        'marginBottom': '20px',
-                                        'display': 'block',  # CRITICAL: Callbacks control this
-                                        'boxShadow': '0 2px 4px rgba(0,0,0,0.05)',  # Subtle shadow
-                                        'transition': 'all 0.2s ease'
+                                        'padding': '10px',
+                                        'border': '2px solid #0056b3',
+                                        'border-radius': '5px',
+                                        'background-color': '#f7f9fc',
+                                        'margin-bottom': '10px',
+                                        'display': 'block'  # CRITICAL: Callbacks control this
                                     }),
 
                                     # Sample Selection Table Container - FIXED STRUCTURE
@@ -302,51 +270,35 @@ app_layout = html.Div([
                                                     style_table={'overflowX': 'auto'},
                                                     style_cell={
                                                         'textAlign': 'center',
-                                                        'padding': '16px 20px',
-                                                        'fontFamily': 'system-ui, -apple-system, sans-serif',
+                                                        'padding': '12px',
+                                                        'fontFamily': 'Arial, sans-serif',
                                                         'fontSize': '14px',
-                                                        'border': 'none',
-                                                        'borderBottom': '1px solid #f1f5f9',
-                                                        'transition': 'all 0.2s ease'
+                                                        'border': '1px solid #dee2e6'
                                                     },
                                                     style_header={
-                                                        'backgroundColor': '#f8fafc',
-                                                        'fontWeight': '700',
-                                                        'borderBottom': '2px solid #e2e8f0',
-                                                        'color': '#374151',
-                                                        'textTransform': 'uppercase',
-                                                        'fontSize': '12px',
-                                                        'letterSpacing': '0.5px'
+                                                        'backgroundColor': '#f8f9fa',
+                                                        'fontWeight': '600',
+                                                        'borderBottom': '2px solid #dee2e6'
                                                     },
                                                     style_data={
-                                                        'backgroundColor': 'white',
-                                                        'color': '#374151',
-                                                        'borderBottom': '1px solid #f1f5f9'
+                                                        'borderBottom': '1px solid #dee2e6'
                                                     },
                                                     style_data_conditional=[
                                                         {
                                                             'if': {'row_index': 'odd'},
-                                                            'backgroundColor': '#fafbfc'
-                                                        },
-                                                        {
-                                                            'if': {'state': 'hover'},
-                                                            'backgroundColor': '#f0f9ff',
-                                                            'transform': 'translateY(-1px)',
-                                                            'boxShadow': '0 4px 8px rgba(0,0,0,0.08)'
+                                                            'backgroundColor': '#f8f9fa'
                                                         }
                                                     ]
                                                 )
                                     ], style={
-                                        'width': '100%',
+                                        'width': '98%',
                                         'margin': 'auto',
-                                        'padding': '20px',
-                                        'border': '1px solid #e2e8f0',
-                                        'borderRadius': '16px',
-                                        'backgroundColor': '#f8fafc',
-                                        'marginBottom': '20px',
-                                        'display': 'none',  # CRITICAL: Callbacks control this
-                                        'boxShadow': '0 4px 6px -1px rgba(0,0,0,0.1)',
-                                        'transition': 'all 0.2s ease'
+                                        'padding': '10px',
+                                        'border': '2px solid #0056b3',
+                                        'border-radius': '5px',
+                                        'background-color': '#f7f9fc',
+                                        'margin-bottom': '10px',
+                                        'display': 'none'  # CRITICAL: Callbacks control this
                                     }),
 
                                     # Status area - MOVED INSIDE MODAL
@@ -358,34 +310,30 @@ app_layout = html.Div([
                                         "marginBottom": "10px"
                                     }),
 
-                                    # Enhanced Action buttons
+                                    # Action buttons
                                     html.Div([
                                         html.Button("Cancel", id="cancel-select-btn", style={
-                                            'backgroundColor': '#6b7280',
+                                            'backgroundColor': '#6c757d',
                                             'color': 'white',
-                                            'padding': '12px 20px',
+                                            'padding': '8px 16px',
                                             'border': 'none',
-                                            'borderRadius': '10px',
+                                            'borderRadius': '5px',
                                             'cursor': 'pointer',
                                             'fontSize': '14px',
-                                            'fontWeight': '600',
-                                            'marginRight': '12px',
-                                            'transition': 'all 0.2s ease',
-                                            'boxShadow': '0 2px 4px rgba(107, 114, 128, 0.2)'
+                                            'fontWeight': '500',
+                                            'marginRight': '10px'
                                         }),
                                         html.Button("Confirm Selection", id="confirm-report-selection", style={
-                                            'backgroundColor': '#2563eb',
+                                            'backgroundColor': '#0056b3',
                                             'color': 'white',
-                                            'padding': '12px 24px',
+                                            'padding': '8px 16px',
                                             'border': 'none',
-                                            'borderRadius': '10px',
+                                            'borderRadius': '5px',
                                             'cursor': 'pointer',
                                             'fontSize': '14px',
-                                            'fontWeight': '600',
-                                            'transition': 'all 0.2s ease',
-                                            'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)'
+                                            'fontWeight': '500'
                                         })
-                                    ], style={'display': 'flex', 'justifyContent': 'flex-end', 'gap': '12px', 'marginTop': '16px'})
+                                    ], style={'display': 'flex', 'justifyContent': 'flex-end', 'gap': '10px'})
                                 ])
                             ]
                         ),
@@ -439,36 +387,27 @@ app_layout = html.Div([
                     id="main-tabs",
                     value="tab-2",
                     style={
-                        'borderBottom': '2px solid #e2e8f0',
-                        'marginBottom': '24px',
-                        'backgroundColor': 'white',
-                        'borderRadius': '12px 12px 0 0',
-                        'boxShadow': '0 2px 4px rgba(0,0,0,0.05)'
+                        'borderBottom': '1px solid #dee2e6',
+                        'marginBottom': '20px'
                     },
                     children=[
-                # Tab 2: Sample Analysis - Enhanced Styling
+                # Tab 2: Sample Analysis - FIXED TO PREVENT HORIZONTAL SCROLL
                 dcc.Tab(
                     label="Sample Analysis",
                     value="tab-2",
                     style={
-                        'padding': '16px 28px',
+                        'padding': '12px 24px',
                         'borderBottom': '3px solid transparent',
-                        'fontWeight': '600',
-                        'color': '#6b7280',
-                        'fontSize': '15px',
-                        'transition': 'all 0.2s ease',
-                        'borderRadius': '8px 8px 0 0'
+                        'fontWeight': '500'
                     },
                     selected_style={
                         'borderTop': 'none',
                         'borderLeft': 'none',
                         'borderRight': 'none',
-                        'borderBottom': '3px solid #2563eb',
+                        'borderBottom': '3px solid #0056b3',
                         'backgroundColor': 'white',
-                        'color': '#2563eb',
-                        'fontWeight': '700',
-                        'borderRadius': '8px 8px 0 0',
-                        'boxShadow': '0 -2px 8px rgba(37, 99, 235, 0.1)'
+                        'color': '#0056b3',
+                        'fontWeight': '600'
                     },
                     children=[
                         html.Div([
@@ -505,15 +444,12 @@ app_layout = html.Div([
                                 style={
                                     'flex': '1',  # Takes remaining space after settings panel
                                     'minWidth': '0',  # Allows flex item to shrink below content size
-                                    'padding': '24px',
-                                    'border': '1px solid #e5e7eb',
-                                    'borderRadius': '16px',
+                                    'padding': '20px',
+                                    'border': '1px solid #dee2e6',
+                                    'borderRadius': '8px',
                                     'backgroundColor': 'white',
-                                    'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                    'marginBottom': '16px',
-                                    'transition': 'all 0.3s ease',
-                                    'position': 'relative',
-                                    'overflow': 'hidden'
+                                    'boxShadow': '0 2px 4px rgba(0,0,0,0.06)',
+                                    'marginBottom': '10px'
                                 }
                             ),
 
@@ -582,35 +518,28 @@ app_layout = html.Div([
                                             type='number',
                                             value=7.843,
                                             style={
-                                                'width': '100%',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
+                                                'width': '90%',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
                                                 'fontSize': '14px',
-                                                'marginBottom': '16px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'boxSizing': 'border-box',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'marginBottom': '15px'
                                             }
                                         )
                                     ]),
 
-                                    # Enhanced Refresh button
+                                    # Refresh button
                                     html.Button("Refresh RT", id="refresh-rt-btn", n_clicks=0, style={
-                                        'backgroundColor': '#2563eb',
+                                        'backgroundColor': '#0056b3',
                                         'color': 'white',
                                         'border': 'none',
-                                        'padding': '12px 20px',
+                                        'padding': '8px 16px',
                                         'fontSize': '14px',
                                         'cursor': 'pointer',
-                                        'borderRadius': '10px',
-                                        'fontWeight': '600',
+                                        'borderRadius': '4px',
+                                        'fontWeight': '500',
                                         'width': '100%',
-                                        'marginBottom': '18px',
-                                        'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)',
-                                        'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                        'marginBottom': '15px'
                                     }),
 
                                     html.Div([
@@ -622,16 +551,12 @@ app_layout = html.Div([
                                             type='number',
                                             value=12,
                                             style={
-                                                'width': '100%',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
+                                                'width': '95%',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
                                                 'fontSize': '14px',
-                                                'marginBottom': '16px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'boxSizing': 'border-box',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'marginBottom': '15px'
                                             }
                                         )
                                     ]),
@@ -662,16 +587,12 @@ app_layout = html.Div([
                                             value=3,
                                             debounce=True,
                                             style={
-                                                'width': '100%',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
+                                                'width': '95%',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
                                                 'fontSize': '14px',
-                                                'marginBottom': '16px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'boxSizing': 'border-box',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'marginBottom': '15px'
                                             }
                                         )
                                     ]),
@@ -688,16 +609,12 @@ app_layout = html.Div([
                                             step=0.01,
                                             value=0.07,
                                             style={
-                                                'width': '100%',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
+                                                'width': '95%',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
                                                 'fontSize': '14px',
-                                                'marginBottom': '16px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'boxSizing': 'border-box',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'marginBottom': '15px'
                                             }
                                         )
                                     ]),
@@ -714,66 +631,53 @@ app_layout = html.Div([
                                             step=0.01,
                                             value=0.05,
                                             style={
-                                                'width': '100%',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
-                                                'fontSize': '14px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'boxSizing': 'border-box',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'width': '95%',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
+                                                'fontSize': '14px'
                                             }
                                         )
                                     ])
                                 ],
                                 style={
-                                    'width': '300px',  # Slightly wider for better UX
+                                    'width': '280px',  # Fixed width instead of percentage
                                     'flexShrink': '0',  # Prevents shrinking
-                                    'padding': '24px',
+                                    'padding': '20px',
                                     'backgroundColor': 'white',
-                                    'border': '1px solid #e5e7eb',
-                                    'borderRadius': '16px',
-                                    'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                    'height': 'fit-content',
-                                    'transition': 'all 0.3s ease',
-                                    'position': 'relative'
+                                    'border': '1px solid #dee2e6',
+                                    'borderRadius': '8px',
+                                    'boxShadow': '0 2px 4px rgba(0,0,0,0.06)',
+                                    'height': 'fit-content'
                                 }
                             )
                         ], style={
                             'display': 'flex',
                             'flexDirection': 'row',
-                            'gap': '24px',
+                            'gap': '20px',
                             'width': '100%',
-                            'boxSizing': 'border-box',  # Includes padding in width calculation
-                            'alignItems': 'flex-start'
+                            'boxSizing': 'border-box'  # Includes padding in width calculation
                         })
                     ]
                 ),
 
-                # Tab 3: Table Data - Enhanced Styling
+                # Tab 3: Table Data - Full width tabs
                 dcc.Tab(
                     label="Table Data",
                     value="tab-3",
                     style={
-                        'padding': '16px 28px',
+                        'padding': '12px 24px',
                         'borderBottom': '3px solid transparent',
-                        'fontWeight': '600',
-                        'color': '#6b7280',
-                        'fontSize': '15px',
-                        'transition': 'all 0.2s ease',
-                        'borderRadius': '8px 8px 0 0'
+                        'fontWeight': '500'
                     },
                     selected_style={
                         'borderTop': 'none',
                         'borderLeft': 'none',
                         'borderRight': 'none',
-                        'borderBottom': '3px solid #2563eb',
+                        'borderBottom': '3px solid #0056b3',
                         'backgroundColor': 'white',
-                        'color': '#2563eb',
-                        'fontWeight': '700',
-                        'borderRadius': '8px 8px 0 0',
-                        'boxShadow': '0 -2px 8px rgba(37, 99, 235, 0.1)'
+                        'color': '#0056b3',
+                        'fontWeight': '600'
                     },
                     children=[
                         # Project info banner
@@ -788,20 +692,19 @@ app_layout = html.Div([
                                     'fontWeight': '600'
                                 }),
                                 html.P(id='project-id-display',
-                                       style={'fontSize': '16px', 'margin': '8px 0', 'color': '#374151', 'fontWeight': '600'}),
+                                       style={'fontSize': '14px', 'margin': '5px 0', 'color': '#6c757d'}),
                                 html.P(id='expected-mw-display',
-                                       style={'fontSize': '16px', 'margin': '8px 0', 'color': '#374151', 'fontWeight': '600'})
+                                       style={'fontSize': '14px', 'margin': '5px 0', 'color': '#6c757d'})
                             ],
                             style={
                                 'width': '100%',
-                                'padding': '24px',
-                                'border': '1px solid #e5e7eb',
-                                'borderRadius': '16px',
-                                'backgroundColor': '#f8fafc',
-                                'marginBottom': '24px',
-                                'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                'boxSizing': 'border-box',
-                                'transition': 'all 0.3s ease'
+                                'padding': '20px',
+                                'border': '1px solid #dee2e6',
+                                'borderRadius': '8px',
+                                'backgroundColor': '#f8f9fa',
+                                'marginBottom': '20px',
+                                'boxShadow': '0 2px 4px rgba(0,0,0,0.06)',
+                                'boxSizing': 'border-box'
                             }
                         ),
 
@@ -898,37 +801,29 @@ app_layout = html.Div([
                                             ]
                                         ),
 
-                                html.Button([
-                                    html.Span("📄 ", style={'marginRight': '8px'}),
-                                    "Export to XLSX"
-                                ], id="export-button", style={
-                                    'marginTop': '20px',
-                                    'backgroundColor': '#059669',
+                                html.Button("Export to XLSX", id="export-button", style={
+                                    'marginTop': '15px',
+                                    'backgroundColor': '#28a745',
                                     'color': 'white',
                                     'border': 'none',
-                                    'padding': '14px 24px',
+                                    'padding': '10px 20px',
                                     'fontSize': '14px',
                                     'cursor': 'pointer',
-                                    'borderRadius': '12px',
-                                    'fontWeight': '600',
-                                    'boxShadow': '0 4px 14px rgba(5, 150, 105, 0.35)',
-                                    'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    'fontFamily': 'system-ui, -apple-system, sans-serif',
-                                    'position': 'relative',
-                                    'overflow': 'hidden'
+                                    'borderRadius': '5px',
+                                    'fontWeight': '500',
+                                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
                                 }),
                                 dcc.Download(id="download-hmw-data")
                             ],
                             style={
                                 'width': '100%',
-                                'padding': '24px',
-                                'border': '1px solid #e5e7eb',
-                                'borderRadius': '16px',
+                                'padding': '20px',
+                                'border': '1px solid #dee2e6',
+                                'borderRadius': '8px',
                                 'backgroundColor': 'white',
-                                'marginBottom': '24px',
-                                'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                'boxSizing': 'border-box',
-                                'transition': 'all 0.3s ease'
+                                'marginBottom': '20px',
+                                'boxShadow': '0 2px 4px rgba(0,0,0,0.06)',
+                                'boxSizing': 'border-box'
                             }
                         ),
 
@@ -976,41 +871,34 @@ app_layout = html.Div([
                             ],
                             style={
                                 'width': '100%',
-                                'padding': '24px',
-                                'border': '1px solid #e5e7eb',
-                                'borderRadius': '16px',
+                                'padding': '20px',
+                                'border': '1px solid #dee2e6',
+                                'borderRadius': '8px',
                                 'backgroundColor': 'white',
-                                'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                'boxSizing': 'border-box',
-                                'transition': 'all 0.3s ease'
+                                'boxShadow': '0 2px 4px rgba(0,0,0,0.06)',
+                                'boxSizing': 'border-box'
                             }
                         )
                     ]
                 ),
 
-                # Tab 4: Standard Analysis - Enhanced Styling
+                # Tab 4: Standard Analysis
                 dcc.Tab(
                     label="Standard Analysis",
                     value="tab-4",
                     style={
-                        'padding': '16px 28px',
+                        'padding': '12px 24px',
                         'borderBottom': '3px solid transparent',
-                        'fontWeight': '600',
-                        'color': '#6b7280',
-                        'fontSize': '15px',
-                        'transition': 'all 0.2s ease',
-                        'borderRadius': '8px 8px 0 0'
+                        'fontWeight': '500'
                     },
                     selected_style={
                         'borderTop': 'none',
                         'borderLeft': 'none',
                         'borderRight': 'none',
-                        'borderBottom': '3px solid #2563eb',
+                        'borderBottom': '3px solid #0056b3',
                         'backgroundColor': 'white',
-                        'color': '#2563eb',
-                        'fontWeight': '700',
-                        'borderRadius': '8px 8px 0 0',
-                        'boxShadow': '0 -2px 8px rgba(37, 99, 235, 0.1)'
+                        'color': '#0056b3',
+                        'fontWeight': '600'
                     },
                     children=[
                         html.Div(
@@ -1130,32 +1018,23 @@ app_layout = html.Div([
                                             type="number",
                                             placeholder="Enter Retention Time",
                                             style={
-                                                'width': '220px',
-                                                'padding': '12px 16px',
-                                                'border': '1px solid #d1d5db',
-                                                'borderRadius': '10px',
+                                                'width': '200px',
+                                                'padding': '8px 12px',
+                                                'border': '1px solid #ced4da',
+                                                'borderRadius': '4px',
                                                 'fontSize': '14px',
-                                                'marginRight': '12px',
-                                                'backgroundColor': '#f9fafb',
-                                                'transition': 'all 0.2s ease',
-                                                'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                                'marginRight': '10px'
                                             }
                                         ),
-                                        html.Button([
-                                            html.Span("🧮 ", style={'marginRight': '6px'}),
-                                            "Calculate MW"
-                                        ], id="calculate-mw-button", style={
-                                            'backgroundColor': '#2563eb',
+                                        html.Button("Calculate MW", id="calculate-mw-button", style={
+                                            'backgroundColor': '#0056b3',
                                             'color': 'white',
                                             'border': 'none',
-                                            'padding': '12px 20px',
+                                            'padding': '8px 16px',
                                             'cursor': 'pointer',
-                                            'borderRadius': '10px',
+                                            'borderRadius': '4px',
                                             'fontSize': '14px',
-                                            'fontWeight': '600',
-                                            'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)',
-                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                            'fontWeight': '500'
                                         })
                                     ], style={'margin': '15px 0', 'display': 'flex', 'alignItems': 'center'})
                                 ], style={
@@ -1177,13 +1056,11 @@ app_layout = html.Div([
             ], style={
                 'width': '100%',
                 'maxWidth': '100vw',  # Ensures it never exceeds viewport width
-                'padding': '24px',
-                'backgroundColor': '#f1f5f9',
+                'padding': '20px',
+                'backgroundColor': '#f8f9fa',
                 'minHeight': '100vh',
                 'boxSizing': 'border-box',  # Includes padding in width calculation
-                'overflowX': 'hidden',  # Prevents horizontal scrolling
-                'backgroundImage': 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
-                'fontFamily': 'system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif'
+                'overflowX': 'hidden'  # Prevents horizontal scrolling
             })
         ]
     ),

@@ -17,11 +17,17 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
     cols = num_cols
     rows = (num_samples // cols) + (num_samples % cols > 0)
 
-    if rows >2:
-        vertical_spacing = (1 / (rows - 1)) * 0.15
-    elif rows == 1 :
-        vertical_spacing = 0.05
-    print(f"Vertical spacing set to: {vertical_spacing}")
+    # More robust vertical spacing calculation
+    if rows == 1:
+        vertical_spacing = 0.05  # Single row needs minimal spacing
+    elif rows == 2:
+        vertical_spacing = 0.15  # Two rows need moderate spacing
+    elif rows <= 4:
+        vertical_spacing = max(0.08, (1 / (rows - 1)) * 0.2)  # 3-4 rows
+    else:
+        vertical_spacing = max(0.05, (1 / (rows - 1)) * 0.15)  # 5+ rows, ensure minimum spacing
+    
+    print(f"Rows: {rows}, Vertical spacing set to: {vertical_spacing:.3f}")
 
     region_colors = {
         "HMW": "rgba(255, 87, 87, 0.85)",  # Coral Red
@@ -30,9 +36,9 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
     }
 
     label_offsets = {
-        "HMW": {"x_offset": -3, "y_offset": 0.02},
-        "MP": {"x_offset": 0, "y_offset": 0.02},
-        "LMW": {"x_offset": 2, "y_offset": 0.02}
+        "HMW": {"x_offset": -3, "y_offset_percentage": 0.05},  # 5% of peak height
+        "MP": {"x_offset": 0, "y_offset_percentage": 0.05},   # 5% of peak height
+        "LMW": {"x_offset": 2, "y_offset_percentage": 0.05}   # 5% of peak height
     }
 
     fig = make_subplots(
@@ -130,7 +136,7 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
                             )
 
                             if enable_peak_labeling:
-                                # Annotate peaks using max value in the region
+                                # Annotate peaks using max value in the region - SIMPLE ORIGINAL METHOD
                                 try:
                                     max_peak_row = shading_region.loc[shading_region[channel].idxmax()]
                                     max_retention_time = max_peak_row['time']
@@ -140,26 +146,44 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
                                     log_mw = slope * max_retention_time + intercept
                                     mw = round(np.exp(log_mw) / 1000, 2)
 
-                                    # Debug MW calculation
-                                    # print(f"Sample: {sample_name}, Region: {region}, Max Retention Time: {max_retention_time}, MW: {mw}")
-
-                                    # Apply offsets for labels
+                                    # Apply offsets for labels - use percentage of peak height
                                     x_offset = label_offsets[region]["x_offset"] + max_retention_time
-                                    y_offset = label_offsets[region]["y_offset"] + max_peak_value
+                                    y_offset = max_peak_value + (max_peak_value * label_offsets[region]["y_offset_percentage"])
 
                                     if percentages[region] > 0:
+                                        # Modern annotation colors
+                                        modern_colors = {
+                                            "HMW": "rgba(239, 68, 68, 0.9)",   # Modern red
+                                            "MP": "rgba(37, 99, 235, 0.9)",    # Modern blue  
+                                            "LMW": "rgba(5, 150, 105, 0.9)"    # Modern green
+                                        }
+                                        
+                                        # Create rounded effect by using HTML/CSS-like styling
                                         fig.add_annotation(
                                             x=x_offset,
                                             y=y_offset,
-                                            text=f"{region}:{percentages[region]}%<br>RT:{round(max_retention_time, 2)} min<br>MW:{mw} kD",
+                                            text=f"<b>{region}</b><br>{percentages[region]}%<br>RT: {round(max_retention_time, 2)} min<br>MW: {mw} kDa",
                                             showarrow=False,
-                                            font=dict(size=12, color="black"),
+                                            font=dict(
+                                                size=10,
+                                                color="white",
+                                                family="system-ui, -apple-system, sans-serif"
+                                            ),
                                             align="center",
-                                            # bgcolor="rgba(255, 255, 255, 0.8)",
-                                            bgcolor=region_colors[region],
-                                            bordercolor=region_colors[region],
+                                            bgcolor=modern_colors[region],
+                                            bordercolor="rgba(255, 255, 255, 0.3)",
+                                            borderwidth=0,
+                                            borderpad=8,  # Increased padding for more rounded appearance
+                                            xanchor="center",
+                                            yanchor="bottom",
                                             row=row,
-                                            col=col
+                                            col=col,
+                                            opacity=0.95,
+                                            # These properties help create a more rounded visual effect
+                                            hoverlabel=dict(
+                                                bgcolor=modern_colors[region],
+                                                bordercolor="rgba(255, 255, 255, 0.3)"
+                                            )
                                         )
 
                                 except Exception as e:
