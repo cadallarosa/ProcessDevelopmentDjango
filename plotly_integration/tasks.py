@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.db import IntegrityError, transaction
 from plotly_integration.models import ViCellData
 from plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor import run_vicell_import
+from plotly_integration.process_development.cell_culture.vicell.sample_id_parsing import parse_sample_id_complete
 from pathlib import Path
 from plotly_integration.models import NovaFlex2
 
@@ -654,17 +655,6 @@ def import_vicell_data_complete(self):
             if col in df_cleaned.columns:
                 df_cleaned[col] = pd.to_numeric(df_cleaned[col], errors="coerce")
 
-        # Assign sample_type (same logic as manual import)
-        def assign_sample_type(sample_id):
-            if isinstance(sample_id, str):
-                if sample_id.startswith("E"):
-                    return 1  # UP
-                elif sample_id.startswith("S"):
-                    return 2  # CLD
-            return 3  # Uncategorized
-
-        df_cleaned["sample_type"] = df_cleaned["sample_id"].apply(assign_sample_type)
-
         # Replace NaN values with None (same as manual import)
         df_cleaned = df_cleaned.replace({np.nan: None})
 
@@ -674,44 +664,7 @@ def import_vicell_data_complete(self):
         new_records = []
         skipped_records = []
 
-        # Parse sample names and create records (same logic as manual import)
-        def parse_sample_name(sample_name):
-            """Parse sample name - using same logic as manual import"""
-            sample_name = str(sample_name)
-
-            match = re.match(
-                r"(?P<experiment>E\d{2})D(?P<day>\d{2})(?P<reactor_type>SF|BRX|BR)[-_]*(?P<reactor_number>\d+)\s*(?P<special>PREFEED|POSTFEED|PREINOC|POSTINOC)?",
-                sample_name, re.IGNORECASE
-            )
-
-            if not match:
-                match = re.match(
-                    r"(?P<experiment>E\d{2})D(?P<day>\d{2})(?P<reactor_type>SF|BRX|BR)\s*(?P<special>PREFEED|POSTFEED|PREINOC|POSTINOC)[-_]*(?P<reactor_number>\d+)",
-                    sample_name, re.IGNORECASE
-                )
-
-            if not match:
-                return {
-                    "experiment": None,
-                    "day": None,
-                    "reactor_type": None,
-                    "reactor_number": None,
-                    "special": ""
-                }
-
-            parsed_data = match.groupdict()
-            parsed_data["day"] = int(parsed_data["day"]) if parsed_data["day"] else None
-            parsed_data["reactor_number"] = int(parsed_data["reactor_number"]) if parsed_data["reactor_number"] else None
-
-            pre_post_map = {
-                "PREFEED": "PRE",
-                "PREINOC": "PRE",
-                "POSTFEED": "POST",
-                "POSTINOC": "POST"
-            }
-            parsed_data["special"] = pre_post_map.get(parsed_data["special"].upper(), "") if parsed_data["special"] else ""
-
-            return parsed_data
+        # Parse sample names using the comprehensive parser
 
         for idx, row in df_cleaned.iterrows():
             # Skip rows without valid date_time
@@ -719,7 +672,8 @@ def import_vicell_data_complete(self):
                 skipped_records.append(row["sample_id"])
                 continue
 
-            parsed_sample = parse_sample_name(row["sample_id"])
+            # Use the comprehensive parser
+            parsed_sample = parse_sample_id_complete(row["sample_id"])
 
             new_records.append(ViCellData(
                 sample_id=row["sample_id"],
@@ -733,13 +687,13 @@ def import_vicell_data_complete(self):
                 average_viable_diameter=row.get("average_viable_diameter"),
                 average_circularity=row.get("average_circularity"),
                 average_viable_circularity=row.get("average_viable_circularity"),
-                # Parsed fields
+                # Parsed fields from comprehensive parser
                 experiment=parsed_sample["experiment"],
                 day=parsed_sample["day"],
                 reactor_type=parsed_sample["reactor_type"],
                 reactor_number=parsed_sample["reactor_number"],
                 special=parsed_sample["special"],
-                sample_type=row.get("sample_type")
+                sample_type=parsed_sample["sample_type"]  # Use parser's sample_type instead of row's
             ))
 
             # Update progress every 500 records
