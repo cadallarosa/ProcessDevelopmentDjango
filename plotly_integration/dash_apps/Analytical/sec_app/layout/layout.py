@@ -193,52 +193,52 @@ app_layout = html.Div([
                                     html.Div(id="report-table-container", children=[
                                         html.H4("Select a Report", style={'textAlign': 'center', 'color': '#0056b3'}),
                                         dash_table.DataTable(
-                                            id='report-selection-table',
-                                            columns=[
-                                                {"name": "Report ID", "id": "report_id"},
-                                                {"name": "Report Name", "id": "report_name"},
-                                                {"name": "Project ID", "id": "project_id"},
-                                                {"name": "Created By", "id": "user_id"},
-                                                {"name": "Date Created", "id": "date_created"},
-                                            ],
-                                            page_size=10,
-                                            sort_action="native",
-                                            filter_action="native",
-                                            row_selectable="single",
-                                            selected_rows=[],
-                                            style_table={'overflowX': 'auto'},
-                                            style_cell={
-                                                'textAlign': 'center',
-                                                'padding': '12px',
-                                                'fontFamily': 'Arial, sans-serif',
-                                                'fontSize': '14px',
-                                                'border': '1px solid #dee2e6'
-                                            },
-                                            style_header={
-                                                'backgroundColor': '#f8f9fa',
-                                                'fontWeight': '600',
-                                                'borderBottom': '2px solid #dee2e6'
-                                            },
-                                            style_data={
-                                                'borderBottom': '1px solid #dee2e6'
-                                            },
-                                            style_data_conditional=[
-                                                {
-                                                    'if': {'row_index': 'odd'},
-                                                    'backgroundColor': '#f8f9fa'
-                                                },
-                                                {
-                                                    "if": {"state": "active"},
-                                                    "backgroundColor": "#e3f2fd",
-                                                    "border": "1px solid #2196f3"
-                                                },
-                                                {
-                                                    "if": {"state": "selected"},
-                                                    "backgroundColor": "#bbdefb",
-                                                    "fontWeight": "600"
-                                                }
-                                            ]
-                                        )
+                                                    id='report-selection-table',
+                                                    columns=[
+                                                        {"name": "Report ID", "id": "report_id"},
+                                                        {"name": "Report Name", "id": "report_name"},
+                                                        {"name": "Project ID", "id": "project_id"},
+                                                        {"name": "Created By", "id": "user_id"},
+                                                        {"name": "Date Created", "id": "date_created"},
+                                                    ],
+                                                    page_size=10,
+                                                    sort_action="native",
+                                                    filter_action="native",
+                                                    row_selectable="single",
+                                                    selected_rows=[],
+                                                    style_table={'overflowX': 'auto'},
+                                                    style_cell={
+                                                        'textAlign': 'center',
+                                                        'padding': '12px',
+                                                        'fontFamily': 'Arial, sans-serif',
+                                                        'fontSize': '14px',
+                                                        'border': '1px solid #dee2e6'
+                                                    },
+                                                    style_header={
+                                                        'backgroundColor': '#f8f9fa',
+                                                        'fontWeight': '600',
+                                                        'borderBottom': '2px solid #dee2e6'
+                                                    },
+                                                    style_data={
+                                                        'borderBottom': '1px solid #dee2e6'
+                                                    },
+                                                    style_data_conditional=[
+                                                        {
+                                                            'if': {'row_index': 'odd'},
+                                                            'backgroundColor': '#f8f9fa'
+                                                        },
+                                                        {
+                                                            "if": {"state": "active"},
+                                                            "backgroundColor": "#e3f2fd",
+                                                            "border": "1px solid #2196f3"
+                                                        },
+                                                        {
+                                                            "if": {"state": "selected"},
+                                                            "backgroundColor": "#bbdefb",
+                                                            "fontWeight": "600"
+                                                        }
+                                                    ]
+                                                )
                                     ], style={
                                         'width': '98%',
                                         'margin': 'auto',
@@ -254,42 +254,42 @@ app_layout = html.Div([
                                     html.Div(id="sample-table-container", children=[
                                         html.H4("Select Samples", style={'textAlign': 'center', 'color': '#0056b3'}),
                                         dash_table.DataTable(
-                                            id='sample-selection-table',
-                                            columns=[
-                                                {"name": "Sample Name", "id": "sample_name"},
-                                                {"name": "Result ID", "id": "result_id"},
-                                                {"name": "Date Acquired", "id": "date_acquired"},
-                                                {"name": "Sample Set Name", "id": "sample_set_name"},
-                                                {"name": "Column Name", "id": "column_name"},
-                                            ],
-                                            data=[],
-                                            page_size=15,
-                                            sort_action="native",
-                                            filter_action="native",
-                                            row_selectable="multi",
-                                            style_table={'overflowX': 'auto'},
-                                            style_cell={
-                                                'textAlign': 'center',
-                                                'padding': '12px',
-                                                'fontFamily': 'Arial, sans-serif',
-                                                'fontSize': '14px',
-                                                'border': '1px solid #dee2e6'
-                                            },
-                                            style_header={
-                                                'backgroundColor': '#f8f9fa',
-                                                'fontWeight': '600',
-                                                'borderBottom': '2px solid #dee2e6'
-                                            },
-                                            style_data={
-                                                'borderBottom': '1px solid #dee2e6'
-                                            },
-                                            style_data_conditional=[
-                                                {
-                                                    'if': {'row_index': 'odd'},
-                                                    'backgroundColor': '#f8f9fa'
-                                                }
-                                            ]
-                                        )
+                                                    id='sample-selection-table',
+                                                    columns=[
+                                                        {"name": "Sample Name", "id": "sample_name"},
+                                                        {"name": "Result ID", "id": "result_id"},
+                                                        {"name": "Date Acquired", "id": "date_acquired"},
+                                                        {"name": "Sample Set Name", "id": "sample_set_name"},
+                                                        {"name": "Column Name", "id": "column_name"},
+                                                    ],
+                                                    data=[],
+                                                    page_size=15,
+                                                    sort_action="native",
+                                                    filter_action="native",
+                                                    row_selectable="multi",
+                                                    style_table={'overflowX': 'auto'},
+                                                    style_cell={
+                                                        'textAlign': 'center',
+                                                        'padding': '12px',
+                                                        'fontFamily': 'Arial, sans-serif',
+                                                        'fontSize': '14px',
+                                                        'border': '1px solid #dee2e6'
+                                                    },
+                                                    style_header={
+                                                        'backgroundColor': '#f8f9fa',
+                                                        'fontWeight': '600',
+                                                        'borderBottom': '2px solid #dee2e6'
+                                                    },
+                                                    style_data={
+                                                        'borderBottom': '1px solid #dee2e6'
+                                                    },
+                                                    style_data_conditional=[
+                                                        {
+                                                            'if': {'row_index': 'odd'},
+                                                            'backgroundColor': '#f8f9fa'
+                                                        }
+                                                    ]
+                                                )
                                     ], style={
                                         'width': '98%',
                                         'margin': 'auto',
@@ -378,15 +378,19 @@ app_layout = html.Div([
     }),
 
     # Main content area with NO HORIZONTAL SCROLL - FIXED LAYOUT
-    html.Div([
-        dcc.Tabs(
-            id="main-tabs",
-            value="tab-2",
-            style={
-                'borderBottom': '1px solid #dee2e6',
-                'marginBottom': '20px'
-            },
-            children=[
+    dcc.Loading(
+        id="main-content-loading",
+        type="default",
+        children=[
+            html.Div([
+                dcc.Tabs(
+                    id="main-tabs",
+                    value="tab-2",
+                    style={
+                        'borderBottom': '1px solid #dee2e6',
+                        'marginBottom': '20px'
+                    },
+                    children=[
                 # Tab 2: Sample Analysis - FIXED TO PREVENT HORIZONTAL SCROLL
                 dcc.Tab(
                     label="Sample Analysis",
@@ -419,23 +423,23 @@ app_layout = html.Div([
                                         'fontWeight': '600'
                                     }),
                                     dcc.Graph(
-                                        id='time-series-graph',
-                                        figure=go.Figure(
-                                            data=[go.Scatter(x=[], y=[], mode='lines')],
-                                            layout=go.Layout(
-                                                title="Sample Plot",
-                                                xaxis_title="Time",
-                                                yaxis_title="UV280",
-                                                height=800,
-                                                dragmode="select",
-                                                annotations=[{"showarrow": True}]
+                                                id='time-series-graph',
+                                                figure=go.Figure(
+                                                    data=[go.Scatter(x=[], y=[], mode='lines')],
+                                                    layout=go.Layout(
+                                                        title="Sample Plot",
+                                                        xaxis_title="Time",
+                                                        yaxis_title="UV280",
+                                                        height=800,
+                                                        dragmode="select",
+                                                        annotations=[{"showarrow": True}]
+                                                    )
+                                                ),
+                                                config={
+                                                    'toImageButtonOptions': {'filename': 'sec_results'},
+                                                    'edits': {"annotationPosition": True}
+                                                }
                                             )
-                                        ),
-                                        config={
-                                            'toImageButtonOptions': {'filename': 'sec_results'},
-                                            'edits': {"annotationPosition": True}
-                                        }
-                                    )
                                 ],
                                 style={
                                     'flex': '1',  # Takes remaining space after settings panel
@@ -746,56 +750,56 @@ app_layout = html.Div([
                                 ),
 
                                 dash_table.DataTable(
-                                    id='hmw-table',
-                                    columns=[
-                                        {"name": "Sample Name", "id": "Sample Name"},
-                                        {"name": "HMW %", "id": "HMW"},
-                                        {"name": "Main Peak %", "id": "Main Peak"},
-                                        {"name": "LMW %", "id": "LMW"}
-                                    ],
-                                    data=[],
-                                    sort_action="native",
-                                    style_table={'overflowX': 'auto'},
-                                    style_cell={
-                                        'textAlign': 'center',
-                                        'padding': '12px',
-                                        'fontFamily': 'Arial, sans-serif',
-                                        'fontSize': '14px',
-                                        'border': '1px solid #dee2e6'
-                                    },
-                                    style_header={
-                                        'backgroundColor': '#f8f9fa',
-                                        'fontWeight': '600',
-                                        'borderBottom': '2px solid #dee2e6'
-                                    },
-                                    style_data={
-                                        'borderBottom': '1px solid #dee2e6'
-                                    },
-                                    style_data_conditional=[
-                                        {
-                                            'if': {'row_index': 'odd'},
-                                            'backgroundColor': '#f8f9fa'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{MW Deviation} > 30 || {MW Deviation} < -10',
-                                                'column_id': 'MW Deviation'
+                                            id='hmw-table',
+                                            columns=[
+                                                {"name": "Sample Name", "id": "Sample Name"},
+                                                {"name": "HMW %", "id": "HMW"},
+                                                {"name": "Main Peak %", "id": "Main Peak"},
+                                                {"name": "LMW %", "id": "LMW"}
+                                            ],
+                                            data=[],
+                                            sort_action="native",
+                                            style_table={'overflowX': 'auto'},
+                                            style_cell={
+                                                'textAlign': 'center',
+                                                'padding': '12px',
+                                                'fontFamily': 'Arial, sans-serif',
+                                                'fontSize': '14px',
+                                                'border': '1px solid #dee2e6'
                                             },
-                                            'color': 'white',
-                                            'backgroundColor': '#dc3545',
-                                            'fontWeight': '600'
-                                        },
-                                        {
-                                            'if': {
-                                                'filter_query': '{Calculated MW} = "Error" || {MW Deviation} = "Error"',
-                                                'column_id': 'MW Deviation'
+                                            style_header={
+                                                'backgroundColor': '#f8f9fa',
+                                                'fontWeight': '600',
+                                                'borderBottom': '2px solid #dee2e6'
                                             },
-                                            'color': 'white',
-                                            'backgroundColor': '#6c757d',
-                                            'fontWeight': '600'
-                                        }
-                                    ]
-                                ),
+                                            style_data={
+                                                'borderBottom': '1px solid #dee2e6'
+                                            },
+                                            style_data_conditional=[
+                                                {
+                                                    'if': {'row_index': 'odd'},
+                                                    'backgroundColor': '#f8f9fa'
+                                                },
+                                                {
+                                                    'if': {
+                                                        'filter_query': '{MW Deviation} > 30 || {MW Deviation} < -10',
+                                                        'column_id': 'MW Deviation'
+                                                    },
+                                                    'color': 'white',
+                                                    'backgroundColor': '#dc3545',
+                                                    'fontWeight': '600'
+                                                },
+                                                {
+                                                    'if': {
+                                                        'filter_query': '{Calculated MW} = "Error" || {MW Deviation} = "Error"',
+                                                        'column_id': 'MW Deviation'
+                                                    },
+                                                    'color': 'white',
+                                                    'backgroundColor': '#6c757d',
+                                                    'fontWeight': '600'
+                                                }
+                                            ]
+                                        ),
 
                                 html.Button("Export to XLSX", id="export-button", style={
                                     'marginTop': '15px',
@@ -835,35 +839,35 @@ app_layout = html.Div([
                                     'fontWeight': '600'
                                 }),
                                 dash_table.DataTable(
-                                    id='sample-details-table',
-                                    columns=[
-                                        {"name": "Field", "id": "field"},
-                                        {"name": "Value", "id": "value"}
-                                    ],
-                                    data=[
-                                        {"field": "Sample Set Name", "value": ""},
-                                        {"field": "Column Name", "value": ""},
-                                        {"field": "Column Serial Number", "value": ""},
-                                        {"field": "Instrument Method Name", "value": ""},
-                                    ],
-                                    style_table={'overflowX': 'auto'},
-                                    style_cell={
-                                        'textAlign': 'left',
-                                        'padding': '12px',
-                                        'fontFamily': 'Arial, sans-serif',
-                                        'fontSize': '14px',
-                                        'border': '1px solid #dee2e6'
-                                    },
-                                    style_header={
-                                        'backgroundColor': '#f8f9fa',
-                                        'fontWeight': '600',
-                                        'borderBottom': '2px solid #dee2e6',
-                                        'textAlign': 'center'
-                                    },
-                                    style_data={
-                                        'borderBottom': '1px solid #dee2e6'
-                                    }
-                                )
+                                            id='sample-details-table',
+                                            columns=[
+                                                {"name": "Field", "id": "field"},
+                                                {"name": "Value", "id": "value"}
+                                            ],
+                                            data=[
+                                                {"field": "Sample Set Name", "value": ""},
+                                                {"field": "Column Name", "value": ""},
+                                                {"field": "Column Serial Number", "value": ""},
+                                                {"field": "Instrument Method Name", "value": ""},
+                                            ],
+                                            style_table={'overflowX': 'auto'},
+                                            style_cell={
+                                                'textAlign': 'left',
+                                                'padding': '12px',
+                                                'fontFamily': 'Arial, sans-serif',
+                                                'fontSize': '14px',
+                                                'border': '1px solid #dee2e6'
+                                            },
+                                            style_header={
+                                                'backgroundColor': '#f8f9fa',
+                                                'fontWeight': '600',
+                                                'borderBottom': '2px solid #dee2e6',
+                                                'textAlign': 'center'
+                                            },
+                                            style_data={
+                                                'borderBottom': '1px solid #dee2e6'
+                                            }
+                                        )
                             ],
                             style={
                                 'width': '100%',
@@ -923,72 +927,72 @@ app_layout = html.Div([
                                 # Standard plots with consistent styling
                                 html.Div([
                                     dcc.Graph(
-                                        id='standard-peak-plot',
-                                        figure=go.Figure(
-                                            data=[go.Scatter(x=[], y=[], mode='lines')],
-                                            layout=go.Layout(
-                                                title="Standard Peak Plot",
-                                                xaxis_title="Time",
-                                                yaxis_title="UV280",
-                                                height=400,
-                                                dragmode="select"
-                                            )
-                                        )
-                                    ),
+                                                id='standard-peak-plot',
+                                                figure=go.Figure(
+                                                    data=[go.Scatter(x=[], y=[], mode='lines')],
+                                                    layout=go.Layout(
+                                                        title="Standard Peak Plot",
+                                                        xaxis_title="Time",
+                                                        yaxis_title="UV280",
+                                                        height=400,
+                                                        dragmode="select"
+                                                    )
+                                                )
+                                            ),
 
                                     dcc.Graph(
-                                        id='regression-plot',
-                                        figure=go.Figure(
-                                            data=[go.Scatter(x=[], y=[], mode='lines', line=dict(dash='dash'))],
-                                            layout=go.Layout(
-                                                title="MW Calibration Curve",
-                                                xaxis_title="Retention Time (min)",
-                                                yaxis_title="Log(MW)",
-                                                height=400,
-                                                dragmode="select"
-                                            )
-                                        ),
-                                        style={'marginTop': '20px'}
-                                    ),
+                                                id='regression-plot',
+                                                figure=go.Figure(
+                                                    data=[go.Scatter(x=[], y=[], mode='lines', line=dict(dash='dash'))],
+                                                    layout=go.Layout(
+                                                        title="MW Calibration Curve",
+                                                        xaxis_title="Retention Time (min)",
+                                                        yaxis_title="Log(MW)",
+                                                        height=400,
+                                                        dragmode="select"
+                                                    )
+                                                ),
+                                                style={'marginTop': '20px'}
+                                            ),
 
                                     dash_table.DataTable(
-                                        id="standard-table",
-                                        columns=[
-                                            {"name": "Peak Name", "id": "peak_name"},
-                                            {"name": "Retention Time", "id": "peak_retention_time"},
-                                            {"name": "MW", "id": "MW"},
-                                            {"name": "Asymmetry at 10%", "id": "asym_at_10"},
-                                            {"name": "Plate Count", "id": "plate_count"},
-                                            {"name": "Res-HH", "id": "res_hh"},
-                                            {"name": "Performance Cutoff", "id": "performance_cutoff"},
-                                            {"name": "Pass/Fail", "id": "pass/fail"},
-                                        ],
-                                        data=[],
-                                        row_selectable='multi',
-                                        selected_rows=[i for i in range(4)],
-                                        style_table={'overflowX': 'auto', 'marginTop': '20px'},
-                                        style_cell={
-                                            'textAlign': 'center',
-                                            'padding': '12px',
-                                            'fontFamily': 'Arial, sans-serif',
-                                            'fontSize': '14px',
-                                            'border': '1px solid #dee2e6'
-                                        },
-                                        style_header={
-                                            'backgroundColor': '#f8f9fa',
-                                            'fontWeight': '600',
-                                            'borderBottom': '2px solid #dee2e6'
-                                        },
-                                        style_data={
-                                            'borderBottom': '1px solid #dee2e6'
-                                        },
-                                        style_data_conditional=[
-                                            {
-                                                'if': {'row_index': 'odd'},
-                                                'backgroundColor': '#f8f9fa'
-                                            }
-                                        ]
-                                    )
+                                                id="standard-table",
+                                                columns=[
+                                                    {"name": "Peak Name", "id": "peak_name"},
+                                                    {"name": "Retention Time", "id": "peak_retention_time"},
+                                                    {"name": "MW", "id": "MW"},
+                                                    {"name": "Asymmetry at 10%", "id": "asym_at_10"},
+                                                    {"name": "Plate Count", "id": "plate_count"},
+                                                    {"name": "Res-HH", "id": "res_hh"},
+                                                    {"name": "Performance Cutoff", "id": "performance_cutoff"},
+                                                    {"name": "Pass/Fail", "id": "pass/fail"},
+                                                ],
+                                                data=[],
+                                                row_selectable='multi',
+                                                selected_rows=[i for i in range(4)],
+                                                style_table={'overflowX': 'auto', 'marginTop': '20px'},
+                                                style_cell={
+                                                    'textAlign': 'center',
+                                                    'padding': '12px',
+                                                    'fontFamily': 'Arial, sans-serif',
+                                                    'fontSize': '14px',
+                                                    'border': '1px solid #dee2e6'
+                                                },
+                                                style_header={
+                                                    'backgroundColor': '#f8f9fa',
+                                                    'fontWeight': '600',
+                                                    'borderBottom': '2px solid #dee2e6'
+                                                },
+                                                style_data={
+                                                    'borderBottom': '1px solid #dee2e6'
+                                                },
+                                                style_data_conditional=[
+                                                    {
+                                                        'if': {'row_index': 'odd'},
+                                                        'backgroundColor': '#f8f9fa'
+                                                    }
+                                                ]
+                                            )
                                 ], style={
                                     'padding': '20px',
                                     'border': '1px solid #dee2e6',
@@ -1049,15 +1053,17 @@ app_layout = html.Div([
 
             ]
         )
-    ], style={
-        'width': '100%',
-        'maxWidth': '100vw',  # Ensures it never exceeds viewport width
-        'padding': '20px',
-        'backgroundColor': '#f8f9fa',
-        'minHeight': '100vh',
-        'boxSizing': 'border-box',  # Includes padding in width calculation
-        'overflowX': 'hidden'  # Prevents horizontal scrolling
-    }),
+            ], style={
+                'width': '100%',
+                'maxWidth': '100vw',  # Ensures it never exceeds viewport width
+                'padding': '20px',
+                'backgroundColor': '#f8f9fa',
+                'minHeight': '100vh',
+                'boxSizing': 'border-box',  # Includes padding in width calculation
+                'overflowX': 'hidden'  # Prevents horizontal scrolling
+            })
+        ]
+    ),
 
     # Hidden stores and intervals
     dcc.Store(id='main-peak-rt-store', data=5.10),
