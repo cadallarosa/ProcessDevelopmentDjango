@@ -1040,6 +1040,74 @@ class LimsDnAssignment(models.Model):
         db_table = 'lims_dn_assignment'
 
 
+# Experimental Set Management Models
+class ExperimentalSet(models.Model):
+    STUDY_TYPE_CHOICES = [
+        ('cex', 'CEX Optimization'),
+        ('aex', 'AEX Optimization'),
+        ('hic', 'HIC Study'),
+        ('prota', 'Protein A'),
+        ('custom', 'Custom')
+    ]
+    
+    name = models.CharField(max_length=255, unique=True)
+    project_id = models.CharField(max_length=255)
+    study_type = models.CharField(max_length=50, choices=STUDY_TYPE_CHOICES, default='custom')
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_experimental_sets")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'experimental_set'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} ({self.project_id})"
+
+
+class ExperimentalSetData(models.Model):
+    experimental_set = models.ForeignKey(ExperimentalSet, on_delete=models.CASCADE, related_name='experimental_data')
+    dn_assignment = models.ForeignKey(LimsDnAssignment, on_delete=models.CASCADE)
+    
+    # Process Parameters
+    resin = models.CharField(max_length=100, blank=True)
+    cv_ml = models.FloatField(null=True, blank=True, verbose_name='CV (mL)')
+    residence_time = models.FloatField(null=True, blank=True, verbose_name='Residence Time (min)')
+    
+    # Buffer Conditions
+    elution_condition = models.CharField(max_length=200, blank=True)
+    eq = models.CharField(max_length=100, blank=True)
+    wash_condition = models.CharField(max_length=200, blank=True)
+    
+    # Load Parameters
+    load_density = models.FloatField(null=True, blank=True, verbose_name='Load Density (mg/mL)')
+    product_required = models.FloatField(null=True, blank=True, verbose_name='Product Required (mg)')
+    load_volume = models.FloatField(null=True, blank=True, verbose_name='Load Volume (mL)')
+    
+    # Results
+    eluate_volume = models.FloatField(null=True, blank=True, verbose_name='Eluate Volume (mL)')
+    eluate_concentration = models.FloatField(null=True, blank=True, verbose_name='Eluate Concentration (mg/mL)')
+    eluate_amount = models.FloatField(null=True, blank=True, verbose_name='Eluate Amount (mg)')
+    yield_percent = models.FloatField(null=True, blank=True, verbose_name='Yield (%)')
+    
+    # Analytics
+    mp_sec_percent = models.FloatField(null=True, blank=True, verbose_name='% MP SEC')
+    ppm_hcp = models.FloatField(null=True, blank=True, verbose_name='PPM HCP')
+    ppb_dna = models.FloatField(null=True, blank=True, verbose_name='PPB DNA')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'experimental_set_data'
+        unique_together = ('experimental_set', 'dn_assignment')
+        ordering = ['dn_assignment__dn']
+    
+    def __str__(self):
+        return f"{self.experimental_set.name} - DN{self.dn_assignment.dn:03d}"
+
+
 # # --- Lims Source Material Table ---
 class LimsSourceMaterial(models.Model):
     # The resulting sample from this source material prep

@@ -18,9 +18,10 @@ from django.db import IntegrityError, transaction
 from plotly_integration.models import ViCellData
 from plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor import run_vicell_import
 from plotly_integration.process_development.cell_culture.vicell.sample_id_parsing import parse_sample_id_complete
+import plotly_integration.process_development.cell_culture.nova_flex_2.sample_id_parsing as nova_flex
 from pathlib import Path
 from plotly_integration.models import NovaFlex2
-
+import plotly_integration.process_development.analytical.ce_sds.process_asc as ce_sds
 logger = logging.getLogger(__name__)
 
 # ========== AKTA CONFIGURATION ==========
@@ -220,7 +221,7 @@ def run_import_only(self):
 
 
 @shared_task(name='plotly_integration.run_traversal_only', bind=True)
-def run_traversal_only():
+def run_traversal_only(self):
     """
     Run only the traversal part.
     Use this to discover new OPC UA nodes without importing historical data.
@@ -809,61 +810,61 @@ def import_nova_flex2_files():
         'processed_files': []
     }
 
-    # Helper functions
-    def parse_sample_id(sample_id):
-        """Parse sample ID to extract experiment, day, reactor info, and special markers"""
-        patterns = {
-            'experiment': r'SI\d+P\d+',
-            'day': r'D(\d+)',
-            'reactor_type': r'(BR|STR)',
-            'reactor_number': r'(?:BR|STR)(\d+)',
-            'special': r'(UP|CLD)'
-        }
-
-        parsed_info = {
-            'experiment': None,
-            'day': None,
-            'reactor_type': None,
-            'reactor_number': None,
-            'special': None,
-            'sample_type': 3  # Default to uncategorized
-        }
-
-        if pd.isna(sample_id) or not sample_id:
-            return parsed_info
-
-        sample_id_str = str(sample_id).strip()
-
-        # Extract experiment
-        exp_match = re.search(patterns['experiment'], sample_id_str)
-        if exp_match:
-            parsed_info['experiment'] = exp_match.group(0)
-
-        # Extract day
-        day_match = re.search(patterns['day'], sample_id_str)
-        if day_match:
-            parsed_info['day'] = int(day_match.group(1))
-
-        # Extract reactor type
-        reactor_type_match = re.search(patterns['reactor_type'], sample_id_str)
-        if reactor_type_match:
-            parsed_info['reactor_type'] = reactor_type_match.group(0)
-
-        # Extract reactor number
-        reactor_num_match = re.search(patterns['reactor_number'], sample_id_str)
-        if reactor_num_match:
-            parsed_info['reactor_number'] = int(reactor_num_match.group(1))
-
-        # Extract special markers (UP/CLD)
-        special_match = re.search(patterns['special'], sample_id_str)
-        if special_match:
-            parsed_info['special'] = special_match.group(0)
-            if parsed_info['special'] == 'UP':
-                parsed_info['sample_type'] = 1
-            elif parsed_info['special'] == 'CLD':
-                parsed_info['sample_type'] = 2
-
-        return parsed_info
+    # # Helper functions
+    # def parse_sample_id(sample_id):
+    #     """Parse sample ID to extract experiment, day, reactor info, and special markers"""
+    #     patterns = {
+    #         'experiment': r'SI\d+P\d+',
+    #         'day': r'D(\d+)',
+    #         'reactor_type': r'(BR|STR)',
+    #         'reactor_number': r'(?:BR|STR)(\d+)',
+    #         'special': r'(UP|CLD)'
+    #     }
+    #
+    #     parsed_info = {
+    #         'experiment': None,
+    #         'day': None,
+    #         'reactor_type': None,
+    #         'reactor_number': None,
+    #         'special': None,
+    #         'sample_type': 3  # Default to uncategorized
+    #     }
+    #
+    #     if pd.isna(sample_id) or not sample_id:
+    #         return parsed_info
+    #
+    #     sample_id_str = str(sample_id).strip()
+    #
+    #     # Extract experiment
+    #     exp_match = re.search(patterns['experiment'], sample_id_str)
+    #     if exp_match:
+    #         parsed_info['experiment'] = exp_match.group(0)
+    #
+    #     # Extract day
+    #     day_match = re.search(patterns['day'], sample_id_str)
+    #     if day_match:
+    #         parsed_info['day'] = int(day_match.group(1))
+    #
+    #     # Extract reactor type
+    #     reactor_type_match = re.search(patterns['reactor_type'], sample_id_str)
+    #     if reactor_type_match:
+    #         parsed_info['reactor_type'] = reactor_type_match.group(0)
+    #
+    #     # Extract reactor number
+    #     reactor_num_match = re.search(patterns['reactor_number'], sample_id_str)
+    #     if reactor_num_match:
+    #         parsed_info['reactor_number'] = int(reactor_num_match.group(1))
+    #
+    #     # Extract special markers (UP/CLD)
+    #     special_match = re.search(patterns['special'], sample_id_str)
+    #     if special_match:
+    #         parsed_info['special'] = special_match.group(0)
+    #         if parsed_info['special'] == 'UP':
+    #             parsed_info['sample_type'] = 1
+    #         elif parsed_info['special'] == 'CLD':
+    #             parsed_info['sample_type'] = 2
+    #
+    #     return parsed_info
 
     def clean_numeric(value):
         """Clean numeric values, handling NaN and non-numeric strings"""
@@ -1025,7 +1026,8 @@ def import_nova_flex2_files():
                             continue
 
                         # Parse sample ID
-                        parsed_info = parse_sample_id(row['sample_id'])
+                        # parsed_info = parse_sample_id(row['sample_id'])
+                        parsed_info = nova_flex.parse_sample_id_complete(row['sample_id'])
 
                         # Prepare data
                         data = {
@@ -1097,12 +1099,13 @@ def import_nova_flex2_files():
 
 
 # ========== CESDS Import ==========
-from plotly_integration.process_development.analytical.ce_sds.process_asc import save_asc_to_db, move_file_to_processed
+
 import os
 
 # Configuration - adjust these paths as needed
 CESDS_IMPORT_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imports"
 CESDS_PROCESSED_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imported"
+CESDS_INVALID_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Invalid"
 
 
 @shared_task(name='plotly_integration.import_cesds_files', bind=True)
@@ -1111,14 +1114,16 @@ def import_cesds_files(self):
 
     # Ensure folders exist
     os.makedirs(CESDS_PROCESSED_FOLDER, exist_ok=True)
+    os.makedirs(CESDS_INVALID_FOLDER, exist_ok=True)
 
     # Get files to process
     processed_files = set(os.listdir(CESDS_PROCESSED_FOLDER))
     asc_files = [
         f for f in os.listdir(CESDS_IMPORT_FOLDER)
         if f.lower().endswith(".asc")
-           and "dat-pda - 220nm" not in f.lower()
-           and f not in processed_files
+           and "pda - 220nm" not in f.lower()  # Exclude ALL PDA files
+           and ".tmp" not in f.lower()  # Exclude temp files
+           # and f not in processed_files
     ]
 
     if not asc_files:
@@ -1127,19 +1132,37 @@ def import_cesds_files(self):
     # Process files
     successful = 0
     failed = 0
+    skipped = []
 
     for i, filename in enumerate(asc_files):
         file_path = os.path.join(CESDS_IMPORT_FOLDER, filename)
 
         try:
-            save_asc_to_db(file_path)
-            move_file_to_processed(file_path, CESDS_PROCESSED_FOLDER)
+            # Additional safety check before processing
+            if "pda" in filename.lower() or ".tmp" in filename.lower():
+                skipped.append(filename)
+                print(f"Moving invalid file to Invalid folder: {filename}")
+                try:
+                    ce_sds.move_file_to_processed(file_path, CESDS_INVALID_FOLDER)
+                except:
+                    pass  # If move fails, just skip
+                continue
+                
+            print(f"\nProcessing file {i+1}/{len(asc_files)}: {filename}")
+            ce_sds.save_asc_to_db(file_path)
+            ce_sds.move_file_to_processed(file_path, CESDS_PROCESSED_FOLDER)
             successful += 1
+            print(f"✓ Successfully imported: {filename}")
         except Exception as e:
             failed += 1
-            print(f"Failed to import {filename}: {e}")
+            print(f"✗ Failed to import {filename}: {e}")
+            import traceback
+            traceback.print_exc()
 
-    return f"Import completed. Success: {successful}, Failed: {failed}"
+    result = f"Import completed. Success: {successful}, Failed: {failed}"
+    if skipped:
+        result += f", Skipped: {len(skipped)} (PDA/temp files)"
+    return result
 
 
 # ========== cIEF Import ==========

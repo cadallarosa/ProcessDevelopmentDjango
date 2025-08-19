@@ -143,9 +143,15 @@ def save_asc_to_db(file_path):
         }
     )
 
-    # If record exists and you want to update it, update the fields
-    if not created:
+    # Handle based on whether this is a new or existing record
+    if created:
+        # New record was created
+        print(f"Created new record for: {sample_id_full} ({sample_set_name})")
+    else:
+        # Existing record found - update it
         print(f"Updating existing record for: {sample_id_full} ({sample_set_name})")
+        
+        # Update all fields with new values
         metadata.original_file_name = os.path.basename(file_path)
         metadata.sample_id_clean = sample_id_clean
         metadata.sample_prefix = sample_prefix
@@ -162,14 +168,15 @@ def save_asc_to_db(file_path):
         metadata.sample_set_name = sample_set_name
         metadata.save()
 
-        # Delete existing time series data for this metadata record
-        CIEFTimeSeries.objects.filter(metadata=metadata).delete()
-        print(f"Deleted existing time series data for: {sample_id_full}")
-    else:
-        print(f"Created new record for: {sample_id_full} ({sample_set_name})")
-
-    # Ensure metadata is saved before creating time series
-    metadata.refresh_from_db()
+        # Delete any existing time series data for this metadata record before inserting new data
+        try:
+            deleted_count, _ = CIEFTimeSeries.objects.filter(metadata=metadata).delete()
+            if deleted_count > 0:
+                print(f"Deleted {deleted_count} existing time series records for: {sample_id_full}")
+            else:
+                print(f"No existing time series records to delete for: {sample_id_full}")
+        except Exception as e:
+            print(f"Note: Could not delete existing time series data: {e}")
 
     # Verify we have a valid metadata ID
     if not metadata.id:

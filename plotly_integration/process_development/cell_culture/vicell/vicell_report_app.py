@@ -751,11 +751,11 @@ def load_edit_data(edit_btn_clicks, refresh_clicks, selected_experiment):
             vicell_data = ViCellData.objects.filter(
                 experiment=selected_experiment,
                 sample_type=1
-            ).order_by("-day", "reactor_type", "reactor_number")
+            ).order_by("-date_time")
         else:
             # If no experiment selected, show all sample_type=1 data
             vicell_data = ViCellData.objects.filter(sample_type=1).order_by(
-                "-experiment", "reactor_type", "reactor_number", "day"
+                "-date_time"
             )
 
         # Convert to list of dictionaries for DataTable

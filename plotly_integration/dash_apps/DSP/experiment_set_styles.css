@@ -1,0 +1,176 @@
+/* Experimental Set App - Enhanced Styles */
+
+/* Animation keyframes */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Enhanced button hover effects */
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* Card hover effects */
+.experiment-card {
+    transition: all 0.3s ease;
+}
+
+.experiment-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+}
+
+/* Tab styling */
+.tab {
+    transition: all 0.3s ease;
+}
+
+.tab-selected {
+    border-bottom: 3px solid #0047b3;
+}
+
+/* Data table enhancements */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused {
+    background-color: rgba(0, 71, 179, 0.05) !important;
+    outline: 2px solid #0047b3 !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.cell--selected {
+    background-color: rgba(0, 71, 179, 0.1) !important;
+}
+
+/* Input field focus states */
+input:focus, textarea:focus, .Select-control:focus {
+    outline: none !important;
+    border-color: #0047b3 !important;
+    box-shadow: 0 0 0 3px rgba(0, 71, 179, 0.1) !important;
+}
+
+/* Dropdown styling */
+.Select-menu-outer {
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Loading spinner customization */
+._dash-loading {
+    margin: auto;
+    color: #0047b3 !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .flex-container {
+        flex-direction: column !important;
+    }
+    
+    .card {
+        margin-bottom: 15px;
+    }
+    
+    button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+
+/* Status badges */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-pending {
+    background-color: #ffc107;
+    color: #333;
+}
+
+.status-completed {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Tooltip styling */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Grid layout for experiment cards */
+.experiment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    animation: fadeIn 0.5s ease-out;
+}

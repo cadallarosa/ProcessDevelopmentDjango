@@ -4,7 +4,6 @@ const opcua = require('node-opcua');
 const path = require('path');
 const { v5: uuidv5 } = require('uuid');
 const os = require('os');
-const { startTunnel, stopTunnel, getTunnelStatus } = require('./SSHTunnelManager');
 const variablePatterns = require('./variable-patterns');
 
 const app = express();
@@ -24,7 +23,7 @@ const OWN_KEY_PATH = path.join(CERT_FOLDER, "own", "private", "private_key.pem")
 // Configuration
 const CONFIG = {
     database: {
-        host: '127.0.0.1',
+        host: 'localhost',  // Direct connection, no SSH tunnel needed
         port: 3306,
         user: 'cdallarosa',
         password: '$ystImmun3!2022',
@@ -46,7 +45,7 @@ const CONFIG = {
     traversal: {
         batchSize: 10,
         rootFolders: [
-            // 'ns=2;s=6:Archive/OPCuser/Folders/DefaultHome/04_PD Results and Project Specific Methods',
+            'ns=2;s=6:Archive/OPCuser/Folders/DefaultHome/04_PD Results and Project Specific Methods',
             'ns=2;s=6:Archive/OPCuser/Folders/DefaultHome/05_CLD and Upstream Screening Results'
         ],
         // Skip these folder types - don't traverse into them
@@ -175,6 +174,7 @@ let opcuaSession = null;
 let globalVisitedNodes = new Set();
 let traversalState = {
     active: false,
+    starting: false,
     paused: false,
     processedFolders: 0,
     totalFolders: 0,
@@ -579,12 +579,22 @@ async function batchInsertRecords(records) {
 
 // Main traversal function
 async function traverseFolder(session, nodeId, depth = 0, visitedNodes = new Set()) {
-    if (!traversalState.active || depth > CONFIG.traversal.maxDepth) return;
+    // Safety checks
+    if (!traversalState.active || depth > CONFIG.traversal.maxDepth) {
+        console.log(`🛑 Stopping traversal: active=${traversalState.active}, depth=${depth}/${CONFIG.traversal.maxDepth}`);
+        return;
+    }
 
-    if (visitedNodes.has(nodeId)) return;
+    // Prevent infinite loops
+    if (visitedNodes.has(nodeId)) {
+        console.log(`🔄 Already visited: ${nodeId}`);
+        return;
+    }
+
     visitedNodes.add(nodeId);
     globalVisitedNodes.add(nodeId);
 
+    // Check if we know this folder is empty
     if (cache.emptyFolders.has(nodeId)) {
         console.log(`⏭️ Skipping known empty folder: ${nodeId}`);
         traversalState.processedFolders++;
@@ -592,118 +602,344 @@ async function traverseFolder(session, nodeId, depth = 0, visitedNodes = new Set
         return;
     }
 
+    // Handle pause state
     while (traversalState.paused && traversalState.active) {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    // Update current path for progress tracking
     traversalState.currentPath = nodeId;
     broadcastProgress();
 
     try {
         console.log(`\n${'  '.repeat(depth)}📁 Entering: ${nodeId}`);
+        console.log(`${'  '.repeat(depth)}   Depth: ${depth}/${CONFIG.traversal.maxDepth}`);
 
-        // Step 1: Browse all children
+        // DEBUGGING: Show exactly what we're trying to browse
+        if (depth === 0) {
+            console.log(`${'  '.repeat(depth)}🎯 ROOT FOLDER VERIFICATION:`);
+            console.log(`${'  '.repeat(depth)}   Expected: Children of the specified root folder`);
+            console.log(`${'  '.repeat(depth)}   Root nodeId: ${nodeId}`);
+        }
+
+        // Step 1: Browse all children of this node
         const allChildren = await browseChildNames(session, nodeId);
 
+        // Debug: Show what we found
+        console.log(`${'  '.repeat(depth)}🔍 Browse result: ${allChildren.length} children found`);
+        
+        // DEBUGGING: For root level, show what children we got to verify it's correct
+        if (depth === 0 && allChildren.length > 0) {
+            console.log(`${'  '.repeat(depth)}🚨 ROOT LEVEL DEBUG - First 10 children:`);
+            allChildren.slice(0, 10).forEach((child, i) => {
+                const name = getBrowseName(child);
+                const childNodeId = child.nodeId ? child.nodeId.toString() : 'NO_NODEID';
+                console.log(`${'  '.repeat(depth)}   ${i + 1}. "${name}" -> ${childNodeId}`);
+            });
+            console.log(`${'  '.repeat(depth)}❓ Do these look like children of your intended root folder?`);
+        }
+
         if (allChildren.length === 0) {
-            console.log(`${'  '.repeat(depth)}📂 Empty folder`);
+            console.log(`${'  '.repeat(depth)}📂 Empty folder - marking and moving on`);
             cache.emptyFolders.add(nodeId);
             traversalState.processedFolders++;
             broadcastProgress();
             return;
         }
 
-        console.log(`${'  '.repeat(depth)}Found ${allChildren.length} children`);
+        // Debug: Show first few children to understand structure
+        if (allChildren.length > 0) {
+            console.log(`${'  '.repeat(depth)}📋 First few children:`);
+            allChildren.slice(0, 5).forEach((child, i) => {
+                const name = getBrowseName(child);
+                const nodeClass = child.nodeClass === opcua.NodeClass.Object ? 'Folder' :
+                                child.nodeClass === opcua.NodeClass.Variable ? 'Variable' : 'Other';
+                console.log(`${'  '.repeat(depth)}   ${i + 1}. ${name} (${nodeClass})`);
 
-        // Step 2: Check if this is an endpoint
+                // Debug the nodeId structure
+                if (i < 2) { // Only debug first 2 to avoid spam
+                    debugNodeId(child.nodeId, `Child ${i + 1}`);
+                }
+            });
+            if (allChildren.length > 5) {
+                console.log(`${'  '.repeat(depth)}   ... and ${allChildren.length - 5} more`);
+            }
+        }
+
+        // Step 2: Check if this is an endpoint (data folder)
+        console.log(`${'  '.repeat(depth)}🎯 Checking if this is an endpoint...`);
+
         if (isLikelyEndpoint(allChildren)) {
-            console.log(`${'  '.repeat(depth)}📍 ENDPOINT DETECTED!`);
+            console.log(`${'  '.repeat(depth)}📍 ENDPOINT DETECTED! This is a data folder.`);
 
-            // Step 3: Extract only variables
+            // Step 3: Extract only variables from this endpoint
             const variables = extractVariables(allChildren);
-            console.log(`${'  '.repeat(depth)}📊 Found ${variables.length} variables to save`);
+            console.log(`${'  '.repeat(depth)}📊 Found ${variables.length} variables in this endpoint`);
 
             if (variables.length > 0) {
+                // Show what variables we found
+                console.log(`${'  '.repeat(depth)}📋 Variables found:`);
+                variables.slice(0, 10).forEach((variable, i) => {
+                    const name = getBrowseName(variable);
+                    console.log(`${'  '.repeat(depth)}     ${i + 1}. ${name}`);
+                });
+                if (variables.length > 10) {
+                    console.log(`${'  '.repeat(depth)}     ... and ${variables.length - 10} more variables`);
+                }
+
+                // Process this endpoint and create database record
                 const record = await processEndpoint(nodeId, variables);
                 if (record) {
                     traversalState.recordBatch.push(record);
                     console.log(`${'  '.repeat(depth)}📝 Added record to batch (${traversalState.recordBatch.length}/${CONFIG.traversal.batchSize})`);
 
+                    // Batch insert when we reach the batch size
                     if (traversalState.recordBatch.length >= CONFIG.traversal.batchSize) {
+                        console.log(`${'  '.repeat(depth)}💾 Batch full - inserting ${traversalState.recordBatch.length} records...`);
                         const inserted = await batchInsertRecords(traversalState.recordBatch);
                         traversalState.recordBatch = [];
                         broadcastProgress();
                     }
                 }
+            } else {
+                console.log(`${'  '.repeat(depth)}⚠️ Endpoint has no variables - unusual but continuing`);
             }
 
             traversalState.processedFolders++;
             broadcastProgress();
-            console.log(`${'  '.repeat(depth)}⏹️ Stopping at endpoint - not going deeper\n`);
-            return;
+            console.log(`${'  '.repeat(depth)}⏹️ Stopping at endpoint - not traversing deeper\n`);
+            return; // IMPORTANT: Stop here, don't go deeper into endpoints
         }
 
-        // Step 4: Not an endpoint - get only folders to traverse
+        // Step 4: Not an endpoint - filter out variables and unwanted folders
+        console.log(`${'  '.repeat(depth)}📁 Not an endpoint - filtering children for traversal`);
+
         const folderChildren = allChildren.filter(child => {
             const name = getBrowseName(child);
 
-            if (!name) return false;
-
-            if (child.nodeClass === opcua.NodeClass.Variable) {
-                console.log(`${'  '.repeat(depth)}⏭️ Skipping variable: ${name}`);
+            if (!name) {
+                console.log(`${'  '.repeat(depth)}   ⚠️ Child with no name - skipping`);
                 return false;
             }
 
+            // Skip variables - we only traverse folders
+            if (child.nodeClass === opcua.NodeClass.Variable) {
+                console.log(`${'  '.repeat(depth)}   ⏭️ Skipping variable: ${name}`);
+                return false;
+            }
+
+            // Skip configured folder types
             if (CONFIG.traversal.skipFolders.includes(name)) {
-                console.log(`${'  '.repeat(depth)}⏭️ Skipping folder type: ${name}`);
+                console.log(`${'  '.repeat(depth)}   ⏭️ Skipping folder type: ${name} (in skip list)`);
                 traversalState.skippedBranches++;
                 broadcastProgress();
                 return false;
             }
 
-            return child.nodeClass === opcua.NodeClass.Object;
+            // Only include Object nodes (folders)
+            if (child.nodeClass !== opcua.NodeClass.Object) {
+                console.log(`${'  '.repeat(depth)}   ⏭️ Skipping non-folder: ${name} (NodeClass: ${child.nodeClass})`);
+                return false;
+            }
+
+            console.log(`${'  '.repeat(depth)}   ✓ Will traverse: ${name}`);
+            return true;
         });
 
-        console.log(`${'  '.repeat(depth)}📁 ${folderChildren.length} folders to traverse`);
+        console.log(`${'  '.repeat(depth)}📁 ${folderChildren.length} folders selected for traversal`);
         traversalState.totalFolders += folderChildren.length;
         broadcastProgress();
 
-        // Step 5: Traverse each folder child
-        for (const child of folderChildren) {
-            if (!traversalState.active) break;
+        // Step 5: Traverse each folder child recursively
+        for (let i = 0; i < folderChildren.length; i++) {
+            const child = folderChildren[i];
+
+            // Check if we should stop
+            if (!traversalState.active) {
+                console.log(`${'  '.repeat(depth)}🛑 Traversal stopped by user - breaking out of folder loop`);
+                break;
+            }
 
             const childName = getBrowseName(child);
-            const childNodeId = child.nodeId?.toString();
+            console.log(`${'  '.repeat(depth)}➡️ [${i + 1}/${folderChildren.length}] Preparing to traverse: ${childName}`);
 
-            if (!childNodeId) continue;
+            // BULLETPROOF FIX: Use the actual nodeId from browse result, never construct paths
+            let childNodeId = null;
 
-            console.log(`${'  '.repeat(depth)}➡️ Traversing into: ${childName}`);
-            await traverseFolder(session, childNodeId, depth + 1, visitedNodes);
+            try {
+                // The nodeId from browse results is the authoritative, correct node ID
+                // We should NEVER try to construct it ourselves
+                if (child.nodeId) {
+                    // Convert the nodeId to string format based on its type
+                    if (typeof child.nodeId === 'string') {
+                        childNodeId = child.nodeId;
+                        console.log(`${'  '.repeat(depth)}   📋 Direct string nodeId: ${childNodeId}`);
+                    }
+                    else if (child.nodeId.toString && typeof child.nodeId.toString === 'function') {
+                        childNodeId = child.nodeId.toString();
+                        console.log(`${'  '.repeat(depth)}   📋 Converted nodeId via toString(): ${childNodeId}`);
+                    }
+                    else if (typeof child.nodeId === 'object') {
+                        // Handle node-opcua NodeId objects properly
+                        const namespace = child.nodeId.namespace !== undefined ? child.nodeId.namespace : 2;
+                        const identifier = child.nodeId.value || child.nodeId.identifier;
+                        
+                        if (identifier !== undefined) {
+                            // Check identifier type and format accordingly
+                            if (typeof identifier === 'string') {
+                                childNodeId = `ns=${namespace};s=${identifier}`;
+                                console.log(`${'  '.repeat(depth)}   📋 String identifier nodeId: ${childNodeId}`);
+                            } else if (typeof identifier === 'number') {
+                                childNodeId = `ns=${namespace};i=${identifier}`;
+                                console.log(`${'  '.repeat(depth)}   📋 Numeric identifier nodeId: ${childNodeId}`);
+                            } else if (Buffer.isBuffer(identifier)) {
+                                // Handle buffer/byte string identifiers
+                                childNodeId = `ns=${namespace};b=${identifier.toString('base64')}`;
+                                console.log(`${'  '.repeat(depth)}   📋 Buffer identifier nodeId: ${childNodeId}`);
+                            } else {
+                                console.error(`${'  '.repeat(depth)}   ⚠️ Unknown identifier type:`, typeof identifier);
+                            }
+                        }
+                    }
+                }
+
+                // NO PATH CONSTRUCTION FALLBACK - if we can't get the nodeId, skip this child
+                if (!childNodeId) {
+                    console.error(`${'  '.repeat(depth)}   ❌ Could not extract nodeId for: ${childName}`);
+                    console.error(`${'  '.repeat(depth)}       Raw nodeId object:`, child.nodeId);
+                    console.error(`${'  '.repeat(depth)}       This child will be skipped to prevent incorrect traversal`);
+                    traversalState.errors++;
+                    continue;
+                }
+
+                // Validate format to ensure it's a proper OPC UA nodeId
+                if (!childNodeId.includes('ns=') || (!childNodeId.includes('s=') && !childNodeId.includes('i=') && !childNodeId.includes('b=') && !childNodeId.includes('g='))) {
+                    console.error(`${'  '.repeat(depth)}   ❌ Invalid nodeId format: ${childNodeId}`);
+                    console.error(`${'  '.repeat(depth)}       Expected format: ns=<number>;[s|i|b|g]=<identifier>`);
+                    traversalState.errors++;
+                    continue;
+                }
+
+                console.log(`${'  '.repeat(depth)}   ✓ Using server-provided nodeId: ${childNodeId}`);
+                console.log(`${'  '.repeat(depth)}   🚀 Starting recursive traversal...`);
+
+                // Recursive call with the exact nodeId from the server
+                await traverseFolder(session, childNodeId, depth + 1, visitedNodes);
+
+                console.log(`${'  '.repeat(depth)}   ✅ Completed traversal of: ${childName}`);
+
+            } catch (error) {
+                console.error(`${'  '.repeat(depth)}   ❌ Error constructing/traversing nodeId for ${childName}:`, error.message);
+                traversalState.errors++;
+                // Continue with next child instead of stopping entirely
+                continue;
+            }
         }
 
+        // Mark this folder as processed
         traversalState.processedFolders++;
         broadcastProgress();
+        console.log(`${'  '.repeat(depth)}✅ Completed folder: ${nodeId} (processed ${folderChildren.length} children)`);
 
     } catch (error) {
-        console.error(`${'  '.repeat(depth)}❌ Error at ${nodeId}:`, error.message);
+        console.error(`${'  '.repeat(depth)}❌ Error processing folder ${nodeId}:`, error.message);
+        console.error(`${'  '.repeat(depth)}   Stack:`, error.stack);
+
         traversalState.errors++;
         traversalState.processedFolders++;
         broadcastProgress();
 
+        // Check for session errors that require reconnection
         if (error.message.includes('BadSessionIdInvalid') ||
-            error.message.includes('BadSecureChannelIdInvalid')) {
-            console.log('🔄 Session error detected - connection may have been lost');
-            // Don't try to reconnect - let the traversal fail and restart fresh
+            error.message.includes('BadSecureChannelIdInvalid') ||
+            error.message.includes('BadConnectionClosed')) {
+            console.error(`${'  '.repeat(depth)}🔥 Session error detected - connection lost`);
             throw new Error('OPC UA session lost - please restart traversal');
+        }
+
+        // For other errors, log but continue (don't throw)
+        console.log(`${'  '.repeat(depth)}⚠️ Continuing despite error...`);
+    }
+}
+
+// Helper function to debug nodeId objects
+function debugNodeId(nodeId, label = '') {
+    const indent = '      '; // Extra indentation for debug info
+    console.log(`${indent}🔍 Debug NodeId ${label}:`);
+    console.log(`${indent}   Type: ${typeof nodeId}`);
+    console.log(`${indent}   Value: ${nodeId}`);
+
+    if (typeof nodeId === 'object' && nodeId !== null) {
+        console.log(`${indent}   Properties:`, Object.keys(nodeId));
+        if (nodeId.namespace !== undefined) console.log(`${indent}   Namespace: ${nodeId.namespace}`);
+        if (nodeId.value !== undefined) console.log(`${indent}   Value: ${nodeId.value}`);
+        if (nodeId.identifier !== undefined) console.log(`${indent}   Identifier: ${nodeId.identifier}`);
+        if (nodeId.identifierType !== undefined) console.log(`${indent}   IdentifierType: ${nodeId.identifierType}`);
+        if (nodeId.toString && typeof nodeId.toString === 'function') {
+            try {
+                console.log(`${indent}   toString(): ${nodeId.toString()}`);
+            } catch (e) {
+                console.log(`${indent}   toString(): ERROR - ${e.message}`);
+            }
         }
     }
 }
 
+// Enhanced browseChildNames function with better debugging
+async function browseChildNames(session, nodeId) {
+    // Check cache first
+    const cached = cache.get(cache.browseResults, nodeId);
+    if (cached) {
+        console.log(`📦 Cache hit for ${nodeId} (${cached.length} children)`);
+        return cached;
+    }
+
+    // Rate limit to prevent overwhelming the server
+    await rateLimiter.throttle();
+
+    console.log(`🔍 Browsing nodeId: ${nodeId}`);
+
+    // Use exponential backoff for reliability
+    const result = await withExponentialBackoff(async () => {
+        try {
+            const browseResult = await session.browse({
+                nodeId: nodeId,
+                referenceTypeId: 'HierarchicalReferences',
+                browseDirection: opcua.BrowseDirection.Forward,
+                includeSubtypes: true,
+                nodeClassMask: 0, // Get all node classes
+                resultMask: 63, // Get all information
+                requestedMaxReferencesPerNode: 1000
+            });
+
+            if (!browseResult || !browseResult.references) {
+                console.log(`⚠️ Browse returned no references for ${nodeId}`);
+                return [];
+            }
+
+            console.log(`✅ Browse successful: ${browseResult.references.length} references found`);
+            return browseResult.references;
+
+        } catch (error) {
+            console.error(`❌ Browse failed for ${nodeId}: ${error.message}`);
+            throw error;
+        }
+    }, 3, 2000);
+
+    // Cache the result
+    cache.set(cache.browseResults, nodeId, result);
+    return result;
+}
+
 // Start traversal with proper reset
 async function startTraversal() {
-    if (traversalState.active) {
-        throw new Error('Traversal already in progress');
+    // Use a lock to prevent multiple starts
+    if (traversalState.starting || traversalState.active) {
+        console.log('⚠️ Traversal already starting or in progress, ignoring duplicate request');
+        return;
     }
+
+    traversalState.starting = true;
 
     // IMPORTANT: Clear ALL caches to start fresh every time
     console.log('🧹 Clearing all caches for fresh traversal...');
@@ -713,6 +949,7 @@ async function startTraversal() {
     // Reset state
     traversalState = {
         ...traversalState,
+        starting: false,
         active: true,
         paused: false,
         processedFolders: 0,
@@ -747,7 +984,7 @@ async function startTraversal() {
         });
         console.log('');
 
-        // Traverse each root folder sequentially
+        // Traverse each root folder sequentially with isolated state
         for (let i = 0; i < CONFIG.traversal.rootFolders.length; i++) {
             const rootFolder = CONFIG.traversal.rootFolders[i];
 
@@ -760,10 +997,21 @@ async function startTraversal() {
             console.log(`📁 STARTING ROOT FOLDER ${i + 1}/${CONFIG.traversal.rootFolders.length}: ${rootFolder}`);
             console.log(`${'='.repeat(80)}\n`);
 
+            // Each root folder gets completely fresh state to prevent cross-contamination
             const visitedNodes = new Set();
+            
+            // CRITICAL: Clear global visited nodes for each root folder
+            // This prevents the second root folder from skipping nodes that were
+            // visited during the first root folder traversal
+            console.log(`🧹 Clearing global state for fresh root folder traversal`);
+            console.log(`   Clearing ${globalVisitedNodes.size} previously visited nodes`);
+            globalVisitedNodes.clear();
+            
             await traverseFolder(opcuaSession, rootFolder, 0, visitedNodes);
 
             console.log(`\n✅ Completed root folder ${i + 1}/${CONFIG.traversal.rootFolders.length}`);
+            console.log(`   This root folder visited: ${visitedNodes.size} nodes`);
+            console.log(`   Total global visited nodes: ${globalVisitedNodes.size}`);
         }
 
         // Insert remaining records
@@ -789,6 +1037,9 @@ async function startTraversal() {
         console.log('\n🔌 Disconnecting from OPC UA server...');
         await disconnectOPCUA();
 
+        // Mark traversal as complete
+        console.log('\n✅ Traversal fully completed and disconnected');
+
     } catch (error) {
         traversalState.active = false;
         console.error('❌ Traversal error:', error);
@@ -796,7 +1047,8 @@ async function startTraversal() {
         // Ensure we disconnect even on error
         await disconnectOPCUA();
 
-        throw error;
+        // Don't throw error again - just log it
+        console.error('Traversal failed:', error.message);
     }
 }
 
@@ -804,6 +1056,7 @@ async function startTraversal() {
 function broadcastProgress() {
     const progress = {
         active: traversalState.active,
+        starting: traversalState.starting,
         paused: traversalState.paused,
         processedFolders: traversalState.processedFolders,
         totalFolders: traversalState.totalFolders,
@@ -824,7 +1077,21 @@ function broadcastProgress() {
 // API Routes
 app.post('/api/traverse/start-optimized', async (req, res) => {
     try {
-        startTraversal().catch(err => console.error('Traversal error:', err));
+        // Check if traversal is already running
+        if (traversalState.active) {
+            return res.status(400).json({
+                success: false,
+                error: 'Traversal already in progress'
+            });
+        }
+
+        // Start traversal asynchronously (don't await)
+        startTraversal().catch(err => {
+            console.error('Traversal error:', err);
+            traversalState.active = false;
+        });
+
+        // Return immediately
         res.json({ success: true, message: 'Traversal started' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -843,6 +1110,7 @@ app.post('/api/traverse/resume', (req, res) => {
 
 app.post('/api/traverse/stop', async (req, res) => {
     traversalState.active = false;
+    traversalState.starting = false;
 
     // Disconnect OPC UA when stopping
     console.log('🛑 Stop requested - disconnecting OPC UA...');
@@ -854,6 +1122,7 @@ app.post('/api/traverse/stop', async (req, res) => {
 app.get('/api/traverse/stats', (req, res) => {
     const progress = {
         active: traversalState.active,
+        starting: traversalState.starting,
         paused: traversalState.paused,
         processedFolders: traversalState.processedFolders,
         totalFolders: traversalState.totalFolders,
@@ -883,8 +1152,6 @@ app.get('/api/traverse/stream', (req, res) => {
 
 app.get('/api/database/status', async (req, res) => {
     try {
-        const tunnelStatus = getTunnelStatus();
-
         if (dbPool) {
             const connection = await dbPool.getConnection();
             await connection.ping();
@@ -892,23 +1159,21 @@ app.get('/api/database/status', async (req, res) => {
 
             res.json({
                 poolReady: true,
-                tunnelConnected: tunnelStatus.connected,
-                tunnelDetails: tunnelStatus
+                connected: true,
+                message: 'Database connection is active'
             });
         } else {
             res.json({
                 poolReady: false,
-                tunnelConnected: tunnelStatus.connected,
-                tunnelDetails: tunnelStatus
+                connected: false,
+                message: 'Database pool not initialized'
             });
         }
     } catch (error) {
-        const tunnelStatus = getTunnelStatus();
         res.json({
             poolReady: false,
-            error: error.message,
-            tunnelConnected: tunnelStatus.connected,
-            tunnelDetails: tunnelStatus
+            connected: false,
+            error: error.message
         });
     }
 });
@@ -924,22 +1189,10 @@ setInterval(() => {
 async function startServer() {
     console.log('🚀 Starting Optimized OPC UA Browser...');
 
-    // Start SSH tunnel
-    console.log('🔐 Establishing SSH tunnel...');
-    const tunnelStarted = await startTunnel();
-
-    if (!tunnelStarted) {
-        console.error('❌ Failed to establish SSH tunnel');
-        process.exit(1);
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Initialize database
+    // Initialize database (no SSH tunnel needed)
     const dbReady = await initializeDatabase();
     if (!dbReady) {
         console.error('Failed to initialize database');
-        await stopTunnel();
         process.exit(1);
     }
 
@@ -965,12 +1218,12 @@ process.on('SIGINT', async () => {
     if (dbPool) {
         try {
             await dbPool.end();
+            console.log('✅ Database connection closed');
         } catch (err) {
             console.error('Error closing database:', err.message);
         }
     }
 
-    await stopTunnel();
     process.exit(0);
 });
 

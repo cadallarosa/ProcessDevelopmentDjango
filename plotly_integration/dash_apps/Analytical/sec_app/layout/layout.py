@@ -483,6 +483,52 @@ app_layout = html.Div([
                                         'fontSize': '18px',
                                         'fontWeight': '600'
                                     }),
+                                    
+                                    # Top Pagination controls (initially hidden)
+                                    html.Div(id='pagination-controls-top', style={'display': 'none'}, children=[
+                                        html.Div([
+                                            html.Button("◀ Previous", id="prev-page-btn-top", n_clicks=0, disabled=True, style={
+                                                'backgroundColor': '#6b7280',
+                                                'color': 'white',
+                                                'border': 'none',
+                                                'padding': '8px 16px',
+                                                'fontSize': '14px',
+                                                'cursor': 'pointer',
+                                                'borderRadius': '8px',
+                                                'marginRight': '10px'
+                                            }),
+                                            html.Span(id="page-info-top", children="Page 1 of 1", style={
+                                                'margin': '0 15px',
+                                                'fontWeight': '500',
+                                                'color': '#374151'
+                                            }),
+                                            html.Button("Next ▶", id="next-page-btn-top", n_clicks=0, style={
+                                                'backgroundColor': '#2563eb',
+                                                'color': 'white',
+                                                'border': 'none',
+                                                'padding': '8px 16px',
+                                                'fontSize': '14px',
+                                                'cursor': 'pointer',
+                                                'borderRadius': '8px',
+                                                'marginLeft': '10px'
+                                            }),
+                                            html.Span(id="samples-info-top", children="", style={
+                                                'marginLeft': '20px',
+                                                'fontSize': '12px',
+                                                'color': '#6b7280',
+                                                'fontStyle': 'italic'
+                                            })
+                                        ], style={
+                                            'textAlign': 'center',
+                                            'padding': '12px',
+                                            'backgroundColor': '#f8fafc',
+                                            'border': '1px solid #e5e7eb',
+                                            'borderRadius': '8px',
+                                            'marginBottom': '15px'
+                                        })
+                                    ]),
+                                    
+                                    
                                     dcc.Graph(
                                                 id='time-series-graph',
                                                 figure=go.Figure(
@@ -500,7 +546,51 @@ app_layout = html.Div([
                                                     'toImageButtonOptions': {'filename': 'sec_results'},
                                                     'edits': {"annotationPosition": True}
                                                 }
-                                            )
+                                            ),
+                                    
+                                    # Bottom Pagination controls (initially hidden)
+                                    html.Div(id='pagination-controls-bottom', style={'display': 'none'}, children=[
+                                        html.Div([
+                                            html.Button("◀ Previous", id="prev-page-btn-bottom", n_clicks=0, disabled=True, style={
+                                                'backgroundColor': '#6b7280',
+                                                'color': 'white',
+                                                'border': 'none',
+                                                'padding': '8px 16px',
+                                                'fontSize': '14px',
+                                                'cursor': 'pointer',
+                                                'borderRadius': '8px',
+                                                'marginRight': '10px'
+                                            }),
+                                            html.Span(id="page-info-bottom", children="Page 1 of 1", style={
+                                                'margin': '0 15px',
+                                                'fontWeight': '500',
+                                                'color': '#374151'
+                                            }),
+                                            html.Button("Next ▶", id="next-page-btn-bottom", n_clicks=0, style={
+                                                'backgroundColor': '#2563eb',
+                                                'color': 'white',
+                                                'border': 'none',
+                                                'padding': '8px 16px',
+                                                'fontSize': '14px',
+                                                'cursor': 'pointer',
+                                                'borderRadius': '8px',
+                                                'marginLeft': '10px'
+                                            }),
+                                            html.Span(id="samples-info-bottom", children="", style={
+                                                'marginLeft': '20px',
+                                                'fontSize': '12px',
+                                                'color': '#6b7280',
+                                                'fontStyle': 'italic'
+                                            })
+                                        ], style={
+                                            'textAlign': 'center',
+                                            'padding': '12px',
+                                            'backgroundColor': '#f8fafc',
+                                            'border': '1px solid #e5e7eb',
+                                            'borderRadius': '8px',
+                                            'marginTop': '15px'
+                                        })
+                                    ])
                                 ],
                                 style={
                                     'flex': '1',  # Takes remaining space after settings panel
@@ -512,8 +602,9 @@ app_layout = html.Div([
                                     'boxShadow': '0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
                                     'marginBottom': '16px',
                                     'transition': 'all 0.3s ease',
-                                    'position': 'relative',
-                                    'overflow': 'hidden'
+                                    'position': 'relative',  # Required for loading overlay
+                                    'overflow': 'hidden',
+                                    'minHeight': '500px'  # Ensure space for loading overlay
                                 }
                             ),
 
@@ -581,6 +672,7 @@ app_layout = html.Div([
                                             id='main-peak-rt-input',
                                             type='number',
                                             value=7.843,
+                                            debounce=True,
                                             style={
                                                 'width': '100%',
                                                 'padding': '12px 16px',
@@ -621,6 +713,7 @@ app_layout = html.Div([
                                             id='low-mw-cutoff-input',
                                             type='number',
                                             value=12,
+                                            debounce=True,
                                             style={
                                                 'width': '100%',
                                                 'padding': '12px 16px',
@@ -643,9 +736,10 @@ app_layout = html.Div([
                                         dcc.Checklist(
                                             id='peak-label-checklist',
                                             options=[
-                                                {'label': 'Enable Peak Labeling', 'value': 'enable_peak_labeling'}
+                                                {'label': 'Enable Peak Labeling', 'value': 'enable_peak_labeling'},
+                                                {'label': 'Show MW in Annotations', 'value': 'show_mw_annotations'}
                                             ],
-                                            value=['enable_peak_labeling'],
+                                            value=['enable_peak_labeling', 'show_mw_annotations'],
                                             style={'marginBottom': '15px'}
                                         )
                                     ]),
@@ -687,6 +781,7 @@ app_layout = html.Div([
                                             max=1,
                                             step=0.01,
                                             value=0.07,
+                                            debounce=True,
                                             style={
                                                 'width': '100%',
                                                 'padding': '12px 16px',
@@ -713,6 +808,7 @@ app_layout = html.Div([
                                             max=1,
                                             step=0.01,
                                             value=0.05,
+                                            debounce=True,
                                             style={
                                                 'width': '100%',
                                                 'padding': '12px 16px',
@@ -725,7 +821,33 @@ app_layout = html.Div([
                                                 'fontFamily': 'system-ui, -apple-system, sans-serif'
                                             }
                                         )
-                                    ])
+                                    ]),
+                                    
+                                    # Helpful note
+                                    html.Div([
+                                        html.P("💡 Layout changes (columns, spacing) require clicking Apply", 
+                                               style={'fontSize': '12px', 'color': '#6b7280', 'fontStyle': 'italic', 
+                                                      'marginBottom': '10px', 'textAlign': 'center'})
+                                    ]),
+                                    
+                                    # Apply Settings Button
+                                    html.Div([
+                                        html.Button("🔄 Apply Layout Settings", id="apply-layout-btn", n_clicks=0, style={
+                                            'backgroundColor': '#059669',
+                                            'color': 'white',
+                                            'border': 'none',
+                                            'padding': '14px 20px',
+                                            'fontSize': '14px',
+                                            'cursor': 'pointer',
+                                            'borderRadius': '10px',
+                                            'fontWeight': '600',
+                                            'width': '100%',
+                                            'marginTop': '20px',
+                                            'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            'boxShadow': '0 4px 12px rgba(5, 150, 105, 0.25)',
+                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                        })
+                                    ], style={'marginTop': '16px'})
                                 ],
                                 style={
                                     'width': '300px',  # Slightly wider for better UX
@@ -1191,5 +1313,10 @@ app_layout = html.Div([
     # Hidden stores and intervals
     dcc.Store(id='main-peak-rt-store', data=5.10),
     dcc.Interval(id="reset-save-settings-timer", interval=3000, n_intervals=0, disabled=True),
-    dcc.Store(id="reset-save-settings-trigger", data=False)
+    dcc.Store(id="reset-save-settings-trigger", data=False),
+    
+    # Pagination stores
+    dcc.Store(id='pagination-data', data={'current_page': 1, 'total_pages': 1, 'samples_per_page': 30, 'all_samples': [], 'all_result_ids': []}),
+    dcc.Store(id='cached-plots', data={}),  # Cache for background-loaded plots
+    dcc.Store(id='background-loading-queue', data=[]),  # Queue for background loading
 ])

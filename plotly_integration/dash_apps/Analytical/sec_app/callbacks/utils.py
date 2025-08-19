@@ -44,8 +44,8 @@ def update_sample_and_std_details(selected_report):
 
     report = Report.objects.filter(report_id=report_id).first()
 
-    # if not report:
-    #     return default_data
+    if not report:
+        return default_data
 
     # Fetch the first sample name from the report's selected samples
     selected_result_ids = [sample.strip() for sample in report.selected_result_ids.split(",") if sample.strip()]

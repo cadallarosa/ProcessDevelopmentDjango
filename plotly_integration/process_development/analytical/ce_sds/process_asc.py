@@ -82,10 +82,26 @@ def generate_sample_set_id(sample_set_name):
 def save_asc_to_db(file_path):
     metadata_dict, timeseries_df = parse_asc_file(file_path)
 
-    # Extract folder name as sample set
+    # Extract folder name as sample set - FIX: Handle both forward and back slashes
     data_file_path = metadata_dict.get('Data File', [''])[0]
-    sample_set_name = os.path.basename(os.path.dirname(data_file_path))
-    sample_set_id = generate_sample_set_id(sample_set_name)
+
+    # Normalize path separators to handle cross-platform compatibility
+    normalized_path = data_file_path.replace('\\', '/')
+
+    # Extract the folder name from the normalized path
+    if normalized_path:
+        path_parts = normalized_path.split('/')
+        # Get the parent directory name (second to last part)
+        sample_set_name = path_parts[-2] if len(path_parts) >= 2 else ''
+    else:
+        sample_set_name = ''
+
+    # Add debug logging to see what we're extracting
+    print(f"Original path: {data_file_path}")
+    print(f"Normalized path: {normalized_path}")
+    print(f"Extracted sample set name: '{sample_set_name}'")
+
+    sample_set_id = generate_sample_set_id(sample_set_name) if sample_set_name else 0
 
     # Fix here
     sample_id_full = metadata_dict.get('Sample ID', ['Unknown'])[0]
@@ -100,34 +116,59 @@ def save_asc_to_db(file_path):
     except Exception:
         acquisition_datetime = None
 
-    #✅ Skip if alreadyimported
-    if CESDSMetadata.objects.filter(original_file_name=os.path.basename(file_path)).exists():
-        print(f"⏭️ Skipping duplicate import for: {sample_id_full} ({sample_set_name})")
-        return
+    # Simple logic: Check if file already processed using original_file_name
+    original_file_name = os.path.basename(file_path)
+    
+    try:
+        existing_metadata = CESDSMetadata.objects.filter(original_file_name=original_file_name).first()
+        
+        if existing_metadata:
+            # File already processed - skip
+            print(f"✓ File already processed: {original_file_name}")
+            print(f"  Sample ID: {existing_metadata.sample_id_full} (Metadata ID: {existing_metadata.id})")
+            print(f"  Skipping data insertion, will move file to processed folder")
+            return existing_metadata.id  # Return the existing ID
+        
+        # Create new metadata record
+        print(f"Creating new metadata record for file: {original_file_name}")
+        print(f"  Sample ID: {sample_id_full}")
+        
+        metadata = CESDSMetadata.objects.create(
+            original_file_name=original_file_name,
+            sample_id_full=sample_id_full,
+            sample_id_clean=sample_id_clean,
+            sample_prefix=sample_prefix,
+            sample_set_id=sample_set_id,
+            sample_set_name=sample_set_name,
+            data_file_path=metadata_dict.get('Data File', [''])[0],
+            method_path=metadata_dict.get('Method', [''])[0],
+            user_name=metadata_dict.get('User Name', [''])[0],
+            acquisition_datetime=acquisition_datetime,
+            sampling_rate=float(metadata_dict.get('Sampling Rate', ['2'])[0]),
+            total_data_points=int(metadata_dict.get('Total Data Points', ['0'])[0]),
+            x_axis_title=', '.join(metadata_dict.get('X Axis Title', [])),
+            y_axis_title=', '.join(metadata_dict.get('Y Axis Title', [])),
+            x_axis_multiplier=float(metadata_dict.get('X Axis Multiplier', ['1'])[0]),
+            y_axis_multiplier=float(metadata_dict.get('Y Axis Multiplier', ['1'])[0])
+        )
+        print(f"✓ Created new metadata record ID: {metadata.id}")
+        
+    except Exception as e:
+        print(f"✗ Error handling metadata record: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
-    metadata = CESDSMetadata.objects.create(
-        original_file_name=os.path.basename(file_path),
-        sample_id_full=sample_id_full,
-        sample_id_clean=sample_id_clean,
-        sample_prefix=sample_prefix,
-        data_file_path=metadata_dict.get('Data File', [''])[0],
-        method_path=metadata_dict.get('Method', [''])[0],
-        user_name=metadata_dict.get('User Name', [''])[0],
-        acquisition_datetime=acquisition_datetime,
-        sampling_rate=float(metadata_dict.get('Sampling Rate', ['2'])[0]),
-        total_data_points=int(metadata_dict.get('Total Data Points', ['0'])[0]),
-        x_axis_title=', '.join(metadata_dict.get('X Axis Title', [])),
-        y_axis_title=', '.join(metadata_dict.get('Y Axis Title', [])),
-        x_axis_multiplier=float(metadata_dict.get('X Axis Multiplier', ['1'])[0]),
-        y_axis_multiplier=float(metadata_dict.get('Y Axis Multiplier', ['1'])[0]),
-        sample_set_name=sample_set_name,
-        sample_set_id=sample_set_id
-    )
+    # Verify we have a valid metadata ID
+    if not metadata.id:
+        raise ValueError(f"Metadata record does not have a valid ID: {metadata}")
 
-    # Bulk insert timeseries
+    print(f"Using metadata ID: {metadata.id} for time series creation")
+
+    # Bulk insert timeseries using metadata_id directly
     timeseries_objects = [
         CESDSTimeSeries(
-            metadata=metadata,
+            metadata_id=metadata.id,  # Use metadata_id instead of metadata object
             time_min=row['time_min'],
             channel_1=row['channel_1'],
             channel_2=row['channel_2'],
@@ -137,13 +178,76 @@ def save_asc_to_db(file_path):
     ]
 
     CESDSTimeSeries.objects.bulk_create(timeseries_objects)
+    print(f"Created {len(timeseries_objects)} time series records for metadata ID: {metadata.id}")
 
     return metadata.id
 
 
 def move_file_to_processed(file_path, processed_folder):
-    if not os.path.exists(processed_folder):
-        os.makedirs(processed_folder)
-    shutil.move(file_path, os.path.join(processed_folder, os.path.basename(file_path)))
+    """
+    Move a file to the processed folder with comprehensive error handling and logging
+    """
+    try:
+        # Check if source file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Source file does not exist: {file_path}")
+
+        # Check if source is actually a file
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Source path is not a file: {file_path}")
+
+        # Create destination folder if it doesn't exist
+        if not os.path.exists(processed_folder):
+            os.makedirs(processed_folder, exist_ok=True)
+            print(f"Created processed folder: {processed_folder}")
+
+        # Get the filename from the source path
+        filename = os.path.basename(file_path)
+        destination_path = os.path.join(processed_folder, filename)
+
+        # Check if destination file already exists
+        if os.path.exists(destination_path):
+            print(f"Warning: Destination file already exists: {destination_path}")
+            # Option 1: Overwrite (remove existing file first)
+            os.remove(destination_path)
+            print(f"Removed existing file: {destination_path}")
+
+            # Option 2: Create unique filename (uncomment if preferred)
+            # base, ext = os.path.splitext(filename)
+            # counter = 1
+            # while os.path.exists(destination_path):
+            #     new_filename = f"{base}_{counter}{ext}"
+            #     destination_path = os.path.join(processed_folder, new_filename)
+            #     counter += 1
+            # print(f"Using unique filename: {os.path.basename(destination_path)}")
+
+        # Perform the move
+        print(f"Moving file from: {file_path}")
+        print(f"Moving file to: {destination_path}")
+
+        shutil.move(file_path, destination_path)
+
+        # Verify the move was successful
+        if os.path.exists(destination_path) and not os.path.exists(file_path):
+            print(f"Successfully moved {filename} to processed folder")
+            return True
+        else:
+            raise RuntimeError(
+                f"File move verification failed. Source still exists: {os.path.exists(file_path)}, Destination exists: {os.path.exists(destination_path)}")
+
+    except PermissionError as e:
+        print(f"Permission error moving file {file_path}: {e}")
+        print(f"Check file/folder permissions for: {file_path} and {processed_folder}")
+        raise
+    except OSError as e:
+        print(f"OS error moving file {file_path}: {e}")
+        print(f"Possible causes: disk full, network drive issues, file locked")
+        raise
+    except Exception as e:
+        print(f"Unexpected error moving file {file_path}: {e}")
+        print(f"Source exists: {os.path.exists(file_path) if 'file_path' in locals() else 'Unknown'}")
+        print(
+            f"Destination folder exists: {os.path.exists(processed_folder) if 'processed_folder' in locals() else 'Unknown'}")
+        raise
 
 

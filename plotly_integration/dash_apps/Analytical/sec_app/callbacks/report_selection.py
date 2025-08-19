@@ -111,20 +111,19 @@ def populate_report_table(modal_style, active_tab):
 
 
 @app.callback(
-    [Output("selected-report", "data"),
-     Output("report-selection-table", "selected_rows")],
-    [Input("url", "search"),  # Add URL as input
-     Input("report-selection-table", "data"),
-     Input("report-selection-table", "selected_rows"),
-     Input("confirm-report-selection", "n_clicks"),
-     Input("sample-selection-table", "selected_rows")],
-    [State("view_mode", "value"),
+    Output("selected-report", "data"),
+    [Input("url", "search"),  # URL changes
+     Input("confirm-report-selection", "n_clicks"),  # Confirm button clicks
+     Input("sample-selection-table", "selected_rows")],  # Sample selection
+    [State("report-selection-table", "data"),  # Table data as state
+     State("report-selection-table", "selected_rows"),  # Selected rows as state
+     State("view_mode", "value"),
      State("sample-selection-table", "data"),
      State("selected-report", "data")],  # Add current selected report as state
     prevent_initial_call=False  # Important: Allow initial call for URL parsing
 )
-def handle_report_selection_and_url(search, table_data, report_selected_rows, confirm_clicks,
-                                    sample_selected_rows, view_mode, sample_table_data, current_selected_report):
+def handle_report_selection_and_url(search, confirm_clicks, sample_selected_rows, 
+                                    table_data, report_selected_rows, view_mode, sample_table_data, current_selected_report):
     """Combined callback that handles both URL-based report selection and store updates"""
 
     ctx = dash.callback_context
@@ -137,51 +136,39 @@ def handle_report_selection_and_url(search, table_data, report_selected_rows, co
     # Handle URL-based selection with highest priority
     if triggered_id == "url" and search:
         query = parse_qs(search.lstrip("?"))
-        report_id = query.get("report_id", [None])[0]
-        print(f"DEBUG: URL report_id: {report_id}")
+        report_id_list = query.get("report_id", [None])
+        report_id = report_id_list[0] if report_id_list else None
+        print(f"DEBUG: URL search: {search}")
+        print(f"DEBUG: URL query parsed: {query}")
+        print(f"DEBUG: URL report_id raw: {report_id_list}, extracted: {report_id}")
 
-        if report_id:
+        if report_id and report_id != 'None':
             try:
+                # Handle case where report_id might be a string representation of a list
+                if isinstance(report_id, str) and report_id.startswith('[') and report_id.endswith(']'):
+                    # Parse string like "['419']" to get '419'
+                    import ast
+                    parsed = ast.literal_eval(report_id)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        report_id = parsed[0]
+                
+                # Handle case where report_id might still be a list
+                if isinstance(report_id, list):
+                    report_id = report_id[0]
+                    
                 report_id = int(report_id)
                 # Query database directly to check if report exists
                 report = Report.objects.filter(report_id=report_id).first()
 
                 if report:
                     print(f"DEBUG: Found report {report_id}, setting selected report")
-                    return report_id, dash.no_update  # Update store, don't touch table selection
+                    return report_id
+                else:
+                    print(f"DEBUG: Report {report_id} not found in database")
+                    return dash.no_update
 
             except (ValueError, TypeError):
                 pass
-
-    # Handle table data loading - ONLY if no URL report is set
-    elif triggered_id == "report-selection-table" and ctx.triggered[0]["prop_id"].endswith(".data"):
-        # If we have a URL with report_id and table just loaded, try to select the row
-        if search and table_data:
-            query = parse_qs(search.lstrip("?"))
-            url_report_id = query.get("report_id", [None])[0]
-
-            if url_report_id:
-                try:
-                    url_report_id = int(url_report_id)
-                    # Find the row index for this report_id in the table data
-                    for i, row in enumerate(table_data):
-                        try:
-                            if int(row.get("report_id")) == url_report_id:
-                                print(f"DEBUG: Found URL report {url_report_id} in table at index {i}")
-                                return url_report_id, [i]  # Update both store and selected rows
-                        except (TypeError, ValueError):
-                            continue
-
-                    # If URL report exists in DB but not found in table, still keep it selected
-                    report = Report.objects.filter(report_id=url_report_id).first()
-                    if report:
-                        return url_report_id, dash.no_update
-
-                except (ValueError, TypeError):
-                    pass
-
-        # If no URL report, don't change anything
-        return dash.no_update, dash.no_update
 
     # Handle sample selection in sample mode
     elif triggered_id == "sample-selection-table" and view_mode == "samples":
@@ -209,36 +196,25 @@ def handle_report_selection_and_url(search, table_data, report_selected_rows, co
                             "department": 1
                         }
                     )
-                    return 1, dash.no_update  # Return report ID 1, don't change table selection
+                    return 1  # Return report ID 1
                 except Exception as e:
                     print(f"Error creating temporary report: {e}")
-                    return dash.no_update, dash.no_update
-
-    # Handle direct table row selection - ONLY if it's a real user click
-    elif triggered_id == "report-selection-table" and ctx.triggered[0]["prop_id"].endswith(".selected_rows"):
-        if report_selected_rows and table_data:
-            selected_row = table_data[report_selected_rows[0]]
-            report_id = selected_row.get("report_id")
-            try:
-                print(f"DEBUG: User selected table row with report_id: {report_id}")
-                return int(report_id), dash.no_update  # Update store, keep current selection
-            except (ValueError, TypeError):
-                return dash.no_update, dash.no_update
+                    return dash.no_update
 
     # Handle confirm button clicks
     elif triggered_id == "confirm-report-selection" and confirm_clicks:
         if view_mode == "samples":
-            return 1, dash.no_update  # Return temporary report ID
+            return 1  # Return temporary report ID
         else:
             if report_selected_rows and table_data:
                 selected_row = table_data[report_selected_rows[0]]
                 report_id = selected_row.get("report_id")
                 try:
-                    return int(report_id), dash.no_update
+                    return int(report_id)
                 except (ValueError, TypeError):
-                    return dash.no_update, dash.no_update
+                    return dash.no_update
 
-    return dash.no_update, dash.no_update
+    return dash.no_update
 
 
 # @app.callback(
@@ -283,6 +259,50 @@ def handle_report_selection_and_url(search, table_data, report_selected_rows, co
 #             return dash.no_update, dash.no_update
 #
 #     return dash.no_update, dash.no_update
+
+
+# Separate callback to handle table row highlighting (visual only, no store update)
+@app.callback(
+    Output("report-selection-table", "selected_rows"),
+    [Input("report-selection-table", "data"),
+     Input("url", "search")],
+    [State("report-selection-table", "selected_rows")],
+    prevent_initial_call=True
+)
+def update_table_selection_from_url(table_data, search, current_selection):
+    """Update table row selection when URL changes"""
+    
+    if not search or not table_data:
+        return dash.no_update
+        
+    query = parse_qs(search.lstrip("?"))
+    url_report_id_list = query.get("report_id", [None])
+    url_report_id = url_report_id_list[0] if url_report_id_list else None
+    
+    if url_report_id:
+        try:
+            # Handle string representation of list
+            if isinstance(url_report_id, str) and url_report_id.startswith('[') and url_report_id.endswith(']'):
+                import ast
+                parsed = ast.literal_eval(url_report_id)
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    url_report_id = parsed[0]
+            
+            url_report_id = int(url_report_id)
+            
+            # Find the row index for this report_id in the table data
+            for i, row in enumerate(table_data):
+                try:
+                    if int(row.get("report_id")) == url_report_id:
+                        print(f"DEBUG: Setting table selection to row {i} for report {url_report_id}")
+                        return [i]
+                except (TypeError, ValueError):
+                    continue
+                    
+        except (ValueError, TypeError):
+            pass
+    
+    return dash.no_update
 
 
 @app.callback(

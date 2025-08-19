@@ -28,14 +28,14 @@ def create_ssh_tunnel():
             local_bind_address=("127.0.0.1", LOCAL_PORT),
         )
         server.start()
-        print(f"✅ SSH Tunnel Opened: 127.0.0.1:{LOCAL_PORT} → {MYSQL_HOST}:{MYSQL_PORT}")
+        print(f"SSH Tunnel Opened: 127.0.0.1:{LOCAL_PORT} -> {MYSQL_HOST}:{MYSQL_PORT}")
 
         # Keep the tunnel alive
         while True:
             time.sleep(10)
 
     except Exception as e:
-        print(f"❌ SSH Tunnel Error: {e}")
+        print(f"SSH Tunnel Error: {e}")
 
 
 # Run the SSH tunnel in a separate thread so Django can continue running

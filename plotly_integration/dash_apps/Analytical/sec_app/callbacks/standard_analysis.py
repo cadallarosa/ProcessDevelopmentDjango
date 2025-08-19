@@ -84,7 +84,8 @@ def update_standard_id_dropdown(selected_report):
     report = Report.objects.filter(report_id=report_id).first()
 
     if not report:
-        return [], None
+        print("No Report found")
+        return [], None, ""
 
     # Retrieve standard IDs using the updated function
     std_results = get_filtered_std_ids(report.report_id)
@@ -260,7 +261,7 @@ def standard_analysis(std_result_id, selected_rows, table_data, rt_input):
     df = get_top_peaks(std_result_id)
 
     if df.empty:
-        return "No Peak Results Found", "N/A", {}, "N/A", [], [], {'slope': 0, 'intercept': 0}
+        return "No Peak Results Found", "N/A", {}, "N/A", [], {'slope': 0, 'intercept': 0}
 
     # Assign Molecular Weight (MW)
     MW_MAPPING = {
@@ -314,8 +315,7 @@ def standard_analysis(std_result_id, selected_rows, table_data, rt_input):
 
     # **Ensure user selection persists**
     if not selected_rows or not table_data:
-        return "No Points Selected for Regression", "N/A", {}, "N/A", table_data, selected_rows, {'slope': 0,
-                                                                                                  'intercept': 0}
+        return "No Points Selected for Regression", "N/A", {}, "N/A", table_data, {'slope': 0, 'intercept': 0}
 
     # Retrieve selected peaks
     selected_data = [table_data[i] for i in selected_rows if i < len(table_data)]
