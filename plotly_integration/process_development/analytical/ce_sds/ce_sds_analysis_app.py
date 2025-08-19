@@ -425,8 +425,20 @@ app.layout = html.Div([
                                                                style={'fontWeight': '500', 'color': '#6c757d'}),
                                                     dcc.Input(id="reduced-subplot-vertical-spacing", type="number",
                                                               value=0.04, step=0.005,
-                                                              style={"width": "100%", "borderRadius": "6px",
+                                                              style={"width": "100%", "marginBottom": "15px",
+                                                                     "borderRadius": "6px",
                                                                      "border": "1px solid #ced4da", "padding": "8px"}),
+
+                                                    html.Label("Display Options:",
+                                                               style={'fontWeight': '500', 'color': '#6c757d'}),
+                                                    dcc.Checklist(
+                                                        id='reduced-show-mw-checklist',
+                                                        options=[
+                                                            {'label': ' Show MW in Annotations', 'value': 'show_mw'}
+                                                        ],
+                                                        value=['show_mw'],
+                                                        style={'marginTop': '5px', 'color': '#495057'}
+                                                    ),
                                                 ]
                                             ),
 
@@ -628,8 +640,20 @@ app.layout = html.Div([
                                                                style={'fontWeight': '500', 'color': '#6c757d'}),
                                                     dcc.Input(id="non-reduced-subplot-vertical-spacing", type="number",
                                                               value=0.04, step=0.005,
-                                                              style={"width": "100%", "borderRadius": "6px",
+                                                              style={"width": "100%", "marginBottom": "15px",
+                                                                     "borderRadius": "6px",
                                                                      "border": "1px solid #ced4da", "padding": "8px"}),
+
+                                                    html.Label("Display Options:",
+                                                               style={'fontWeight': '500', 'color': '#6c757d'}),
+                                                    dcc.Checklist(
+                                                        id='nonreduced-show-mw-checklist',
+                                                        options=[
+                                                            {'label': ' Show MW in Annotations', 'value': 'show_mw'}
+                                                        ],
+                                                        value=['show_mw'],
+                                                        style={'marginTop': '5px', 'color': '#495057'}
+                                                    ),
                                                 ]
                                             ),
 
@@ -1326,6 +1350,7 @@ def generate_chromatogram_figure_advanced(
         regression_intercept=None,
         y_scale=1,
         subplot_vertical_spacing=0.25,
+        show_mw_in_annotations=True,
 ):
     if not result_df_by_id:
         return go.Figure(), []
@@ -1437,7 +1462,10 @@ def generate_chromatogram_figure_advanced(
             if regression_slope is not None and regression_intercept is not None:
                 log_mw = regression_slope * p["peak_time"] + regression_intercept
                 mw_kda = np.exp(log_mw)
-                label += f"<br>{mw_kda:.1f} kDa"
+                
+                # Only add MW to label if show_mw_in_annotations is True
+                if show_mw_in_annotations:
+                    label += f"<br>{mw_kda:.1f} kDa"
 
                 # Store the MW for this peak class
                 mw_values[class_label] = round(mw_kda, 1)
@@ -1512,6 +1540,7 @@ def generate_chromatogram_figure_advanced(
         Input("standard-regression-params", "data"),
         Input("reduced-y-axis-scaling", "value"),
         Input("reduced-subplot-vertical-spacing", "value"),
+        Input("reduced-show-mw-checklist", "value"),
         Input("main-tabs", "value"),
         Input("selected-report", "data"),
 
@@ -1520,7 +1549,7 @@ def generate_chromatogram_figure_advanced(
 def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                      prominence_threshold, valley_search_window, valley_drop_ratio,
                      smoothing_window, smoothing_polyorder, light_chain_time,
-                     regression_params, y_scale, subplot_vertical_spacing, active_tab, selected_report):
+                     regression_params, y_scale, subplot_vertical_spacing, show_mw_checklist, active_tab, selected_report):
     # if active_tab != "tab-reduced":
     #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
@@ -1547,6 +1576,7 @@ def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
 
     slope = regression_params.get("slope") if regression_params else None
     intercept = regression_params.get("intercept") if regression_params else None
+    show_mw = 'show_mw' in show_mw_checklist
 
     fig, table_data = generate_chromatogram_figure_advanced(
         result_df_by_id,
@@ -1565,7 +1595,8 @@ def reduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
         regression_slope=slope,
         regression_intercept=intercept,
         y_scale=y_scale,
-        subplot_vertical_spacing=subplot_vertical_spacing
+        subplot_vertical_spacing=subplot_vertical_spacing,
+        show_mw_in_annotations=show_mw
     )
     print(f'table output: {table_output}')
 
@@ -1630,6 +1661,7 @@ def generate_chromatogram_figure_nonreduced(
         y_scale=1,
         subplot_vertical_spacing=0.25,
         reduced_table_data=None,
+        show_mw_in_annotations=True,
 ):
     if not result_df_by_id:
         return go.Figure(), []
@@ -1785,7 +1817,10 @@ def generate_chromatogram_figure_nonreduced(
             if regression_slope is not None and regression_intercept is not None:
                 log_mw = regression_slope * p["peak_time"] + regression_intercept
                 mw_kda = np.exp(log_mw)
-                label += f"<br>{mw_kda:.1f} kDa"
+                
+                # Only add MW to label if show_mw_in_annotations is True
+                if show_mw_in_annotations:
+                    label += f"<br>{mw_kda:.1f} kDa"
 
                 # Store the MW for this peak class
                 mw_values[class_label] = round(mw_kda, 1)
@@ -1862,6 +1897,7 @@ def generate_chromatogram_figure_nonreduced(
         Input("standard-regression-params", "data"),
         Input("non-reduced-y-axis-scaling", "value"),
         Input("non-reduced-subplot-vertical-spacing", "value"),
+        Input("nonreduced-show-mw-checklist", "value"),
         Input("main-tabs", "value"),
         Input("selected-report", "data"),
         Input("reduced-table", "data"),
@@ -1870,7 +1906,7 @@ def generate_chromatogram_figure_nonreduced(
 def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peaks,
                         prominence_threshold, valley_search_window, valley_drop_ratio,
                         smoothing_window, smoothing_polyorder, intact_time, regression_params, y_scale,
-                        subplot_vertical_spacing, active_tab, selected_report,reduced_table_data ):
+                        subplot_vertical_spacing, show_mw_checklist, active_tab, selected_report, reduced_table_data):
     # if active_tab != "tab-nonreduced":
     #     raise PreventUpdate
     metas = CESDSMetadata.objects.filter(id__in=result_ids)
@@ -1895,6 +1931,7 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
     table_output = []
     slope = regression_params.get("slope") if regression_params else None
     intercept = regression_params.get("intercept") if regression_params else None
+    show_mw = 'show_mw' in show_mw_checklist
 
     fig, table_data = generate_chromatogram_figure_nonreduced(
         result_df_by_id,
@@ -1914,7 +1951,8 @@ def nonreduced_callback(result_ids, marker_rt, marker_label, skip_time, max_peak
         regression_intercept=intercept,
         y_scale=y_scale,
         subplot_vertical_spacing=subplot_vertical_spacing,
-        reduced_table_data=reduced_table_data
+        reduced_table_data=reduced_table_data,
+        show_mw_in_annotations=show_mw
     )
 
     columns = [{"name": k, "id": k} for k in table_data[0].keys()] if table_data else []
