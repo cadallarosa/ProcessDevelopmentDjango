@@ -1635,6 +1635,7 @@ def update_load_volume_table(plot_mode, load_data, titer_data, x_offset_ml, all_
     prevent_initial_call=True
 )
 def manage_sensor_choices(result_id, left_vals, right_vals):
+    print(f"DEBUG: manage_sensor_choices called with result_id: {result_id}, left: {left_vals}, right: {right_vals}")
     all_fields = [f.name for f in AktaChromatogram._meta.get_fields()]
     all_sensors = [f for f in all_fields if f not in ["id", "result_id", "ml", "date_time"]]
 

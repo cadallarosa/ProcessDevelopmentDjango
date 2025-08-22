@@ -4,7 +4,7 @@ Streamlined layout aligned with existing apps
 """
 
 import dash
-from dash import dcc, html, Input, Output, State, dash_table, callback_context, ALL, MATCH, no_update
+from dash import dcc, html, Input, Output, State, dash_table, ALL, MATCH, no_update, ctx
 from django_plotly_dash import DjangoDash
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -69,6 +69,22 @@ def extract_project_number(project_id):
     except:
         return 999999
 
+
+# Custom CSS to override Bootstrap modal width
+custom_css = """
+.modal-90w {
+    max-width: 90% !important;
+    width: 90% !important;
+}
+.modal-90w .modal-dialog {
+    max-width: 90% !important;
+    width: 90% !important;
+    margin: 1.75rem auto;
+}
+.modal-90w .modal-content {
+    width: 100% !important;
+}
+"""
 
 # Initialize the Dash app - aligned with existing apps
 app = DjangoDash('ExperimentalSetAppRefined', external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -168,9 +184,10 @@ app.layout = html.Div([
                     # Search and Filter Bar
                     dbc.Card([
                         dbc.CardBody([
-                            html.H5("Search Experiment Sets", className="card-title"),
+                            html.H5("Experimental Sets", className="card-title"),
                             dbc.Row([
                                 dbc.Col([
+                                    dbc.Label("Search:", className="fw-bold"),
                                     dbc.Input(
                                         id='global-search',
                                         type='text',
@@ -179,6 +196,7 @@ app.layout = html.Div([
                                     )
                                 ], width=4),
                                 dbc.Col([
+                                    dbc.Label("Study Type:", className="fw-bold"),
                                     dbc.Select(
                                         id='filter-study-type',
                                         options=[
@@ -186,57 +204,60 @@ app.layout = html.Div([
                                             {'label': 'CEX', 'value': 'cex'},
                                             {'label': 'AEX', 'value': 'aex'},
                                             {'label': 'HIC', 'value': 'hic'},
-                                            {'label': 'Protein A', 'value': 'prota'}
+                                            {'label': 'Protein A', 'value': 'prota'},
+                                            {'label': 'Custom', 'value': 'custom'}
                                         ],
                                         value='all',
                                         size='sm'
                                     )
                                 ], width=3),
                                 dbc.Col([
-                                    dbc.Button("Search", id='apply-filters-btn', color="primary", size="sm")
-                                ], width=2)
+                                    dbc.Label("Actions:", className="fw-bold"),
+                                    html.Div([
+                                        dbc.Button("Refresh", id='refresh-sets-btn', color="secondary", size="sm", className="me-2"),
+                                        dbc.Button("Export All", id='bulk-export-btn', color="success", size="sm")
+                                    ])
+                                ], width=3)
                             ])
                         ])
                     ], className="mb-3"),
                     
-                    # Statistics Overview
+                    # Quick Statistics Bar
                     dbc.Row([
                         dbc.Col([
-                            dbc.Card([
-                                dbc.CardBody([
-                                    html.H4(id='total-sets-count', children='0', className="text-primary"),
-                                    html.P("Total Sets", className="card-text")
-                                ])
-                            ])
-                        ], width=3),
+                            html.Div([
+                                html.Strong(id='total-sets-count', children='0', className="text-primary"),
+                                html.Span(" Sets", className="text-muted ms-1")
+                            ], className="d-inline-block me-4")
+                        ], width=2),
                         dbc.Col([
-                            dbc.Card([
-                                dbc.CardBody([
-                                    html.H4(id='total-experiments-count', children='0', className="text-success"),
-                                    html.P("Total Experiments", className="card-text")
-                                ])
-                            ])
-                        ], width=3),
+                            html.Div([
+                                html.Strong(id='total-experiments-count', children='0', className="text-success"),
+                                html.Span(" Experiments", className="text-muted ms-1")
+                            ], className="d-inline-block me-4")
+                        ], width=2),
                         dbc.Col([
-                            dbc.Card([
-                                dbc.CardBody([
-                                    html.H4(id='active-projects-count', children='0', className="text-info"),
-                                    html.P("Active Projects", className="card-text")
-                                ])
-                            ])
-                        ], width=3),
-                        dbc.Col([
-                            dbc.Card([
-                                dbc.CardBody([
-                                    html.H4(id='week-sets-count', children='0', className="text-warning"),
-                                    html.P("This Week", className="card-text")
-                                ])
-                            ])
-                        ], width=3)
+                            html.Div([
+                                html.Strong(id='active-projects-count', children='0', className="text-info"),
+                                html.Span(" Projects", className="text-muted ms-1")
+                            ], className="d-inline-block me-4")
+                        ], width=2)
                     ], className="mb-3"),
                     
-                    # Sets Grid
-                    html.Div(id='sets-grid-container')
+                    # Action buttons - moved to top under search bar
+                    html.Div([
+                        html.P("Select a row below and click an action:", className="text-muted mb-2"),
+                        html.Div(id="selection-debug", className="small text-info mb-2"),  # Debug info
+                        dbc.ButtonGroup([
+                            dbc.Button("View Details", id='view-selected-btn', color="primary", size="sm", disabled=True),
+                            dbc.Button("View Result", id='result-selected-btn', color="warning", size="sm", disabled=True),
+                            dbc.Button("Export Set", id='export-selected-btn', color="success", size="sm", disabled=True),
+                            dbc.Button("Delete Set", id='delete-selected-btn', color="danger", size="sm", disabled=True)
+                        ])
+                    ], className="mb-3"),
+                    
+                    # Experimental Sets DataTable
+                    html.Div(id='sets-table-container')
                 ], style={'padding': '20px'})
             ]),
             
@@ -428,6 +449,38 @@ app.layout = html.Div([
             ])
         ])
     ], style={'maxWidth': '1400px', 'margin': '0 auto'}),
+    
+    # Modals
+    # View/Edit Set Modal
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle(id='modal-title')),
+        dbc.ModalBody(id='modal-body'),
+        dbc.ModalFooter([
+            dbc.Button("Close", id='modal-close-btn', color="secondary", className="me-2"),
+            dbc.Button("Edit", id='modal-edit-btn', color="info", className="me-2"),
+            dbc.Button("Save Changes", id='modal-save-btn', color="primary", style={'display': 'none'})
+        ])
+    ], id='view-edit-modal', 
+       size="xl", 
+       is_open=False,
+       centered=True,
+       scrollable=True,
+       backdrop="static"),
+    
+    
+    # Delete Confirmation Modal
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Confirm Delete")),
+        dbc.ModalBody([
+            html.P("Are you sure you want to delete this experimental set?"),
+            html.P(id='delete-set-name', className="fw-bold text-danger"),
+            html.P("This action cannot be undone.", className="text-muted")
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id='delete-cancel-btn', color="secondary", className="me-2"),
+            dbc.Button("Delete", id='delete-confirm-btn', color="danger")
+        ])
+    ], id='delete-confirm-modal', is_open=False),
     
     # Notification Toast
     html.Div(id='notification-toast', style={
@@ -748,19 +801,21 @@ def save_experimental_set(n_clicks, set_name, project_id, description, study_typ
         )
 
 
-# Display experimental sets from database
+# Display experimental sets in DataTable
 @app.callback(
-    [Output('sets-grid-container', 'children'),
+    [Output('sets-table-container', 'children'),
      Output('total-sets-count', 'children'),
      Output('total-experiments-count', 'children'),
      Output('active-projects-count', 'children')],
-    [Input('apply-filters-btn', 'n_clicks'),
-     Input('main-tabs', 'value')],  # Refresh when switching to view tab
+    [Input('refresh-sets-btn', 'n_clicks'),
+     Input('main-tabs', 'value'),  # Refresh when switching to view tab
+     Input('delete-confirm-btn', 'n_clicks'),  # Refresh after delete
+     Input('save-set-btn', 'n_clicks')],  # Refresh after save
     [State('global-search', 'value'),
      State('filter-study-type', 'value')]
 )
-def display_experimental_sets(n_clicks, tab_value, search_text, study_type_filter):
-    """Display experimental sets from database with filtering"""
+def display_experimental_sets_table(n_clicks, tab_value, delete_clicks, save_clicks, search_text, study_type_filter):
+    """Display experimental sets in DataTable format"""
     
     try:
         # Build query
@@ -778,7 +833,7 @@ def display_experimental_sets(n_clicks, tab_value, search_text, study_type_filte
         if study_type_filter and study_type_filter != 'all':
             query = query.filter(study_type=study_type_filter)
         
-        experimental_sets = query.prefetch_related('experimental_data__dn_assignment')
+        experimental_sets = query.prefetch_related('experimental_data__dn_assignment').order_by('-created_at')
         
         if not experimental_sets.exists():
             return [
@@ -791,62 +846,123 @@ def display_experimental_sets(n_clicks, tab_value, search_text, study_type_filte
         total_experiments = sum(exp_set.experimental_data.count() for exp_set in experimental_sets)
         unique_projects = len(set(exp_set.project_id for exp_set in experimental_sets if exp_set.project_id))
         
-        # Create set cards
-        set_cards = []
+        # Prepare data for DataTable
+        table_data = []
         for exp_set in experimental_sets:
-            study_type_colors = {
-                'cex': 'success',
-                'aex': 'info', 
-                'hic': 'warning',
-                'prota': 'secondary',
-                'custom': 'primary'
+            # Get DN list for AKTA links
+            dn_list = [f"DN{data.dn_assignment.dn:03d}" for data in exp_set.experimental_data.all()]
+            
+            row = {
+                'id': exp_set.id,
+                'name': exp_set.name,
+                'project_id': normalize_project_id(exp_set.project_id) if exp_set.project_id else 'N/A',
+                'study_type': exp_set.get_study_type_display(),
+                'study_type_code': exp_set.study_type,  # For color coding
+                'description': exp_set.description[:100] + '...' if len(exp_set.description) > 100 else exp_set.description or 'No description',
+                'dn_count': exp_set.experimental_data.count(),
+                'created_by': exp_set.created_by.username if exp_set.created_by else 'Unknown',
+                'created_at': exp_set.created_at.strftime('%Y-%m-%d'),
+                'updated_at': exp_set.updated_at.strftime('%Y-%m-%d'),
+                'dn_list': ', '.join(dn_list)  # For AKTA links
             }
-            
-            card = dbc.Card([
-                dbc.CardHeader([
-                    html.H5(exp_set.name, className="card-title mb-0"),
-                    dbc.Badge(exp_set.get_study_type_display().upper(), 
-                             color=study_type_colors.get(exp_set.study_type, 'secondary'), 
-                             className="float-end")
-                ]),
-                dbc.CardBody([
-                    html.P([
-                        html.Strong("Project: "),
-                        normalize_project_id(exp_set.project_id) if exp_set.project_id else 'N/A'
-                    ], className="card-text"),
-                    html.P([
-                        html.Strong("Description: "),
-                        exp_set.description[:100] + '...' if len(exp_set.description) > 100 else exp_set.description or 'No description'
-                    ], className="card-text"),
-                    html.P([
-                        html.I(className="fas fa-flask me-2"),
-                        f"{exp_set.experimental_data.count()} experiments"
-                    ], className="card-text"),
-                    html.P([
-                        html.I(className="fas fa-calendar me-2"),
-                        exp_set.created_at.strftime('%Y-%m-%d')
-                    ], className="card-text text-muted small"),
-                    html.P([
-                        html.I(className="fas fa-user me-2"),
-                        exp_set.created_by.username if exp_set.created_by else 'Unknown'
-                    ], className="card-text text-muted small"),
-                    
-                    dbc.ButtonGroup([
-                        dbc.Button("View Details", id={'type': 'view-set-btn', 'index': exp_set.id}, 
-                                  color="primary", size="sm"),
-                        dbc.Button("Edit", id={'type': 'edit-set-btn', 'index': exp_set.id}, 
-                                  color="info", size="sm"),
-                        dbc.Button("Export", id={'type': 'export-set-btn', 'index': exp_set.id}, 
-                                  color="success", size="sm"),
-                        dbc.Button("Delete", id={'type': 'delete-set-btn', 'index': exp_set.id}, 
-                                  color="danger", size="sm")
-                    ])
-                ])
-            ], className="mb-3")
-            
-            set_cards.append(dbc.Col(card, width=12, lg=6, xl=4))
+            table_data.append(row)
         
-        return dbc.Row(set_cards), str(total_sets), str(total_experiments), str(unique_projects)
+        # Define columns 
+        columns = [
+            {
+                'name': 'Set Name',
+                'id': 'name',
+                'type': 'text'
+            },
+            {
+                'name': 'Project ID',
+                'id': 'project_id',
+                'type': 'text'
+            },
+            {
+                'name': 'Study Type',
+                'id': 'study_type',
+                'type': 'text'
+            },
+            {
+                'name': 'Description',
+                'id': 'description',
+                'type': 'text'
+            },
+            {
+                'name': 'DN Count',
+                'id': 'dn_count',
+                'type': 'numeric'
+            },
+            {
+                'name': 'Created By',
+                'id': 'created_by',
+                'type': 'text'
+            },
+            {
+                'name': 'Created',
+                'id': 'created_at',
+                'type': 'text'
+            },
+            {
+                'name': 'Updated',
+                'id': 'updated_at',
+                'type': 'text'
+            }
+        ]
+        
+        # Style conditional for study type colors
+        style_data_conditional = [
+            {
+                'if': {'row_index': 'odd'},
+                'backgroundColor': '#f8f9fa'
+            }
+        ]
+        
+        # Add color coding based on study type
+        study_type_colors = {
+            'cex': '#d4edda',      # Light green
+            'aex': '#d1ecf1',      # Light blue
+            'hic': '#fff3cd',      # Light yellow
+            'prota': '#f8d7da',    # Light red
+            'custom': '#e2e3e5'    # Light gray
+        }
+        
+        for i, row in enumerate(table_data):
+            study_type = row['study_type_code']
+            if study_type in study_type_colors:
+                style_data_conditional.append({
+                    'if': {'row_index': i},
+                    'backgroundColor': study_type_colors[study_type]
+                })
+        
+        table = dash_table.DataTable(
+            id='experimental-sets-table',
+            columns=columns,
+            data=table_data,
+            editable=False,
+            row_selectable="single",
+            sort_action="native",
+            filter_action="native",
+            page_action="native",
+            page_size=20,
+            style_cell={
+                'textAlign': 'left',
+                'padding': '8px',
+                'fontSize': '12px',
+                'fontFamily': 'Segoe UI, Arial, sans-serif'
+            },
+            style_header={
+                'backgroundColor': '#0056b3',
+                'color': 'white',
+                'fontWeight': 'bold',
+                'textAlign': 'center'
+            },
+            style_data_conditional=style_data_conditional,
+            style_table={'overflowX': 'auto'}
+        )
+        
+        return [table], str(total_sets), str(total_experiments), str(unique_projects)
     
     except Exception as e:
         return [
@@ -871,64 +987,7 @@ def clear_all_data(n_clicks):
     return no_update
 
 
-# Edit mode functionality
-@app.callback(
-    [Output('main-tabs', 'value'),
-     Output('edit-mode-store', 'data'),
-     Output('set-name', 'value', allow_duplicate=True),
-     Output('set-project-id', 'value', allow_duplicate=True),
-     Output('set-description', 'value', allow_duplicate=True),
-     Output('study-type', 'value', allow_duplicate=True),
-     Output('experimental-data-table', 'data', allow_duplicate=True)],
-    [Input({'type': 'edit-set-btn', 'index': ALL}, 'n_clicks')],
-    prevent_initial_call=True
-)
-def edit_experimental_set(edit_clicks):
-    """Load experimental set data for editing"""
-    if not any(edit_clicks) or not callback_context.triggered:
-        return no_update
-    
-    # Get the set ID from the triggered button
-    triggered_id = callback_context.triggered[0]['prop_id']
-    set_id = json.loads(triggered_id.split('.')[0])['index']
-    
-    try:
-        # Load experimental set from database
-        exp_set = ExperimentalSet.objects.get(id=set_id)
-        exp_data = exp_set.experimental_data.select_related('dn_assignment').order_by('dn_assignment__dn')
-        
-        # Prepare table data
-        table_data = []
-        for data in exp_data:
-            row = {
-                'dn': f"DN{data.dn_assignment.dn:03d}",
-                'resin': data.resin or '',
-                'cv_ml': data.cv_ml,
-                'residence_time': data.residence_time,
-                'elution_condition': data.elution_condition or '',
-                'eq': data.eq or '',
-                'wash_condition': data.wash_condition or '',
-                'load_density': data.load_density,
-                'product_required': data.product_required,
-                'load_volume': data.load_volume,
-                'eluate_volume': data.eluate_volume,
-                'eluate_concentration': data.eluate_concentration,
-                'eluate_amount': data.eluate_amount,
-                'yield_percent': data.yield_percent,
-                'mp_sec_percent': data.mp_sec_percent,
-                'ppm_hcp': data.ppm_hcp,
-                'ppb_dna': data.ppb_dna
-            }
-            table_data.append(row)
-        
-        # Store edit mode data
-        edit_mode_data = {'set_id': set_id, 'editing': True}
-        
-        return ('define-tab', edit_mode_data, exp_set.name, normalize_project_id(exp_set.project_id), 
-                exp_set.description, exp_set.study_type, table_data)
-    
-    except ExperimentalSet.DoesNotExist:
-        return no_update
+# Edit mode functionality is now handled directly within the modal
 
 
 # Edit mode indicator
@@ -960,20 +1019,19 @@ def cancel_edit_mode(n_clicks):
     return no_update
 
 
-# Delete experimental set
+# Delete confirmation callback
 @app.callback(
     Output('notification-toast', 'children', allow_duplicate=True),
-    [Input({'type': 'delete-set-btn', 'index': ALL}, 'n_clicks')],
+    Input('delete-confirm-btn', 'n_clicks'),
+    State('edit-mode-store', 'data'),
     prevent_initial_call=True
 )
-def delete_experimental_set(delete_clicks):
-    """Delete experimental set from database"""
-    if not any(delete_clicks) or not callback_context.triggered:
+def delete_experimental_set(confirm_clicks, edit_mode_data):
+    """Delete experimental set from database after confirmation"""
+    if not confirm_clicks or not edit_mode_data or not edit_mode_data.get('set_id'):
         return None
     
-    # Get the set ID from the triggered button
-    triggered_id = callback_context.triggered[0]['prop_id']
-    set_id = json.loads(triggered_id.split('.')[0])['index']
+    set_id = edit_mode_data['set_id']
     
     try:
         exp_set = ExperimentalSet.objects.get(id=set_id)
@@ -989,6 +1047,441 @@ def delete_experimental_set(delete_clicks):
             style={"position": "fixed", "top": 66, "right": 10, "width": 350}
         )
     
+    except ExperimentalSet.DoesNotExist:
+        return dbc.Toast(
+            [html.P("Experimental set not found!")],
+            header="Error",
+            is_open=True,
+            dismissable=True,
+            duration=3000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+        )
+
+
+# Debug selection callback
+@app.callback(
+    Output('selection-debug', 'children'),
+    Input('experimental-sets-table', 'selected_rows')
+)
+def debug_selection(selected_rows):
+    """Show debug info about selection"""
+    if selected_rows:
+        return f"Selected rows: {selected_rows}"
+    return "No rows selected"
+
+
+# Enable/disable action buttons based on row selection
+@app.callback(
+    [Output('view-selected-btn', 'disabled'),
+     Output('result-selected-btn', 'disabled'),
+     Output('export-selected-btn', 'disabled'),
+     Output('delete-selected-btn', 'disabled')],
+    Input('experimental-sets-table', 'selected_rows')
+)
+def enable_action_buttons(selected_rows):
+    """Enable action buttons when a row is selected"""
+    # Default case: no rows selected or None
+    if not selected_rows or len(selected_rows) == 0:
+        return True, True, True, True
+    # Enable buttons when row is selected
+    return False, False, False, False
+
+
+# View Details button callback - opens modal and loads content directly
+@app.callback(
+    [Output('view-edit-modal', 'is_open'),
+     Output('modal-title', 'children'),
+     Output('modal-body', 'children'),
+     Output('modal-edit-btn', 'style'),
+     Output('modal-save-btn', 'style'),
+     Output('edit-mode-store', 'data', allow_duplicate=True)],
+    Input('view-selected-btn', 'n_clicks'),
+    [State('experimental-sets-table', 'selected_rows'),
+     State('experimental-sets-table', 'data')],
+    prevent_initial_call=True
+)
+def handle_view_button(n_clicks, selected_rows, table_data):
+    """Handle view details button click and load modal content"""
+    print(f"DEBUG VIEW BTN: Called with n_clicks={n_clicks}, selected_rows={selected_rows}")
+    
+    if not n_clicks or not selected_rows or not table_data:
+        print("DEBUG VIEW BTN: Missing required data, returning no_update")
+        return no_update
+    
+    row_index = selected_rows[0]
+    row_data = table_data[row_index]
+    set_id = row_data['id']
+    
+    print(f"DEBUG VIEW BTN: Selected set_id={set_id}, set_name={row_data.get('name', 'Unknown')}")
+    
+    try:
+        print(f"DEBUG VIEW BTN: Looking for ExperimentalSet with id={set_id}")
+        exp_set = ExperimentalSet.objects.get(id=set_id)
+        print(f"DEBUG VIEW BTN: Found experimental set: {exp_set.name}")
+        
+        exp_data = exp_set.experimental_data.select_related('dn_assignment').order_by('dn_assignment__dn')
+        print(f"DEBUG VIEW BTN: Found {exp_data.count()} experimental data entries")
+        
+        # Modal title
+        title = f"View Experimental Set: {exp_set.name}"
+        
+        # Create content with full-width styling
+        content = [
+            # Set Information in full-width container
+            html.Div([
+                dbc.Row([
+                    dbc.Col([
+                        html.H5("Set Information", className="text-primary"),
+                        html.P([html.Strong("Name: "), exp_set.name]),
+                        html.P([html.Strong("Project ID: "), normalize_project_id(exp_set.project_id)]),
+                        html.P([html.Strong("Study Type: "), exp_set.get_study_type_display()]),
+                        html.P([html.Strong("Description: "), exp_set.description or 'No description']),
+                    ], width=6),
+                    dbc.Col([
+                        html.H5("Set Details", className="text-primary"),
+                        html.P([html.Strong("Created By: "), exp_set.created_by.username if exp_set.created_by else 'Unknown']),
+                        html.P([html.Strong("Created: "), exp_set.created_at.strftime('%Y-%m-%d %H:%M')]),
+                        html.P([html.Strong("Last Updated: "), exp_set.updated_at.strftime('%Y-%m-%d %H:%M')]),
+                        html.P([html.Strong("Experiment Count: "), str(exp_data.count())]),
+                    ], width=6)
+                ], className="mb-4"),
+                html.Hr()
+            ], style={'padding': '15px'})
+        ]
+        
+        if exp_data.exists():
+            content.append(html.H5("Experimental Data", className="text-primary mb-3"))
+            
+            # Create comprehensive table data for ALL experimental parameters
+            exp_table_data = []
+            for data in exp_data:
+                row = {
+                    'dn': f"DN{data.dn_assignment.dn:03d}",
+                    'result_link': f"📊 View Result",  # Text for the link
+                    'resin': data.resin or '',
+                    'cv_ml': data.cv_ml if data.cv_ml is not None else '',
+                    'residence_time': data.residence_time if data.residence_time is not None else '',
+                    'elution_condition': data.elution_condition or '',
+                    'eq': data.eq or '',
+                    'wash_condition': data.wash_condition or '',
+                    'load_density': data.load_density if data.load_density is not None else '',
+                    'product_required': data.product_required if data.product_required is not None else '',
+                    'load_volume': data.load_volume if data.load_volume is not None else '',
+                    'eluate_volume': data.eluate_volume if data.eluate_volume is not None else '',
+                    'eluate_concentration': data.eluate_concentration if data.eluate_concentration is not None else '',
+                    'eluate_amount': data.eluate_amount if data.eluate_amount is not None else '',
+                    'yield_percent': data.yield_percent if data.yield_percent is not None else '',
+                    'mp_sec_percent': data.mp_sec_percent if data.mp_sec_percent is not None else '',
+                    'ppm_hcp': data.ppm_hcp if data.ppm_hcp is not None else '',
+                    'ppb_dna': data.ppb_dna if data.ppb_dna is not None else ''
+                }
+                exp_table_data.append(row)
+            
+            # Create single comprehensive table with all data
+            comprehensive_table = dash_table.DataTable(
+                id=f'modal-comprehensive-table-{set_id}',
+                columns=[
+                    # Fixed columns
+                    {'name': 'DN', 'id': 'dn', 'type': 'text', 'editable': False},
+                    {'name': 'Result', 'id': 'result_link', 'type': 'text', 'editable': False, 'presentation': 'markdown'},
+                    
+                    # Process parameters
+                    {'name': 'Resin', 'id': 'resin', 'type': 'text', 'editable': True},
+                    {'name': 'CV (mL)', 'id': 'cv_ml', 'type': 'numeric', 'editable': True},
+                    {'name': 'Res. Time (min)', 'id': 'residence_time', 'type': 'numeric', 'editable': True},
+                    
+                    # Buffer conditions
+                    {'name': 'Elution Condition', 'id': 'elution_condition', 'type': 'text', 'editable': True},
+                    {'name': 'EQ Buffer', 'id': 'eq', 'type': 'text', 'editable': True},
+                    {'name': 'Wash Condition', 'id': 'wash_condition', 'type': 'text', 'editable': True},
+                    
+                    # Load parameters
+                    {'name': 'Load Density (mg/mL)', 'id': 'load_density', 'type': 'numeric', 'editable': True},
+                    {'name': 'Product Req. (mg)', 'id': 'product_required', 'type': 'numeric', 'editable': True},
+                    {'name': 'Load Vol. (mL)', 'id': 'load_volume', 'type': 'numeric', 'editable': True},
+                    
+                    # Results
+                    {'name': 'Eluate Vol. (mL)', 'id': 'eluate_volume', 'type': 'numeric', 'editable': True},
+                    {'name': 'Eluate Conc. (mg/mL)', 'id': 'eluate_concentration', 'type': 'numeric', 'editable': True},
+                    {'name': 'Eluate Amt. (mg)', 'id': 'eluate_amount', 'type': 'numeric', 'editable': True},
+                    {'name': 'Yield (%)', 'id': 'yield_percent', 'type': 'numeric', 'editable': True},
+                    
+                    # Analytics
+                    {'name': '% MP SEC', 'id': 'mp_sec_percent', 'type': 'numeric', 'editable': True},
+                    {'name': 'PPM HCP', 'id': 'ppm_hcp', 'type': 'numeric', 'editable': True},
+                    {'name': 'PPB DNA', 'id': 'ppb_dna', 'type': 'numeric', 'editable': True}
+                ],
+                data=exp_table_data,
+                style_cell={
+                    'textAlign': 'left', 
+                    'padding': '6px', 
+                    'fontSize': '11px',
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'width': 'auto'
+                },
+                style_header={
+                    'backgroundColor': '#0056b3', 
+                    'color': 'white', 
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'fontSize': '11px'
+                },
+                style_table={'width': '100%', 'minWidth': '100%'},
+                style_data_conditional=[
+                    {
+                        'if': {'column_id': 'result_link'},
+                        'backgroundColor': '#e3f2fd',
+                        'color': '#1976d2',
+                        'textAlign': 'center',
+                        'fontWeight': 'bold'
+                    }
+                ],
+                fixed_columns={'headers': True, 'data': 2},  # Fix DN and Result columns
+                page_size=15,
+                editable=True,
+                markdown_options={"link_target": "_blank"}
+            )
+            
+            # Convert Result column to actual links using the correct format
+            for i, data in enumerate(exp_data):
+                exp_table_data[i]['result_link'] = f'[📊 View](/plotly_integration/dash-app/app/AktaChromatogramApp/?dn={data.dn_assignment.dn})'
+            
+            # Update table data with actual markdown links
+            comprehensive_table.data = exp_table_data
+            
+            # Wrap table in full-width container
+            table_container = html.Div([
+                comprehensive_table,
+                # Add View All Results button
+                html.Div([
+                    dbc.Button(
+                        f"View All Results ({len(exp_data)} DNs)",
+                        href=f"/plotly_integration/dash-app/app/AktaChromatogramApp/?dn={','.join([str(data.dn_assignment.dn) for data in exp_data])}",
+                        target="_blank",
+                        color="warning",
+                        size="sm",
+                        className="mt-3"
+                    )
+                ], className="text-center")
+            ], style={
+                'padding': '15px'
+            })
+            
+            content.append(table_container)
+        else:
+            content.append(dbc.Alert("No experimental data available for this set.", color="info", className="mt-3"))
+        
+        edit_btn_style = {'display': 'none'}  # Hide edit button since editing is now inline
+        save_btn_style = {'display': 'inline-block'}  # Show save button for inline edits
+        
+        print(f"DEBUG VIEW BTN: Successfully loaded modal content")
+        
+        return (True, title, content, edit_btn_style, save_btn_style, {'set_id': set_id, 'editing': False})
+        
+    except ExperimentalSet.DoesNotExist:
+        print("DEBUG VIEW BTN: ExperimentalSet.DoesNotExist exception")
+        error_content = [html.P("Experimental set not found.", className="text-danger")]
+        return (True, "Set Not Found", error_content, {'display': 'none'}, {'display': 'none'}, {'set_id': set_id, 'editing': False})
+    except Exception as e:
+        print(f"DEBUG VIEW BTN: Exception occurred: {e}")
+        error_content = [html.P(f"Error loading set: {str(e)}", className="text-danger")]
+        return (True, "Error", error_content, {'display': 'none'}, {'display': 'none'}, {'set_id': set_id, 'editing': False})
+
+
+# Edit functionality is now handled directly within the View Details modal
+
+
+# Delete Set button callback
+@app.callback(
+    [Output('delete-confirm-modal', 'is_open'),
+     Output('delete-set-name', 'children'),
+     Output('edit-mode-store', 'data', allow_duplicate=True)],
+    Input('delete-selected-btn', 'n_clicks'),
+    [State('experimental-sets-table', 'selected_rows'),
+     State('experimental-sets-table', 'data')],
+    prevent_initial_call=True
+)
+def handle_delete_button(n_clicks, selected_rows, table_data):
+    """Handle delete set button click"""
+    if not n_clicks or not selected_rows or not table_data:
+        return no_update
+    
+    row_index = selected_rows[0]
+    row_data = table_data[row_index]
+    set_id = row_data['id']
+    set_name = row_data['name']
+    
+    return (True, set_name, {'set_id': set_id, 'editing': False})
+
+
+# Save changes from modal editing
+@app.callback(
+    Output('notification-toast', 'children', allow_duplicate=True),
+    Input('modal-save-btn', 'n_clicks'),
+    [State('edit-mode-store', 'data'),
+     State({'type': 'modal-process-table', 'index': ALL}, 'data'),
+     State({'type': 'modal-buffer-table', 'index': ALL}, 'data'),
+     State({'type': 'modal-load-table', 'index': ALL}, 'data'),
+     State({'type': 'modal-results-table', 'index': ALL}, 'data'),
+     State({'type': 'modal-analytics-table', 'index': ALL}, 'data')],
+    prevent_initial_call=True
+)
+def save_modal_changes(n_clicks, edit_mode_data, process_data, buffer_data, load_data, results_data, analytics_data):
+    """Save changes made in the modal tables"""
+    if not n_clicks or not edit_mode_data or not edit_mode_data.get('set_id'):
+        return None
+    
+    set_id = edit_mode_data['set_id']
+    
+    try:
+        # Get experimental set
+        exp_set = ExperimentalSet.objects.get(id=set_id)
+        
+        # For now, show a placeholder toast - full implementation would update the database
+        return dbc.Toast(
+            [html.P(f"Changes to experimental set '{exp_set.name}' would be saved here."),
+             html.P("Full save functionality can be implemented based on your data structure.", className="small text-muted")],
+            header="Save Functionality",
+            is_open=True,
+            dismissable=True,
+            duration=4000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 400}
+        )
+        
+    except ExperimentalSet.DoesNotExist:
+        return dbc.Toast(
+            [html.P("Experimental set not found!")],
+            header="Error",
+            is_open=True,
+            dismissable=True,
+            duration=3000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+        )
+
+
+# View Result button callback - opens URL with all DNs from the set
+@app.callback(
+    Output('notification-toast', 'children', allow_duplicate=True),
+    Input('result-selected-btn', 'n_clicks'),
+    [State('experimental-sets-table', 'selected_rows'),
+     State('experimental-sets-table', 'data')],
+    prevent_initial_call=True
+)
+def view_result_for_set(result_clicks, selected_rows, table_data):
+    """Open result page with all DNs from the experimental set"""
+    if not result_clicks or not selected_rows or not table_data:
+        return None
+    
+    try:
+        # Get selected row data
+        row_index = selected_rows[0]
+        row_data = table_data[row_index]
+        set_id = row_data['id']
+        set_name = row_data['name']
+        
+        # Load experimental set from database
+        exp_set = ExperimentalSet.objects.get(id=set_id)
+        exp_data = exp_set.experimental_data.select_related('dn_assignment').order_by('dn_assignment__dn')
+        
+        if not exp_data.exists():
+            return dbc.Toast(
+                [html.P("No experiments in this set to view.")],
+                header="Info",
+                is_open=True,
+                dismissable=True,
+                duration=3000,
+                style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+            )
+        
+        # Get all DN numbers from the set
+        dn_numbers = [data.dn_assignment.dn for data in exp_data]
+        dn_query = ','.join(map(str, dn_numbers))
+        
+        # Create URL with all DNs (adjust URL pattern as needed for your result page)
+        result_url = f"/dash/akta_report_app/?dn={dn_query}"
+        
+        # For now, show a toast with the URL that would be opened
+        # In a real implementation, you'd use dcc.Location or similar to navigate
+        return dbc.Toast([
+            html.P(f"Would open result page for set '{set_name}' with DNs: {', '.join(f'DN{dn:03d}' for dn in dn_numbers)}"),
+            html.P(f"URL: {result_url}", className="small text-muted")
+        ],
+            header="View Result",
+            is_open=True,
+            dismissable=True,
+            duration=5000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 400}
+        )
+        
+    except ExperimentalSet.DoesNotExist:
+        return dbc.Toast(
+            [html.P("Experimental set not found!")],
+            header="Error",
+            is_open=True,
+            dismissable=True,
+            duration=3000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+        )
+
+
+# Close modal callbacks
+@app.callback(
+    [Output('view-edit-modal', 'is_open', allow_duplicate=True),
+     Output('delete-confirm-modal', 'is_open', allow_duplicate=True)],
+    [Input('modal-close-btn', 'n_clicks'),
+     Input('delete-cancel-btn', 'n_clicks'),
+     Input('delete-confirm-btn', 'n_clicks')],  # Close delete modal after confirm
+    prevent_initial_call=True
+)
+def close_modals(modal_close, delete_cancel, delete_confirm):
+    """Close all modals"""
+    return False, False
+
+
+# Export selected set callback
+@app.callback(
+    Output('notification-toast', 'children', allow_duplicate=True),
+    Input('export-selected-btn', 'n_clicks'),
+    [State('experimental-sets-table', 'selected_rows'),
+     State('experimental-sets-table', 'data')],
+    prevent_initial_call=True
+)
+def export_selected_set(export_clicks, selected_rows, table_data):
+    """Export selected experimental set to Excel"""
+    if not export_clicks or not selected_rows or not table_data:
+        return None
+    
+    try:
+        # Get selected row data
+        row_index = selected_rows[0]
+        row_data = table_data[row_index]
+        set_id = row_data['id']
+        set_name = row_data['name']
+        
+        # Load experimental set from database
+        exp_set = ExperimentalSet.objects.get(id=set_id)
+        exp_data = exp_set.experimental_data.select_related('dn_assignment').order_by('dn_assignment__dn')
+        
+        if not exp_data.exists():
+            return dbc.Toast(
+                [html.P("No experimental data to export.")],
+                header="Info",
+                is_open=True,
+                dismissable=True,
+                duration=3000,
+                style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+            )
+        
+        return dbc.Toast(
+            [html.P(f"Export functionality for '{set_name}' would be implemented here.")],
+            header="Info",
+            is_open=True,
+            dismissable=True,
+            duration=4000,
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+        )
+        
     except ExperimentalSet.DoesNotExist:
         return dbc.Toast(
             [html.P("Experimental set not found!")],

@@ -144,14 +144,14 @@ STATICFILES_FINDERS = [
     'django_plotly_dash.finders.DashComponentFinder'
 ]
 
-PLOTLY_COMPONENTS = [
-
-    'dash_core_components',
-    'dash_html_components',
-    'dash_renderer',
-    'dash_bootstrap_components',
-    'dpd_components'
-]
+# PLOTLY_COMPONENTS = [
+#
+#     'dash_core_components',
+#     'dash_html_components',
+#     # 'dash_renderer',
+#     'dash_bootstrap_components',
+#     'dpd_components'
+# ]
 
 # PLOTLY_COMPONENTS = None  # Let django-plotly-dash use default CDNs
 
@@ -190,21 +190,25 @@ CORS_ALLOW_ALL_ORIGINS = True
 #     }
 # }
 
-PLOTLY_COMPONENTS = {
-    'plotly': {
-        'js': 'static/dash/component/plotly/package_data/plotly.min.js',  # Plotly JS CDN
-        'css': None  # Dash uses the default CSS from the CDN
-    },
-    'dash_core_components': {
-        'js': 'static/dash/component/dash/dcc/dash_core_components.js',
-        'css': None  # Dash uses the default CSS from the CDN',
-    },
-    'dash_html_components': {
-        'js': 'static/dash/component/dash/html/dash_html_components.min.js',
-        'css': None  # Dash uses the default CSS from the CDN,
-    }
-}
+# PLOTLY_COMPONENTS = {
+#     'plotly': {
+#         'js': 'static/dash/component/plotly/package_data/plotly.min.js',  # Plotly JS CDN
+#         'css': None  # Dash uses the default CSS from the CDN
+#     },
+#     'dash_core_components': {
+#         'js': 'static/dash/component/dash/dcc/dash_core_components.js',
+#         'css': None  # Dash uses the default CSS from the CDN',
+#     },
+#     'dash_html_components': {
+#         'js': 'static/dash/component/dash/html/dash_html_components.min.js',
+#         'css': None  # Dash uses the default CSS from the CDN,
+#     }
+# }
+
+# Use CDN for remote server to avoid static file issues
+# PLOTLY_COMPONENTS = None  # Let django-plotly-dash use default CDNs
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
+
 
 # Increase Django's file upload size limit (e.g., 100MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB

@@ -942,6 +942,7 @@ app_layout = html.Div([
                                 dcc.Dropdown(
                                     id='hmw-column-selector',
                                     options=[
+                                        {"label": "Result ID", "value": "Result ID"},
                                         {"label": "Sample Name", "value": "Sample Name"},
                                         {"label": "Main Peak Start", "value": "Main Peak Start"},
                                         {"label": "Main Peak End", "value": "Main Peak End"},

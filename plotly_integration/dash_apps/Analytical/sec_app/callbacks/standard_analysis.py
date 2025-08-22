@@ -106,11 +106,11 @@ def update_standard_id_dropdown(selected_report):
 
 def get_top_peaks(result_id):
     """
-    Try to match known standard peaks by retention time. If match quality is poor,
-    fall back to selecting top peaks by area.
+    Intelligently detect and label the top 4 protein standard peaks.
+    Uses flexible retention time ranges and area-based selection.
     """
     import pandas as pd
-    from plotly_integration.models import PeakResults  # adjust if needed
+    from plotly_integration.models import PeakResults
 
     # Fetch peak results
     peaks = PeakResults.objects.filter(result_id=result_id).values(
@@ -121,50 +121,64 @@ def get_top_peaks(result_id):
     if df.empty:
         return df
 
-    # Optional cutoff to ignore noise peaks
-    df = df[df["peak_retention_time"] <= 18]
+    # Filter to protein range and remove noise peaks
+    df = df[
+        (df["peak_retention_time"] >= 6.0) & 
+        (df["peak_retention_time"] <= 13.0)
+    ]
+    
+    # Remove very small peaks (bottom 20% by area)
+    if len(df) > 1:
+        area_threshold = df["area"].quantile(0.2)
+        df = df[df["area"] > area_threshold]
+    
+    if df.empty:
+        return df
 
-    # Define expected retention times
-    target_peaks = {
-        "Peak1-Thyroglobulin": 7.11,
-        "Peak2-IgG": 8.95,
-        "Peak3-BSA": 10.1,
-        "Peak4-Myoglobin": 12.23,
-        "Peak5-Uracil": 16.0
-    }
+    # Define expected retention time ranges for 4 protein peaks
+    target_peaks = [
+        {"name": "Peak1-Thyroglobulin", "rt_min": 6.5, "rt_max": 7.8},
+        {"name": "Peak2-IgG", "rt_min": 8.5, "rt_max": 9.5},
+        {"name": "Peak3-BSA", "rt_min": 9.8, "rt_max": 10.8},
+        {"name": "Peak4-Myoglobin", "rt_min": 11.5, "rt_max": 13.0}
+    ]
 
-    max_allowed_diff = 0.75  # fallback threshold in minutes
     matched_peaks = []
     used_indices = set()
 
-    for name, target_rt in target_peaks.items():
-        df["rt_diff"] = (df["peak_retention_time"] - target_rt).abs()
-        candidates = df[~df.index.isin(used_indices)]
-
-        if candidates.empty:
-            continue
-
-        closest_idx = candidates["rt_diff"].idxmin()
-        closest_peak = candidates.loc[closest_idx]
-
-        # Only accept match if within threshold
-        if closest_peak["rt_diff"] <= max_allowed_diff:
-            peak_copy = closest_peak.copy()
-            peak_copy["peak_name"] = name
+    # Step 1: Range-based matching - find highest area peak in each expected range
+    for target in target_peaks:
+        candidates = df[
+            (df["peak_retention_time"] >= target["rt_min"]) & 
+            (df["peak_retention_time"] <= target["rt_max"]) &
+            (~df.index.isin(used_indices))
+        ]
+        
+        if not candidates.empty:
+            # Select peak with highest area in this range
+            best_idx = candidates["area"].idxmax()
+            peak_copy = df.loc[best_idx].copy()
+            peak_copy["peak_name"] = target["name"]
             matched_peaks.append(peak_copy)
-            used_indices.add(closest_idx)
+            used_indices.add(best_idx)
 
-    if len(matched_peaks) >= 3:  # Only use matched peaks if enough are found
-        df_result = pd.DataFrame(matched_peaks).drop(columns="rt_diff", errors="ignore")
-        return df_result.reset_index(drop=True)
+    # Step 2: Check if we found enough peaks (at least 3 of 4)
+    if len(matched_peaks) >= 3:
+        df_result = pd.DataFrame(matched_peaks)
+        return df_result.sort_values("peak_retention_time").reset_index(drop=True)
 
-    # 🔁 Fallback: top 5 peaks by area, sorted by retention time
-    df = df.sort_values(by="area", ascending=False).iloc[:5]
-    df = df.sort_values(by="peak_retention_time").reset_index(drop=True)
-
-    ordered_peak_names = list(target_peaks.keys())[:len(df)]
-    df["peak_name"] = ordered_peak_names
-    return df
+    # Step 3: Fallback - select top 4 peaks by area and assign labels by RT order
+    print(f"Range-based matching found only {len(matched_peaks)} peaks, using fallback method")
+    
+    df_fallback = df.nlargest(4, "area")
+    df_fallback = df_fallback.sort_values("peak_retention_time").reset_index(drop=True)
+    
+    # Assign labels based on retention time order
+    peak_labels = ["Peak1-Thyroglobulin", "Peak2-IgG", "Peak3-BSA", "Peak4-Myoglobin"]
+    for i, label in enumerate(peak_labels[:len(df_fallback)]):
+        df_fallback.loc[i, "peak_name"] = label
+    
+    return df_fallback
 
 
 @app.callback(
@@ -268,16 +282,14 @@ def standard_analysis(std_result_id, selected_rows, table_data, rt_input):
         'Peak1-Thyroglobulin': 660000,
         'Peak2-IgG': 150000,
         'Peak3-BSA': 66400,
-        'Peak4-Myoglobin': 17000,
-        'Peak5-Uracil': 112
+        'Peak4-Myoglobin': 17000
     }
-    # Molecular weight mapping
+    # Performance mapping (plate count thresholds)
     PERFORMANCE_MAPPING = {
         'Peak1-Thyroglobulin': 1000,
         'Peak2-IgG': 14000,
         'Peak3-BSA': 1000,
-        'Peak4-Myoglobin': 1000,
-        'Peak5-Uracil': 1000
+        'Peak4-Myoglobin': 1000
     }
     df["MW"] = df["peak_name"].map(MW_MAPPING).fillna("N/A")
 

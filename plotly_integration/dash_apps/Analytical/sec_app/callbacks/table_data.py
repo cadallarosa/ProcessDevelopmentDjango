@@ -148,6 +148,7 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
 
         summary_data.append({
             'Sample Name': sample.sample_name,
+            'Result ID': sample.result_id,
             'Main Peak Start': main_peak_start,
             'Main Peak End': main_peak_end,
             'HMW Start': hmw_start,
@@ -169,7 +170,7 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
         })
 
     desired_order = [
-        'Sample Name', 'HMW', 'HMW Area', 'HMW Start', 'HMW End',
+        'Result ID', 'Sample Name', 'HMW', 'HMW Area', 'HMW Start', 'HMW End',
         'Main Peak', 'Main Peak Area', 'Main Peak Start', 'Main Peak End',
         'LMW', 'LMW Area', 'LMW Start', 'LMW End',
         'Total Area', 'Injection Volume', 'Total Area/uL', 'Max Peak Height',
