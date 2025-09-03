@@ -330,4 +330,4 @@ def create_analysis_request_modal():
     ], id="analysis-request-modal", size="lg")
 
 
-print("✅ Main Sample Sets Layout - Updated to use separate details file")
+print("Main Sample Sets Layout - Updated to use separate details file")

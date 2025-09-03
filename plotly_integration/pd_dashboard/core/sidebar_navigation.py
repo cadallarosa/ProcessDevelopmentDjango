@@ -1,6 +1,5 @@
-# STEP 1: First, restore your EXACT working sidebar_navigation.py
-
-# Replace your sidebar_navigation.py with this (your original working version):
+# plotly_integration/pd_dashboard/core/sidebar_navigation.py
+# Always expanded sidebar navigation with formulation section
 
 from dash import html
 import dash_bootstrap_components as dbc
@@ -14,8 +13,6 @@ from ..shared.styles.common_styles import (
     get_dropdown_item_style,
     get_dropdown_icon_style,
     get_logo_area_style,
-    get_user_area_style,
-    get_user_text_style,
     SIDEBAR_HOVER_CSS
 )
 
@@ -57,7 +54,8 @@ def create_sidebar_navigation():
                 {'name': 'Sample Sets', 'href': '#!/usp/sample-sets', 'icon': 'fa-layer-group'},
                 {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'},
                 {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'},
-                {'name': 'Nova Data View', 'href': '#!/usp/nova-data-table', 'icon': 'fa-microscope'}
+                {'name': 'Nova Data View', 'href': '#!/usp/nova-data-table', 'icon': 'fa-table'},
+                {'name': 'Bioreactors', 'href': '#!/usp/brx', 'icon': 'fa-microscope'}
             ]
         },
         {
@@ -79,12 +77,25 @@ def create_sidebar_navigation():
             'icon': 'fa-microscope',
             'color': '#9b59b6',
             'items': [
-                {'name': ' Create Report', 'href': '#!/analytical/report', 'icon': 'fa-chart-area'},
+                {'name': 'Create Report', 'href': '#!/analytical/report', 'icon': 'fa-chart-area'},
                 {'name': 'SEC', 'href': '#!/analytical/sec', 'icon': 'fa-chart-area'},
                 {'name': 'Titer', 'href': '#!/analytical/titer', 'icon': 'fa-vial'},
                 {'name': 'CE SDS', 'href': '#!/analytical/ce-sds', 'icon': 'fa-wave-square'},
                 {'name': 'cIEF', 'href': '#!/analytical/cief', 'icon': 'fa-bolt'},
-                {'name': 'Mass Spec', 'href': '#!/analytical/mass-spec', 'icon': 'fa-atom'}
+                {'name': 'Mass Spec', 'href': '#!/analytical/mass-spec', 'icon': 'fa-atom'},
+                {'name': 'Octet', 'href': '#!/analytical/octet', 'icon': 'fa-atom'}
+            ]
+        },
+        {
+            'id': 'formulation',
+            'title': 'Formulation',
+            'icon': 'fa-vials',
+            'color': '#e67e22',
+            'items': [
+                {'name': 'Stability Studies', 'href': '#!/formulation/stability', 'icon': 'fa-clock'},
+                {'name': 'Excipients', 'href': '#!/formulation/excipients', 'icon': 'fa-capsules'},
+                {'name': 'Buffer Optimization', 'href': '#!/formulation/buffer', 'icon': 'fa-flask'},
+                {'name': 'Reports', 'href': '#!/formulation/reports', 'icon': 'fa-file-alt'}
             ]
         },
         {
@@ -94,15 +105,7 @@ def create_sidebar_navigation():
             'color': '#1abc9c',
             'href': '#!/data-import',
             'items': []
-        },
-        # {
-        #     'id': 'settings',
-        #     'title': 'Settings',
-        #     'icon': 'fa-cog',
-        #     'color': '#7f8c8d',
-        #     'href': '#!/settings',
-        #     'items': []
-        # }
+        }
     ]
 
     def create_nav_item(section):
@@ -126,7 +129,7 @@ def create_sidebar_navigation():
                     'padding': SIDEBAR_CONFIG['main_item_padding'],
                     'borderRadius': '8px',
                     'marginBottom': f"{SIDEBAR_CONFIG['item_margin']}",
-                    'backgroundColor': 'rgba(255,255,255,0.05)',  # Slight background for headers
+                    'backgroundColor': 'rgba(255,255,255,0.05)',
                     'fontWeight': 'bold'
                 }
             )
@@ -181,23 +184,13 @@ def create_sidebar_navigation():
         # Logo/Brand area
         html.Div([
             html.Div([
-                html.Span("🧬", style={'fontSize': '22px', 'marginRight': '8px'}),
+                html.Span("PD", style={'fontSize': '22px', 'marginRight': '8px', 'fontWeight': 'bold'}),
                 html.Span("PD Dashboard", style=get_sidebar_title_style())
             ], style=get_logo_area_style())
         ]),
 
         # Navigation items
         html.Div(nav_items),
-
-        # # User info at bottom
-        # html.Div([
-        #     html.Hr(style={'borderColor': '#4a5a6a', 'margin': '20px 0'}),
-        #     html.Div([
-        #         html.I(className="fas fa-user-circle",
-        #                style={'fontSize': '16px', 'color': SIDEBAR_CONFIG['text_muted'], 'marginRight': '8px'}),
-        #         html.Span("User", style=get_user_text_style())
-        #     ], style=get_user_area_style())
-        # ], style={'position': 'absolute', 'bottom': '10px', 'width': '100%'}),
 
         # Add CSS for hover effects
         html.Div([
@@ -210,8 +203,7 @@ def create_sidebar_navigation():
     ], style=get_sidebar_main_style(), id="main-sidebar")
 
 
-# No callbacks needed for always-expanded sidebar
 def register_sidebar_callbacks(app):
     """No callbacks needed for always-expanded sidebar"""
-    print("✅ Sidebar callbacks skipped - using always-expanded mode")
+    print("Success: Sidebar callbacks skipped - using always-expanded mode")
     pass

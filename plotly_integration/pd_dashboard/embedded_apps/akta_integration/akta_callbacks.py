@@ -13,7 +13,7 @@ def update_akta_analysis_status(pathname):
     return "AKTA status updated"
 
 
-print("✅ AKTA integration callbacks registered successfully")
+print("Success: AKTA integration callbacks registered successfully")
 
 
 # Fix 3: Create a simple test to check if AKTA URL building works

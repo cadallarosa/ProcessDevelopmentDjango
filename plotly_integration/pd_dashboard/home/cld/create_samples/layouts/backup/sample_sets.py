@@ -175,7 +175,7 @@ def create_sample_set_card(sample_set, analysis_status):
         project_id=sample_set.project_id
     ).order_by('-date_created')
 
-    # ✅ UPDATED: Use embedded SEC URL for dashboard integration
+    # Success: UPDATED: Use embedded SEC URL for dashboard integration
     if sec_reports.exists():
         latest_report = sec_reports.first()
         # Use embedded SEC app URL for better integration
@@ -190,7 +190,7 @@ def create_sample_set_card(sample_set, analysis_status):
         sec_button_color = "outline-success"
         sec_target = None  # Stay in dashboard
 
-    # ✅ AKTA button configuration for EMBEDDED viewing
+    # Success: AKTA button configuration for EMBEDDED viewing
     # Build clean FB numbers for URL
     clean_fb_numbers = []
     for sid in sample_ids:
@@ -249,7 +249,7 @@ def create_sample_set_card(sample_set, analysis_status):
                             overall_status['text']
                         ], color=overall_status['color'], className="mb-2"),
 
-                        # ✅ Updated button group with embedded apps
+                        # Success: Updated button group with embedded apps
                         dbc.ButtonGroup([
                             dbc.Button([
                                 html.I(className="fas fa-microscope me-1"),
@@ -259,7 +259,7 @@ def create_sample_set_card(sample_set, analysis_status):
                                 color="primary",
                                 size="sm"),
 
-                            # ✅ UPDATED: SEC button for embedded viewing (stays in dashboard)
+                            # Success: UPDATED: SEC button for embedded viewing (stays in dashboard)
                             html.A(
                                 dbc.Button([
                                     html.I(className="fas fa-chart-line me-1"),
@@ -271,10 +271,10 @@ def create_sample_set_card(sample_set, analysis_status):
                                 href=sec_href,
                                 style={"textDecoration": "none"},
                                 title="View SEC Analysis (Embedded)"
-                                # ✅ NO target="_blank" - opens in same dashboard
+                                # Success: NO target="_blank" - opens in same dashboard
                             ),
 
-                            # ✅ AKTA button for embedded viewing (stays in dashboard)
+                            # Success: AKTA button for embedded viewing (stays in dashboard)
                             html.A(
                                 dbc.Button([
                                     html.I(className="fas fa-chart-area me-1"),
@@ -286,7 +286,7 @@ def create_sample_set_card(sample_set, analysis_status):
                                 href=akta_href,
                                 style={"textDecoration": "none"},
                                 title="View AKTA Results (Embedded)"
-                                # ✅ NO target="_blank" - opens in same dashboard
+                                # Success: NO target="_blank" - opens in same dashboard
                             ),
 
                             dbc.Button([
@@ -335,7 +335,7 @@ def create_analysis_request_modal():
                 id="analysis-type-checklist",
                 options=[
                     {"label": "SEC - Size Exclusion Chromatography", "value": "SEC"},
-                    {"label": "AKTA - Chromatography Purification", "value": "AKTA"},  # ✅ ADDED AKTA
+                    {"label": "AKTA - Chromatography Purification", "value": "AKTA"},  # Success: ADDED AKTA
                     {"label": "Titer - Protein Concentration", "value": "Titer"},
                     {"label": "CE-SDS - Capillary Electrophoresis", "value": "CE-SDS"},
                     {"label": "cIEF - Isoelectric Focusing", "value": "cIEF"},
@@ -483,4 +483,4 @@ def create_sample_set_detail_layout(query_params):
     ], fluid=True, style={"padding": "20px"})
 
 
-print("✅ sample_sets layout components loaded successfully")
+print("Success: sample_sets layout components loaded successfully")

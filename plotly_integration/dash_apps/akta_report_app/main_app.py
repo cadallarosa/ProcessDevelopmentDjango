@@ -349,6 +349,34 @@ app.layout = html.Div([
                                                      style={"margin-bottom": "20px"}
                                                  ),
 
+                                                 html.Label("Left Axis Scale:", style={
+                                                     "font-weight": "600",
+                                                     "margin-bottom": "8px",
+                                                     "color": "#333",
+                                                     "display": "block"
+                                                 }),
+                                                 dcc.Dropdown(
+                                                     id="left-axis-primary-dropdown",
+                                                     options=[],
+                                                     value=None,
+                                                     placeholder="Select axis scale",
+                                                     style={"margin-bottom": "20px"}
+                                                 ),
+
+                                                 html.Label("Right Axis Scale:", style={
+                                                     "font-weight": "600",
+                                                     "margin-bottom": "8px",
+                                                     "color": "#333",
+                                                     "display": "block"
+                                                 }),
+                                                 dcc.Dropdown(
+                                                     id="right-axis-primary-dropdown",
+                                                     options=[],
+                                                     value=None,
+                                                     placeholder="Select axis scale",
+                                                     style={"margin-bottom": "20px"}
+                                                 ),
+
                                                  html.Label("Options:", style={
                                                      "font-weight": "600",
                                                      "margin-bottom": "8px",
@@ -590,7 +618,7 @@ def add_fraction_annotations(fig, result_id, offset_ml):
         )
 
 
-def plot_single_sample(fig, df, left_sensors, right_sensors, phases_df, result_id, plot_options, offset_ml):
+def plot_single_sample(fig, df, left_sensors, right_sensors, left_primary, right_primary, phases_df, result_id, plot_options, offset_ml):
     """Plot a single sample with phases and optional fraction annotations"""
 
     phases = []
@@ -631,99 +659,160 @@ def plot_single_sample(fig, df, left_sensors, right_sensors, phases_df, result_i
         )
     )
 
-    axis_counter = 1
+    # NEW APPROACH: Single axis per side with auto-scaling
+    # We'll use only 2 axes maximum: y (left) and y2 (right)
+    
+    # Use the selected primary sensors from the dropdowns
+    primary_left_sensor = left_primary
+    primary_right_sensor = right_primary
+    
+    # Calculate axis ranges based on primary sensors
+    left_axis_range = None
+    right_axis_range = None
+    
+    if primary_left_sensor and primary_left_sensor in df.columns:
+        y_data = df[primary_left_sensor]
+        y_data_max = y_data.max()
+        y_max = y_data_max * 1.05
+        y_min = y_data.min() - 1.5 * (y_max - y_data_max)
+        left_axis_range = [y_min, y_max]
+    
+    if primary_right_sensor and primary_right_sensor in df.columns:
+        y_data = df[primary_right_sensor]
+        y_data_max = y_data.max()
+        y_max = y_data_max * 1.05
+        y_min = y_data.min() - 1.5 * (y_max - y_data_max)
+        right_axis_range = [y_min, y_max]
 
-    # LEFT SENSORS
+    # Function to normalize data to fit within target range
+    def normalize_to_range(data, target_range):
+        data_min, data_max = data.min(), data.max()
+        target_min, target_max = target_range
+        if data_max == data_min:
+            return pd.Series([target_min] * len(data))
+        normalized = (data - data_min) / (data_max - data_min)
+        return normalized * (target_max - target_min) + target_min
+
+    trace_counter = 0
+
+    # Add LEFT SENSORS
     for i, sensor in enumerate(left_sensors):
         if sensor not in df.columns:
             continue
-
-        axis_id = "" if axis_counter == 1 else str(axis_counter)
-        yaxis_name = f"yaxis{axis_id}"
-        yaxis_id = f"y{axis_id}"
-
+            
         y_data = df[sensor]
-        y_data_max = y_data.max()
-        y_max = y_data_max * 1.05
-        y_min = y_data.min() - 1.5 * (y_max - y_data_max)
-
-        color = default_colors[(axis_counter - 1) % len(default_colors)]
-
+        color = default_colors[trace_counter % len(default_colors)]
+        
+        # If this is the primary sensor, use actual data; otherwise normalize
+        if sensor == primary_left_sensor:
+            plot_data = y_data
+            yaxis_ref = "y"
+        else:
+            # Normalize to fit within left axis range
+            if left_axis_range:
+                plot_data = normalize_to_range(y_data, left_axis_range)
+                yaxis_ref = "y"
+            else:
+                continue  # Skip if no left axis range
+        
         fig.add_trace(go.Scatter(
             x=df["ml"],
-            y=y_data,
+            y=plot_data,
             name=AXIS_LABELS.get(sensor, sensor),
             mode="lines",
-            yaxis=yaxis_id,
+            yaxis=yaxis_ref,
             line=dict(color=color),
-            connectgaps=True
+            connectgaps=True,
+            customdata=y_data,  # Store original data for tooltips
+            hovertemplate=f"<b>{AXIS_LABELS.get(sensor, sensor)}</b><br>" +
+                         "Volume: %{x} mL<br>" +
+                         "Value: %{customdata}<br>" +
+                         "<extra></extra>"
         ))
+        trace_counter += 1
 
-        position_left = 0.0 + 0.05 * i
-        if position_left > 0.4:
-            position_left = 0.4
-
-        layout_args = {
-            **base_axis_style,
-            "title": dict(text=AXIS_LABELS.get(sensor, sensor), font=dict(color=color)),
-            "side": "left",
-            "range": [y_min, y_max]
-        }
-        if axis_counter > 1:
-            layout_args.update({
-                "overlaying": "y",
-                "anchor": "free",
-                "position": position_left
-            })
-
-        fig.update_layout(**{yaxis_name: layout_args})
-        axis_counter += 1
-
-    # RIGHT SENSORS
-    for j, sensor in enumerate(right_sensors):
+    # Add RIGHT SENSORS  
+    for i, sensor in enumerate(right_sensors):
         if sensor not in df.columns:
             continue
-
-        axis_id = "" if axis_counter == 1 else str(axis_counter)
-        yaxis_name = f"yaxis{axis_id}"
-        yaxis_id = f"y{axis_id}"
-
+            
         y_data = df[sensor]
-        y_data_max = y_data.max()
-        y_max = y_data_max * 1.05
-        y_min = y_data.min() - 1.5 * (y_max - y_data_max)
-
-        color = default_colors[(axis_counter - 1) % len(default_colors)]
-
+        color = default_colors[trace_counter % len(default_colors)]
+        
+        # If this is the primary sensor, use actual data; otherwise normalize
+        if sensor == primary_right_sensor:
+            plot_data = y_data
+            yaxis_ref = "y2"
+        else:
+            # Normalize to fit within right axis range
+            if right_axis_range:
+                plot_data = normalize_to_range(y_data, right_axis_range)
+                yaxis_ref = "y2"
+            else:
+                continue  # Skip if no right axis range
+        
         fig.add_trace(go.Scatter(
             x=df["ml"],
-            y=y_data,
+            y=plot_data,
             name=AXIS_LABELS.get(sensor, sensor),
             mode="lines",
-            yaxis=yaxis_id,
+            yaxis=yaxis_ref,
             line=dict(color=color),
-            connectgaps=True
+            connectgaps=True,
+            customdata=y_data,  # Store original data for tooltips
+            hovertemplate=f"<b>{AXIS_LABELS.get(sensor, sensor)}</b><br>" +
+                         "Volume: %{x} mL<br>" +
+                         "Value: %{customdata}<br>" +
+                         "<extra></extra>"
         ))
+        trace_counter += 1
 
-        position_right = 1.0 - 0.05 * j
-        if position_right < 0.6:
-            position_right = 0.6
+    # Setup axes - only show axes for primary sensors
+    yaxis_config = {**base_axis_style, "side": "left"}
+    yaxis2_config = {**base_axis_style, "side": "right", "overlaying": "y"}
+    
+    if primary_left_sensor and left_axis_range:
+        yaxis_config.update({
+            "title": dict(
+                text=AXIS_LABELS.get(primary_left_sensor, primary_left_sensor),
+                font=dict(color=default_colors[0])
+            ),
+            "range": left_axis_range,
+            "showticklabels": True,
+            "showline": True,
+            "ticks": "inside"
+        })
+    else:
+        # Hide left axis completely if no primary sensor
+        yaxis_config.update({
+            "showticklabels": False,
+            "showline": False,
+            "ticks": "",
+            "title": {"text": ""}
+        })
+        
+    if primary_right_sensor and right_axis_range:
+        yaxis2_config.update({
+            "title": dict(
+                text=AXIS_LABELS.get(primary_right_sensor, primary_right_sensor),
+                font=dict(color=default_colors[len(left_sensors) if left_sensors else 0])
+            ),
+            "range": right_axis_range,
+            "showticklabels": True,
+            "showline": True,
+            "ticks": "inside"
+        })
+    else:
+        # Hide right axis completely if no primary sensor
+        yaxis2_config.update({
+            "showticklabels": False,
+            "showline": False,
+            "ticks": "",
+            "title": {"text": ""}
+        })
 
-        layout_args = {
-            **base_axis_style,
-            "title": dict(text=AXIS_LABELS.get(sensor, sensor), font=dict(color=color)),
-            "side": "right",
-            "range": [y_min, y_max]
-        }
-        if axis_counter > 1:
-            layout_args.update({
-                "overlaying": "y",
-                "anchor": "free",
-                "position": position_right
-            })
-
-        fig.update_layout(**{yaxis_name: layout_args})
-        axis_counter += 1
+    # Always apply both axis configurations
+    fig.update_layout(yaxis=yaxis_config, yaxis2=yaxis2_config)
 
     # Add phase annotations
     for phase in phases:
@@ -784,7 +873,7 @@ def plot_single_sample(fig, df, left_sensors, right_sensors, phases_df, result_i
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         showlegend=False,
-        margin=dict(t=60, b=60, l=60, r=20)
+        margin=dict(t=60, b=60, l=80, r=80)
     )
 
     return fig
@@ -1065,6 +1154,34 @@ def handle_url_and_embed_mode(search):
                         value=[],
                         multi=True,
                         placeholder="Select sensors for right side",
+                        style={"margin-bottom": "20px"}
+                    ),
+
+                    html.Label("Left Axis Scale:", style={
+                        "font-weight": "600",
+                        "margin-bottom": "8px",
+                        "color": "#333",
+                        "display": "block"
+                    }),
+                    dcc.Dropdown(
+                        id="left-axis-primary-dropdown",
+                        options=[],
+                        value=None,
+                        placeholder="Select axis scale",
+                        style={"margin-bottom": "20px"}
+                    ),
+
+                    html.Label("Right Axis Scale:", style={
+                        "font-weight": "600",
+                        "margin-bottom": "8px",
+                        "color": "#333",
+                        "display": "block"
+                    }),
+                    dcc.Dropdown(
+                        id="right-axis-primary-dropdown",
+                        options=[],
+                        value=None,
+                        placeholder="Select axis scale",
                         style={"margin-bottom": "20px"}
                     ),
 
@@ -1623,18 +1740,24 @@ def update_load_volume_table(plot_mode, load_data, titer_data, x_offset_ml, all_
         return table_columns, overlay_data
 
 
-# STEP 1: Build sensor options & keep them disjoint
+# Manage sensor dropdowns and axis scale dropdowns
 @app.callback(
     Output("left-sensor-dropdown", "options"),
     Output("left-sensor-dropdown", "value"),
     Output("right-sensor-dropdown", "options"),
     Output("right-sensor-dropdown", "value"),
+    Output("left-axis-primary-dropdown", "options"),
+    Output("left-axis-primary-dropdown", "value"),
+    Output("right-axis-primary-dropdown", "options"),
+    Output("right-axis-primary-dropdown", "value"),
     Input("selected-result-id", "data"),
     Input("left-sensor-dropdown", "value"),
     Input("right-sensor-dropdown", "value"),
+    Input("left-axis-primary-dropdown", "value"),
+    Input("right-axis-primary-dropdown", "value"),
     prevent_initial_call=True
 )
-def manage_sensor_choices(result_id, left_vals, right_vals):
+def manage_sensor_choices(result_id, left_vals, right_vals, left_primary, right_primary):
     print(f"DEBUG: manage_sensor_choices called with result_id: {result_id}, left: {left_vals}, right: {right_vals}")
     all_fields = [f.name for f in AktaChromatogram._meta.get_fields()]
     all_sensors = [f for f in all_fields if f not in ["id", "result_id", "ml", "date_time"]]
@@ -1659,7 +1782,23 @@ def manage_sensor_choices(result_id, left_vals, right_vals):
     left_options = [{"label": AXIS_LABELS.get(s, s), "value": s} for s in all_sensors if s not in right_vals]
     right_options = [{"label": AXIS_LABELS.get(s, s), "value": s} for s in all_sensors if s not in left_vals]
 
-    return left_options, sorted(left_vals), right_options, sorted(right_vals)
+    # Create options for axis scale dropdowns (only from selected sensors)
+    left_axis_options = [{"label": AXIS_LABELS.get(s, s), "value": s} for s in sorted(left_vals)]
+    right_axis_options = [{"label": AXIS_LABELS.get(s, s), "value": s} for s in sorted(right_vals)]
+    
+    # Set default primary sensors (first in each list)
+    if left_vals and not left_primary:
+        left_primary = sorted(left_vals)[0]
+    elif left_primary not in left_vals:
+        left_primary = sorted(left_vals)[0] if left_vals else None
+        
+    if right_vals and not right_primary:
+        right_primary = sorted(right_vals)[0]  
+    elif right_primary not in right_vals:
+        right_primary = sorted(right_vals)[0] if right_vals else None
+
+    return (left_options, sorted(left_vals), right_options, sorted(right_vals),
+            left_axis_options, left_primary, right_axis_options, right_primary)
 
 
 @app.callback(
@@ -1824,6 +1963,8 @@ def update_fraction_table(result_id, x_offset, plot_mode, extinction_coeff, chro
     Input("phases-data", "data"),
     Input("left-sensor-dropdown", "value"),
     Input("right-sensor-dropdown", "value"),
+    Input("left-axis-primary-dropdown", "value"),
+    Input("right-axis-primary-dropdown", "value"),
     Input("plot-options-checklist", "value"),
     Input("plot-mode-radio", "value"),
     State("selected-result-id", "data"),
@@ -1831,7 +1972,8 @@ def update_fraction_table(result_id, x_offset, plot_mode, extinction_coeff, chro
     State("selected-result-ids", "data"),
     prevent_initial_call=True
 )
-def update_chromatogram_plot(chrom_data, phase_data, left_sensors, right_sensors, plot_options,
+def update_chromatogram_plot(chrom_data, phase_data, left_sensors, right_sensors, 
+                             left_primary, right_primary, plot_options,
                              plot_mode, result_id, all_data, selected_ids):
     print(f"DEBUG: update_chromatogram_plot called with:")
     print(f"  - result_id: {result_id}")
@@ -1878,7 +2020,7 @@ def update_chromatogram_plot(chrom_data, phase_data, left_sensors, right_sensors
             return fig, load_store_data, offset_ml
 
         # Add single sample traces
-        fig = plot_single_sample(fig, df, left_sensors, right_sensors, phases_df, result_id, plot_options, offset_ml)
+        fig = plot_single_sample(fig, df, left_sensors, right_sensors, left_primary, right_primary, phases_df, result_id, plot_options, offset_ml)
         print("DEBUG: Single sample plot created successfully")
 
     else:  # overlay mode

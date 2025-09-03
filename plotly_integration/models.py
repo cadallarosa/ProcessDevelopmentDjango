@@ -1011,6 +1011,67 @@ class LimsAnalysisRequest(models.Model):
         db_table = 'lims_analysis_requests'
         managed = True
 
+
+# USP Sample Sets Management Models
+class UspSampleSet(models.Model):
+    """Represents a grouped collection of USP samples - grouped by project and reactor type"""
+    id = models.AutoField(primary_key=True)
+    set_name = models.CharField(max_length=200, unique=True)  # e.g., "PROJ001_Bioreactor_R1"
+    project_id = models.CharField(max_length=100)
+    reactor_type = models.CharField(max_length=50)  # e.g., "Bioreactor", "Shake Flask", "Ambr250"
+    
+    # Additional USP-specific metadata
+    experiment_number = models.IntegerField(null=True, blank=True)
+    culture_duration = models.IntegerField(null=True, blank=True)
+    vessel_type = models.CharField(max_length=50, null=True, blank=True)
+    cell_line = models.CharField(max_length=100, null=True, blank=True)
+
+    # Common metadata
+    sample_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Status tracking
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'usp_sample_sets'
+        unique_together = ['project_id', 'reactor_type', 'experiment_number']
+        managed = True
+
+    def __str__(self):
+        return f"{self.set_name} - {self.project_id} ({self.reactor_type})"
+
+
+class UspSampleSetMembership(models.Model):
+    """Links individual USP samples to USP sample sets"""
+    sample_set = models.ForeignKey(UspSampleSet, on_delete=models.CASCADE, related_name='members')
+    sample = models.ForeignKey('LimsUpstreamSamples', on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'usp_sample_set_membership'
+        unique_together = ['sample_set', 'sample']
+        managed = True
+
+
+class UspAnalysisRequest(models.Model):
+    """Track analysis requests for USP sample sets"""
+    sample_set = models.ForeignKey(UspSampleSet, on_delete=models.CASCADE, related_name='analysis_requests')
+    analysis_type = models.CharField(max_length=50)  # SEC, AKTA, Titer, Viability, Metabolites, etc.
+    requested_by = models.CharField(max_length=100)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    priority = models.IntegerField(default=1)
+    status = models.CharField(max_length=50, default='requested')
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'usp_analysis_requests'
+        managed = True
+
+
 # Lims Dn Assignment
 class LimsDnAssignment(models.Model):
     dn = models.BigIntegerField(primary_key=True)
@@ -1306,3 +1367,320 @@ class LimsCeSdsResult(models.Model):
 #     class Meta:
 #         db_table = 'lims_pd_samples'
 #
+
+
+# =====================================================
+# DASGIP Bioreactor Models (USP - Upstream Processing)
+# =====================================================
+
+# Simplified DASGIP Models - Two table approach
+class USPBioreactorRun(models.Model):
+    """Simplified metadata table for bioreactor runs - one row per UP number"""
+    up_number = models.CharField(max_length=50, primary_key=True, help_text="UP Number (Primary Key)")
+    
+    # File info
+    file_name = models.CharField(max_length=255, help_text="Original CSV filename")
+    file_path = models.TextField(help_text="Path to uploaded file")
+    
+    # Run metadata
+    project_name = models.CharField(max_length=255, blank=True, help_text="DASGIP project name")
+    unit_number = models.IntegerField(help_text="DASGIP unit number (1, 3, 4, 7, 8, etc.)")
+    setup_name = models.CharField(max_length=255, blank=True, help_text="Setup description")
+    
+    # Timestamps
+    start_timestamp = models.DateTimeField(help_text="Run start time")
+    stop_timestamp = models.DateTimeField(help_text="Run stop time")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    # Optional metadata
+    comment = models.TextField(blank=True, help_text="Run notes/comments")
+    host = models.CharField(max_length=100, blank=True, help_text="DASGIP host system")
+    
+    def __str__(self):
+        return f"{self.up_number} - Unit {self.unit_number}"
+    
+    class Meta:
+        db_table = 'usp_bioreactor_runs'
+        verbose_name = "Bioreactor Run"
+        verbose_name_plural = "Bioreactor Runs"
+
+
+class USPTimeSeriesData(models.Model):
+    """Time series data for bioreactor parameters"""
+    run = models.ForeignKey(USPBioreactorRun, on_delete=models.CASCADE, related_name='timeseries_data')
+    timestamp = models.DateTimeField(help_text="Data timestamp")
+    duration = models.FloatField(null=True, blank=True, help_text="Duration from start (hours)")
+    
+    # Process parameters based on PROCESS_PARAMETERS
+    # Dissolved Oxygen
+    do_pv = models.FloatField(null=True, blank=True, help_text="DO Process Value (% DO)")
+    do_sp = models.FloatField(null=True, blank=True, help_text="DO Setpoint (% DO)")
+    do_out = models.FloatField(null=True, blank=True, help_text="DO Controller Output (%)")
+    
+    # pH
+    ph_pv = models.FloatField(null=True, blank=True, help_text="pH Process Value")
+    ph_sp = models.FloatField(null=True, blank=True, help_text="pH Setpoint")
+    ph_out = models.FloatField(null=True, blank=True, help_text="pH Controller Output (%)")
+    
+    # Temperature
+    temp_pv = models.FloatField(null=True, blank=True, help_text="Temperature Process Value (°C)")
+    temp_sp = models.FloatField(null=True, blank=True, help_text="Temperature Setpoint (°C)")
+    temp_out = models.FloatField(null=True, blank=True, help_text="Temperature Controller Output (%)")
+    
+    # Agitation Speed
+    rpm_pv = models.FloatField(null=True, blank=True, help_text="Agitation Speed Process Value (RPM)")
+    rpm_sp = models.FloatField(null=True, blank=True, help_text="Agitation Speed Setpoint (RPM)")
+    
+    # Volume
+    volume_pv = models.FloatField(null=True, blank=True, help_text="Reactor Volume (mL)")
+    
+    # Air Flow
+    air_flow_pv = models.FloatField(null=True, blank=True, help_text="Air Flow Process Value (sL/h)")
+    air_flow_sp = models.FloatField(null=True, blank=True, help_text="Air Flow Setpoint (sL/h)")
+    
+    # Feed A Flow
+    feed_a_pv = models.FloatField(null=True, blank=True, help_text="Feed A Flow Process Value (mL/h)")
+    feed_a_sp = models.FloatField(null=True, blank=True, help_text="Feed A Flow Setpoint (mL/h)")
+    
+    # Feed B Flow
+    feed_b_pv = models.FloatField(null=True, blank=True, help_text="Feed B Flow Process Value (mL/h)")
+    feed_b_sp = models.FloatField(null=True, blank=True, help_text="Feed B Flow Setpoint (mL/h)")
+    
+    # O2 Concentration
+    o2_conc_pv = models.FloatField(null=True, blank=True, help_text="O2 Concentration Process Value (%)")
+    o2_conc_sp = models.FloatField(null=True, blank=True, help_text="O2 Concentration Setpoint (%)")
+    
+    # CO2 Concentration
+    co2_conc_pv = models.FloatField(null=True, blank=True, help_text="CO2 Concentration Process Value (%)")
+    co2_conc_sp = models.FloatField(null=True, blank=True, help_text="CO2 Concentration Setpoint (%)")
+    
+    def __str__(self):
+        return f"{self.run.up_number} - {self.timestamp}"
+    
+    class Meta:
+        db_table = 'usp_timeseries_data'
+        verbose_name = "Time Series Data"
+        verbose_name_plural = "Time Series Data"
+        indexes = [
+            models.Index(fields=['run', 'timestamp']),
+            models.Index(fields=['timestamp']),
+        ]
+        ordering = ['run', 'timestamp']
+
+
+# Formulation Stability Study Models
+class FormulationStudy(models.Model):
+    """Model to store formulation study information"""
+    id = models.AutoField(primary_key=True)
+    study_id = models.CharField(max_length=50, unique=True, help_text="Study identifier (e.g., FD-003)")
+    name = models.CharField(max_length=200, help_text="Study name or description")
+    molecule = models.CharField(max_length=100, help_text="Molecule being tested")
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.study_id}: {self.name}"
+    
+    class Meta:
+        db_table = 'formulation_study'
+        verbose_name = "Formulation Study"
+        verbose_name_plural = "Formulation Studies"
+
+
+class FormulationCondition(models.Model):
+    """Model to store formulation conditions/compositions"""
+    id = models.AutoField(primary_key=True)
+    study = models.ForeignKey(FormulationStudy, on_delete=models.CASCADE, related_name='conditions')
+    formulation_number = models.IntegerField(help_text="Formulation identifier number")
+    
+    # Buffer system
+    buffer_type = models.CharField(max_length=100, null=True, blank=True, help_text="Buffer type (e.g., Phosphate, Histidine)")
+    buffer_concentration = models.FloatField(null=True, blank=True, help_text="Buffer concentration (mM)")
+    ph = models.FloatField(help_text="pH value")
+    
+    # Excipients
+    arginine_hcl = models.FloatField(null=True, blank=True, help_text="Arginine HCl concentration (mg/mL)")
+    sucrose = models.FloatField(null=True, blank=True, help_text="Sucrose concentration (mg/mL)")
+    sorbitol = models.FloatField(null=True, blank=True, help_text="Sorbitol concentration (mg/mL)")
+    trehalose = models.FloatField(null=True, blank=True, help_text="Trehalose concentration (mg/mL)")
+    glycine = models.FloatField(null=True, blank=True, help_text="Glycine concentration (mg/mL)")
+    polysorbate_80 = models.FloatField(null=True, blank=True, help_text="Polysorbate 80 concentration (mg/mL)")
+    
+    # Additional excipients (generic fields)
+    excipient_1_name = models.CharField(max_length=100, null=True, blank=True)
+    excipient_1_concentration = models.FloatField(null=True, blank=True)
+    excipient_2_name = models.CharField(max_length=100, null=True, blank=True)
+    excipient_2_concentration = models.FloatField(null=True, blank=True)
+    excipient_3_name = models.CharField(max_length=100, null=True, blank=True)
+    excipient_3_concentration = models.FloatField(null=True, blank=True)
+    
+    # Physical properties
+    osmolality = models.FloatField(null=True, blank=True, help_text="Osmolality (mOsm/kg)")
+    
+    def __str__(self):
+        return f"{self.study.study_id} - Formulation {self.formulation_number}"
+    
+    class Meta:
+        db_table = 'formulation_condition'
+        verbose_name = "Formulation Condition"
+        verbose_name_plural = "Formulation Conditions"
+        unique_together = ('study', 'formulation_number')
+
+
+class FormulationSample(models.Model):
+    """Model to store individual samples from formulation studies"""
+    id = models.AutoField(primary_key=True)
+    sample_id = models.CharField(max_length=50, unique=True, help_text="Sample identifier (e.g., FD-003-001)")
+    formulation = models.ForeignKey(FormulationCondition, on_delete=models.CASCADE, related_name='samples')
+    
+    # Storage conditions
+    STORAGE_CONDITIONS = [
+        ('FT', 'Freeze/Thaw'),
+        ('25C', '25°C'),
+        ('40C', '40°C'),
+        ('4C', '4°C'),
+        ('-80C', '-80°C'),
+    ]
+    storage_condition = models.CharField(max_length=10, choices=STORAGE_CONDITIONS)
+    pull_day = models.IntegerField(help_text="Day sample was pulled for analysis")
+    time_point_months = models.FloatField(help_text="Time point in months")
+    
+    # Sample properties at analysis
+    appearance = models.CharField(max_length=200, null=True, blank=True)
+    concentration = models.FloatField(null=True, blank=True, help_text="Protein concentration (mg/mL)")
+    ph_measured = models.FloatField(null=True, blank=True, help_text="Measured pH")
+    osmolality_measured = models.FloatField(null=True, blank=True, help_text="Measured osmolality (mOsm/kg)")
+    
+    def __str__(self):
+        return f"{self.sample_id} ({self.storage_condition}, {self.time_point_months}m)"
+    
+    class Meta:
+        db_table = 'formulation_sample'
+        verbose_name = "Formulation Sample"
+        verbose_name_plural = "Formulation Samples"
+        indexes = [
+            models.Index(fields=['formulation', 'storage_condition', 'time_point_months']),
+            models.Index(fields=['storage_condition', 'time_point_months']),
+        ]
+
+
+class FormulationSecResult(models.Model):
+    """Model to store SEC (Size Exclusion Chromatography) results"""
+    id = models.AutoField(primary_key=True)
+    sample = models.ForeignKey(FormulationSample, on_delete=models.CASCADE, related_name='sec_results')
+    result_id = models.CharField(max_length=100, null=True, blank=True, help_text="External result ID")
+    
+    # SEC measurements
+    hmw_percent = models.FloatField(help_text="High Molecular Weight species (%)")
+    main_percent = models.FloatField(help_text="Main peak/monomer (%)")
+    lmw_percent = models.FloatField(help_text="Low Molecular Weight species (%)")
+    total_area = models.FloatField(null=True, blank=True, help_text="Total chromatogram area")
+    
+    # Additional stability measurements
+    tm_celsius = models.FloatField(null=True, blank=True, help_text="Melting temperature (°C)")
+    scattering_onset = models.FloatField(null=True, blank=True, help_text="Light scattering onset temperature")
+    
+    # Analysis metadata
+    analysis_date = models.DateTimeField(null=True, blank=True)
+    instrument = models.CharField(max_length=100, null=True, blank=True)
+    method = models.CharField(max_length=200, null=True, blank=True)
+    analyst = models.CharField(max_length=100, null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.sample.sample_id} SEC: {self.main_percent:.1f}% Main, {self.hmw_percent:.1f}% HMW"
+    
+    class Meta:
+        db_table = 'formulation_sec_result'
+        verbose_name = "SEC Result"
+        verbose_name_plural = "SEC Results"
+        indexes = [
+            models.Index(fields=['sample', 'analysis_date']),
+        ]
+
+
+class FormulationStabilityMetric(models.Model):
+    """Model to store calculated stability metrics and trends"""
+    id = models.AutoField(primary_key=True)
+    formulation = models.ForeignKey(FormulationCondition, on_delete=models.CASCADE, related_name='stability_metrics')
+    storage_condition = models.CharField(max_length=10, help_text="Storage condition")
+    
+    # Degradation rates (% change per month)
+    hmw_rate_per_month = models.FloatField(null=True, blank=True, help_text="HMW increase rate (% per month)")
+    main_rate_per_month = models.FloatField(null=True, blank=True, help_text="Main decrease rate (% per month)")
+    lmw_rate_per_month = models.FloatField(null=True, blank=True, help_text="LMW increase rate (% per month)")
+    
+    # Statistical metrics
+    r_squared = models.FloatField(null=True, blank=True, help_text="R² for linear fit")
+    half_life_months = models.FloatField(null=True, blank=True, help_text="Estimated half-life (months)")
+    
+    # Calculated stability ranking
+    stability_score = models.FloatField(null=True, blank=True, help_text="Overall stability score (0-100)")
+    
+    def __str__(self):
+        return f"{self.formulation} - {self.storage_condition} stability"
+    
+    class Meta:
+        db_table = 'formulation_stability_metric'
+        verbose_name = "Stability Metric"
+        verbose_name_plural = "Stability Metrics"
+        unique_together = ('formulation', 'storage_condition')
+
+
+# Simplified Formulation Data Model - Exact match to Excel structure
+class FormulationData(models.Model):
+    """Model to store formulation data exactly matching Excel structure"""
+    id = models.AutoField(primary_key=True)
+    
+    # Excel columns in exact order
+    sample_number = models.CharField(max_length=50, unique=True, help_text="Sample Number")
+    buffer = models.CharField(max_length=100, null=True, blank=True, help_text="Buffer")
+    ph = models.FloatField(null=True, blank=True, help_text="pH")
+    excipients = models.TextField(null=True, blank=True, help_text="Excipients")
+    formulation = models.TextField(null=True, blank=True, help_text="Formulation")
+    condition = models.CharField(max_length=50, null=True, blank=True, help_text="Condition")
+    pull_day = models.IntegerField(null=True, blank=True, help_text="Pull Day")
+    time_point_months = models.FloatField(null=True, blank=True, help_text="Time Point (months)")
+    appearance = models.CharField(max_length=200, null=True, blank=True, help_text="Appearance")
+    concentration = models.FloatField(null=True, blank=True, help_text="Concentration (mg/mL)")
+    ph_measured = models.FloatField(null=True, blank=True, help_text="pH (measured)")  # This is pH.1 from Excel
+    result_id = models.CharField(max_length=100, null=True, blank=True, help_text="Result ID")
+    hmw = models.FloatField(null=True, blank=True, help_text="HMW")
+    main = models.FloatField(null=True, blank=True, help_text="Main")
+    lmw = models.FloatField(null=True, blank=True, help_text="LMW")
+    total_area = models.FloatField(null=True, blank=True, help_text="Total Area")
+    osmolality = models.FloatField(null=True, blank=True, help_text="Osmolality (mOsm/kg)")
+    tm_celsius = models.FloatField(null=True, blank=True, help_text="Tm (°C)")
+    scattering_onset = models.FloatField(null=True, blank=True, help_text="Scattering Onset")
+    
+    # Metadata (not from Excel)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.sample_number}"
+    
+    @property
+    def experiment_id(self):
+        """Extract experiment ID from sample number"""
+        if self.sample_number:
+            parts = self.sample_number.split('-')
+            if len(parts) >= 2:
+                return f"{parts[0]}-{parts[1]}"
+        return "Unknown"
+    
+    @property
+    def formulation_number(self):
+        """Extract formulation number from sample number"""
+        if self.sample_number:
+            parts = self.sample_number.split('-')
+            if len(parts) >= 3:
+                return parts[2]
+        return "Unknown"
+    
+    class Meta:
+        db_table = 'formulation_data_simple'
+        verbose_name = "Formulation Data"
+        verbose_name_plural = "Formulation Data"
+        ordering = ['sample_number']

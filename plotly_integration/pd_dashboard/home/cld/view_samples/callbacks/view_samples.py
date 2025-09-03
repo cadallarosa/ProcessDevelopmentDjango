@@ -63,11 +63,11 @@ def load_samples_main(pathname, n_clicks, search_term, project_filter, stage_fil
             original_snapshot[sample_key] = row.copy()
 
         _original_data = original_snapshot
-        print(f"✅ Loaded {len(data)} samples with original snapshot")
+        print(f"Success: Loaded {len(data)} samples with original snapshot")
         return data, data, original_snapshot
 
     except Exception as e:
-        print(f"❌ Error loading: {e}")
+        print(f"Error: Error loading: {e}")
         return [], [], {}
 
 
@@ -155,40 +155,40 @@ def save_all_with_conflict_detection(n_clicks, current_data, original_data, page
                     'sample_num': sample_num,
                     'fields_changed': get_changed_fields(db_sample, original_row)
                 })
-                print(f"⚠️ Conflict detected for FB{sample_num}")
+                print(f"Warning: Conflict detected for FB{sample_num}")
             else:
                 # No conflict - check if user made changes
                 if has_row_changed(row, original_row):
                     # User made changes - save them
                     if save_single_sample(row):
                         saved_successfully.append(sample_num)
-                        print(f"✅ Saved FB{sample_num} (user changes)")
+                        print(f"Success: Saved FB{sample_num} (user changes)")
                     else:
                         save_errors.append(f"FB{sample_num} save failed")
                 else:
                     # No changes from user - but still "save" to catch copy/paste
                     if save_single_sample(row):
                         no_changes.append(sample_num)
-                        print(f"✅ Saved FB{sample_num} (no changes/copy-paste check)")
+                        print(f"Success: Saved FB{sample_num} (no changes/copy-paste check)")
                     else:
                         save_errors.append(f"FB{sample_num} save failed")
 
         except Exception as e:
             save_errors.append(f"FB{sample_num}: {str(e)}")
-            print(f"❌ Error processing FB{sample_num}: {e}")
+            print(f"Error: Error processing FB{sample_num}: {e}")
 
     # Create status message
     total_processed = len(saved_successfully) + len(no_changes) + len(conflicts) + len(save_errors)
 
     status_parts = []
     if saved_successfully:
-        status_parts.append(f"✅ {len(saved_successfully)} samples with changes saved")
+        status_parts.append(f"Success: {len(saved_successfully)} samples with changes saved")
     if no_changes:
-        status_parts.append(f"✅ {len(no_changes)} unchanged samples verified")
+        status_parts.append(f"Success: {len(no_changes)} unchanged samples verified")
     if conflicts:
-        status_parts.append(f"⚠️ {len(conflicts)} samples had conflicts")
+        status_parts.append(f"Warning: {len(conflicts)} samples had conflicts")
     if save_errors:
-        status_parts.append(f"❌ {len(save_errors)} errors")
+        status_parts.append(f"Error: {len(save_errors)} errors")
 
     # Build detailed status alert
     alert_children = [
@@ -369,7 +369,7 @@ def export_excel(n_clicks, data):
         from dash import dcc
         return dcc.send_bytes(output.read(), filename)
     except Exception as e:
-        print(f"❌ Error exporting: {e}")
+        print(f"Error: Error exporting: {e}")
         return no_update
 
 
@@ -556,7 +556,7 @@ def save_single_sample(row_data):
         return True
 
     except Exception as e:
-        print(f"❌ Error saving sample {sample_num}: {e}")
+        print(f"Error: Error saving sample {sample_num}: {e}")
         return False
 
 
@@ -604,8 +604,8 @@ def build_sample_row_with_recoveries(sample_obj):
     }
 
 
-print("✅ SAVE ALL ROWS with CONFLICT DETECTION ready!")
-print("   ✅ Saves ALL samples on current page (catches copy/paste)")
-print("   ✅ Conflict detection only happens when you save")
-print("   ✅ Clear reporting: changed, unchanged, conflicts, errors")
-print("   ✅ Shows which fields were changed in conflicts")
+print("Success: SAVE ALL ROWS with CONFLICT DETECTION ready!")
+print("   Success: Saves ALL samples on current page (catches copy/paste)")
+print("   Success: Conflict detection only happens when you save")
+print("   Success: Clear reporting: changed, unchanged, conflicts, errors")
+print("   Success: Shows which fields were changed in conflicts")

@@ -183,7 +183,7 @@ if __name__ == "__main__":
     input_file = r"C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\process_development\cell_culture\dasgip\raw_data\CTPCNK808814.E59BRX.Control.csv"
     
     # Output file path
-    output_file = r"C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\process_development\cell_culture\dasgip\CTPCNK808814_E59BRX_Control_clean_5s.csv"
+    output_file = r"/plotly_integration/process_development/cell_culture/dasgip/cleaned_data/CTPCNK808814_E59BRX_Control_clean_5s.csv"
     
     # Parse the file with 5-second downsampling
     df = parse_dasgip_csv(input_file, downsample_seconds=5)

@@ -11,11 +11,8 @@ class PlotlyIntegrationConfig(AppConfig):
         run_checks()  # Ensures Django settings are loaded before importing
 
         def delayed_import():
-            time.sleep(5)  # Delay import by 5 seconds
+            time.sleep(2)  # Delay import by 2 seconds
             try:
-                # New PD Dash App
-                import plotly_integration.pd_dashboard.main_app
-
                 #Analytical Apps
                 import plotly_integration.dash_apps.Analytical.create_report.create_report_app
 
@@ -26,10 +23,10 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.dash_apps.Analytical.titer.create_titer_report_app
 
 
-                # import plotly_integration.dash_apps.Analytical.create_report.create_report_app
+                import plotly_integration.dash_apps.Analytical.create_report.create_report_app
 
-                # import plotly_integration.process_development.downstream_processing.empower.create_report_app
-                # import plotly_integration.homepage
+                import plotly_integration.process_development.downstream_processing.empower.create_report_app
+                import plotly_integration.homepage
                 # import plotly_integration.process_development.downstream_processing.empower.database_manager
                 # import plotly_integration.process_development.downstream_processing.empower.sec_report_app
                 # import plotly_integration.process_development.downstream_processing.empower.sec_report_app.app
@@ -42,8 +39,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 # import plotly_integration.process_development.downstream_processing.akta.opcua_server.test_files.akta_data_import
 
                 import plotly_integration.process_development.downstream_processing.akta.akta_app.akta_app
-                import \
-                    plotly_integration.process_development.downstream_processing.akta.opcua_server.test.akta_import_app
+                import plotly_integration.process_development.downstream_processing.akta.opcua_server.test.akta_import_app
                 import plotly_integration.process_development.cld_mass_check.cld_mass_check_import_app
                 import protein_engineering.homepage
                 import protein_engineering.sec_report_app
@@ -62,7 +58,9 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor
 
                 #Dasgip Apps
+                import plotly_integration.process_development.cell_culture.dasgip.dasgip_import_app
                 import plotly_integration.process_development.cell_culture.dasgip.dasgip_report_app
+
 
                 #SEC
                 import plotly_integration.dash_apps.Analytical.sec_app_embedded.app
@@ -94,6 +92,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.process_development.analytical.cief.create_report_app
                 # import plotly_integration.process_development.analytical.cief.cief_sds_analysis_app
                 import plotly_integration.process_development.analytical.cief.cief_analysis_app
+                import plotly_integration.process_development.analytical.cief_empower.app
 
                 #Octet Apps
                 import plotly_integration.dash_apps.Analytical.octet.octet_analysis_app
@@ -111,8 +110,18 @@ class PlotlyIntegrationConfig(AppConfig):
                 # import plotly_integration.process_development.lims.cld_dashboard.CLDDashboardApp2
                 # import plotly_integration.cld_dashboard.main_app
 
+                #Formualtion
+                import plotly_integration.process_development.formulation.stability_app.formulation_stability_app
+                import plotly_integration.process_development.formulation.stability_app.formulation_stability_app_simple
+                import plotly_integration.process_development.formulation.stability_app.formulation_simple_table_app
+
+
                 #New PD Dash App
-                import plotly_integration.pd_dashboard.main_app
+                try:
+                    import plotly_integration.pd_dashboard.main_app
+                    print('PD Dashboard App loaded successfully')
+                except Exception as e:
+                    print(f'PD Dashboard App failed to load: {e}')
 
 
 

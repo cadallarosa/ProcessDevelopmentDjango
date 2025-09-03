@@ -12,8 +12,13 @@ from ..app import app
 def generate_subplots_with_shading(selected_result_ids, sample_list, channels, enable_shading, enable_peak_labeling,
                                    main_peak_rt, slope,
                                    intercept, hmw_table_data, num_cols=3, vertical_spacing=0.05,
-                                   horizontal_spacing=0.5, show_mw_annotations=True):
+                                   horizontal_spacing=0.5, show_mw_annotations=True,
+                                   manual_scaling=False, x_min=None, x_max=None, y_min=None, y_max=None):
     num_samples = len(sample_list)
+    
+    # Variables to track data ranges for auto-scaling fallback
+    all_x_values = []
+    all_y_values = []
     
     # No sample limit - let users handle all their data
     
@@ -95,6 +100,10 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
 
         for channel in channels:
             if channel in df.columns:
+                # Collect data ranges
+                all_x_values.extend(df['time'].tolist())
+                all_y_values.extend(df[channel].tolist())
+                
                 fig.add_trace(
                     go.Scatter(
                         x=df['time'],
@@ -202,6 +211,7 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
                                 except Exception as e:
                                     print(f"Error annotating MW for {sample_name}, {region}: {e}")
 
+        # Update axes - with or without manual scaling
         fig.update_xaxes(
             title_text="Time (min)",
             title_standoff=3,
@@ -223,6 +233,37 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
         showlegend=False,
         plot_bgcolor="white"
     )
+    
+    # Apply manual scaling after figure is built
+    if manual_scaling and (x_min is not None or x_max is not None or y_min is not None or y_max is not None):
+        # Calculate auto-scale ranges from the data if needed
+        if all_x_values:
+            auto_x_min = min(all_x_values)
+            auto_x_max = max(all_x_values)
+        else:
+            auto_x_min = 0
+            auto_x_max = 1
+            
+        if all_y_values:
+            auto_y_min = min(all_y_values)
+            auto_y_max = max(all_y_values)
+            # Add some padding for y-axis
+            y_padding = (auto_y_max - auto_y_min) * 0.05
+            auto_y_min = auto_y_min - y_padding
+            auto_y_max = auto_y_max + y_padding
+        else:
+            auto_y_min = 0
+            auto_y_max = 1
+        
+        # Determine final ranges
+        final_x_min = x_min if x_min is not None else auto_x_min
+        final_x_max = x_max if x_max is not None else auto_x_max
+        final_y_min = y_min if y_min is not None else auto_y_min
+        final_y_max = y_max if y_max is not None else auto_y_max
+        
+        # Apply to all subplots
+        fig.update_xaxes(range=[final_x_min, final_x_max])
+        fig.update_yaxes(range=[final_y_min, final_y_max])
 
     return fig
 
@@ -350,14 +391,19 @@ def manage_pagination(report_name, prev_clicks_top, next_clicks_top, prev_clicks
         State('num-cols-input', 'value'),  # Layout only
         State('vertical-spacing-input', 'value'),  # Layout only
         State('horizontal-spacing-input', 'value'),  # Layout only
-        State('selected-report', 'data')  # Retrieve stored `report_id`
+        State('selected-report', 'data'),  # Retrieve stored `report_id`
+        State('manual-scaling-checkbox', 'value'),  # Manual scaling toggle
+        State('x-min-input', 'value'),  # X-axis min
+        State('x-max-input', 'value'),  # X-axis max
+        State('y-min-input', 'value'),  # Y-axis min
+        State('y-max-input', 'value')  # Y-axis max
     ],
     prevent_initial_call=True
 )
 def update_graph(plot_type, report_name, shading_options, peak_label_options,
                  selected_channels, regression_params, hmw_table_data, pagination_data, apply_layout_clicks,
                  main_peak_rt, low_mw_cutoff, num_cols, vertical_spacing, horizontal_spacing,
-                 stored_report_id):
+                 stored_report_id, manual_scaling_checkbox, x_min, x_max, y_min, y_max):
     if report_name:
         report_id = report_name
         print(f'this is the stored report id {report_id}')
@@ -477,6 +523,9 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
         enable_shading = 'enable_shading' in shading_options
         enable_peak_labeling = 'enable_peak_labeling' in peak_label_options
         show_mw_annotations = 'show_mw_annotations' in peak_label_options
+        
+        # Check if manual scaling is enabled
+        manual_scaling_enabled = manual_scaling_checkbox and 'enable_manual_scaling' in manual_scaling_checkbox
 
         fig = generate_subplots_with_shading(
             selected_result_ids,
@@ -491,7 +540,12 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
             num_cols=num_cols,
             vertical_spacing=vertical_spacing,
             horizontal_spacing=horizontal_spacing,
-            show_mw_annotations=show_mw_annotations
+            show_mw_annotations=show_mw_annotations,
+            manual_scaling=manual_scaling_enabled,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max
         )
 
         return (fig, {'display': 'block'},

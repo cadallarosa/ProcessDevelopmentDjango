@@ -7,7 +7,7 @@ import io
 from datetime import datetime
 from plotly_integration.cld_dashboard.main_app import app
 
-print("🔧 Registering file upload handlers...")
+print("Configuring file upload handlers...")
 
 
 # Template upload handler
@@ -26,7 +26,7 @@ def process_template_upload(contents, filename, existing_data):
         return no_update, no_update, no_update
 
     try:
-        print(f"📤 Processing template upload: {filename}")
+        print(f"Processing template upload: {filename}")
 
         # Decode file
         content_type, content_string = contents.split(',')
@@ -41,7 +41,7 @@ def process_template_upload(contents, filename, existing_data):
                 "Please upload an Excel file (.xlsx or .xls)"
             ], color="danger"), no_update, no_update
 
-        print(f"📊 Excel file loaded: {len(df)} rows, {len(df.columns)} columns")
+        print(f"Excel file loaded: {len(df)} rows, {len(df.columns)} columns")
 
         # Process the data into sample table format
         new_data = []
@@ -106,11 +106,11 @@ def process_template_upload(contents, filename, existing_data):
         # Merge with existing data if any
         combined_data = existing_data + new_data if existing_data else new_data
 
-        print(f"✅ Template processed: {len(new_data)} samples loaded")
+        print(f"Success: Template processed: {len(new_data)} samples loaded")
         return status, combined_data, "manual"
 
     except Exception as e:
-        print(f"❌ Error processing template: {e}")
+        print(f"Error: Error processing template: {e}")
         error_msg = dbc.Alert([
             html.H6("Upload Error", className="alert-heading"),
             html.P(f"Failed to process {filename}: {str(e)}"),
@@ -134,7 +134,7 @@ def handle_bulk_upload(contents, filename):
         return no_update, no_update
 
     try:
-        print(f"📤 Processing bulk upload: {filename}")
+        print(f"Processing bulk upload: {filename}")
 
         # Decode file
         content_type, content_string = contents.split(',')
@@ -151,7 +151,7 @@ def handle_bulk_upload(contents, filename):
                 color="danger"
             )
 
-        print(f"📊 File loaded: {len(df)} rows, {len(df.columns)} columns")
+        print(f"File loaded: {len(df)} rows, {len(df.columns)} columns")
 
         # Create simple preview
         preview_card = dbc.Card([
@@ -183,11 +183,11 @@ def handle_bulk_upload(contents, filename):
         return preview_card, ""
 
     except Exception as e:
-        print(f"❌ Error processing bulk upload: {e}")
+        print(f"Error: Error processing bulk upload: {e}")
         return "", dbc.Alert([
             html.H6("Upload Error"),
             html.P(f"Failed to read {filename}: {str(e)}")
         ], color="danger")
 
 
-print("✅ File upload handlers registered successfully")
+print("Success: File upload handlers registered successfully")

@@ -2,10 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(python:*)",
+      "Bash(mkdir:*)",
       "Bash(timeout:*)",
-      "Bash(cp:*)",
-      "Bash(mkdir:*)"
+      "Bash(find:*)",
+      "Bash(sed:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []

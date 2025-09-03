@@ -9,10 +9,11 @@ class SidebarStateManager:
     """Manages sidebar collapse state across page navigation"""
 
     DEFAULT_COLLAPSE_STATE = {
-        'cld': True,  # Expanded by default
-        'usp': True,  # Expanded by default
-        'dsp': True,  # Expanded by default
-        'analytical': True,  # Expanded by default
+        'cld': False,  # Collapsed by default
+        'usp': False,  # Collapsed by default
+        'dsp': False,  # Collapsed by default
+        'analytical': False,  # Collapsed by default
+        'formulation': False,  # Collapsed by default
     }
 
     @classmethod

@@ -83,7 +83,7 @@ def create_embedded_akta_report(query_params):
     print(f"🔍 Extracted sample_ids: {sample_ids}")
 
     return dbc.Container([
-        # ✅ MINIMAL header - no title, just navigation
+        # Success: MINIMAL header - no title, just navigation
         dbc.Row([
             dbc.Col([
                 dbc.ButtonGroup([
@@ -103,8 +103,8 @@ def create_embedded_akta_report(query_params):
             ])
         ], className="mb-3"),
 
-        # ✅ NO sample information banner
-        # ✅ NO debug info
+        # Success: NO sample information banner
+        # Success: NO debug info
 
         # Embedded AKTA Application - Full height iframe
         dbc.Row([
@@ -122,7 +122,7 @@ def create_embedded_akta_report(query_params):
     })
 
 
-# ✅ UPDATED callback to use minimal iframe with no extra headers
+# Success: UPDATED callback to use minimal iframe with no extra headers
 @app.callback(
     [Output("akta-embed-container", "children"),
      Output("open-akta-new-tab", "href")],
@@ -146,13 +146,13 @@ def load_akta_embed(href, refresh_clicks):
                 pathname = hash_part.split('?')[0]
                 parsed_pathname = '/' + pathname.lstrip('/')
         except Exception as e:
-            print(f"   ❌ Error parsing href: {e}")
+            print(f"   Error: Error parsing href: {e}")
             return html.Div(), ""
 
     print(f"   parsed_pathname: {parsed_pathname}")
 
     if not parsed_pathname.startswith("/analysis/akta/report"):
-        print(f"   ❌ Wrong pathname")
+        print(f"   Error: Wrong pathname")
         return html.Div(), ""
 
     try:
@@ -181,7 +181,7 @@ def load_akta_embed(href, refresh_clicks):
 
         print(f"   🔗 Generated AKTA URL: {akta_url}")
 
-        # ✅ Create MINIMAL iframe with NO scrollable container
+        # Success: Create MINIMAL iframe with NO scrollable container
         iframe_component = html.Div([
             html.Iframe(
                 src=akta_url,
@@ -199,10 +199,10 @@ def load_akta_embed(href, refresh_clicks):
             "height": "auto"
         })
 
-        print(f"   ✅ Clean iframe created successfully")
+        print(f"   Success: Clean iframe created successfully")
         return iframe_component, akta_url
 
     except Exception as e:
         error_msg = f"Failed to load AKTA application: {str(e)}"
-        print(f"   ❌ Error: {error_msg}")
+        print(f"   Error: Error: {error_msg}")
         return create_error_iframe(error_msg), ""

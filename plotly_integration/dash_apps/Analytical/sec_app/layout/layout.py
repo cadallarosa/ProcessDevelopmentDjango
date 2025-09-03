@@ -823,6 +823,97 @@ app_layout = html.Div([
                                         )
                                     ]),
                                     
+                                    # Manual Scaling Section
+                                    html.Hr(style={'margin': '20px 0', 'borderColor': '#e5e7eb'}),
+                                    
+                                    html.Div([
+                                        html.Label("Axis Scaling:", style={'fontWeight': '500', 'marginBottom': '8px',
+                                                                          'display': 'block', 'color': '#495057'}),
+                                        dcc.Checklist(
+                                            id='manual-scaling-checkbox',
+                                            options=[
+                                                {'label': 'Manual Scaling', 'value': 'enable_manual_scaling'}
+                                            ],
+                                            value=[],
+                                            style={'marginBottom': '15px'}
+                                        )
+                                    ]),
+                                    
+                                    # Manual scaling inputs container
+                                    html.Div(
+                                        id='manual-scaling-inputs',
+                                        children=[
+                                            html.Div([
+                                                html.Label("X-axis Range:", style={'fontWeight': '500', 'marginBottom': '8px',
+                                                                                   'display': 'block', 'color': '#495057'}),
+                                                html.Div([
+                                                    dcc.Input(
+                                                        id='x-min-input',
+                                                        type='number',
+                                                        placeholder='X min',
+                                                        style={
+                                                            'width': '48%',
+                                                            'padding': '10px',
+                                                            'border': '1px solid #d1d5db',
+                                                            'borderRadius': '8px',
+                                                            'fontSize': '13px',
+                                                            'marginRight': '4%',
+                                                            'backgroundColor': '#f9fafb'
+                                                        }
+                                                    ),
+                                                    dcc.Input(
+                                                        id='x-max-input',
+                                                        type='number',
+                                                        placeholder='X max',
+                                                        style={
+                                                            'width': '48%',
+                                                            'padding': '10px',
+                                                            'border': '1px solid #d1d5db',
+                                                            'borderRadius': '8px',
+                                                            'fontSize': '13px',
+                                                            'backgroundColor': '#f9fafb'
+                                                        }
+                                                    )
+                                                ], style={'display': 'flex', 'marginBottom': '12px'})
+                                            ]),
+                                            
+                                            html.Div([
+                                                html.Label("Y-axis Range:", style={'fontWeight': '500', 'marginBottom': '8px',
+                                                                                   'display': 'block', 'color': '#495057'}),
+                                                html.Div([
+                                                    dcc.Input(
+                                                        id='y-min-input',
+                                                        type='number',
+                                                        placeholder='Y min',
+                                                        style={
+                                                            'width': '48%',
+                                                            'padding': '10px',
+                                                            'border': '1px solid #d1d5db',
+                                                            'borderRadius': '8px',
+                                                            'fontSize': '13px',
+                                                            'marginRight': '4%',
+                                                            'backgroundColor': '#f9fafb'
+                                                        }
+                                                    ),
+                                                    dcc.Input(
+                                                        id='y-max-input',
+                                                        type='number',
+                                                        placeholder='Y max',
+                                                        style={
+                                                            'width': '48%',
+                                                            'padding': '10px',
+                                                            'border': '1px solid #d1d5db',
+                                                            'borderRadius': '8px',
+                                                            'fontSize': '13px',
+                                                            'backgroundColor': '#f9fafb'
+                                                        }
+                                                    )
+                                                ], style={'display': 'flex', 'marginBottom': '15px'})
+                                            ])
+                                        ],
+                                        style={'display': 'none'}  # Initially hidden
+                                    ),
+                                    
                                     # Helpful note
                                     html.Div([
                                         html.P("💡 Layout changes (columns, spacing) require clicking Apply", 

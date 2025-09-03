@@ -4,16 +4,16 @@ ANALYSIS_TYPES = {
     'SEC': {
         'name': 'Size Exclusion Chromatography',
         'code': 'SEC',
-        'app_name': 'SecReportEmbeddedApp',  # ✅ UPDATED: Changed from SecReportApp2
-        'app_name_full': 'SecReportApp2',  # ✅ NEW: Keep original for full-screen access
+        'app_name': 'SecReportEmbeddedApp',  # Success: UPDATED: Changed from SecReportApp2
+        'app_name_full': 'SecReportApp2',  # Success: NEW: Keep original for full-screen access
         'icon': 'fa-microscope',
         'color': 'primary',
         'description': 'Protein size and aggregation analysis',
         'data_table': 'sec_metadata',
         'supports_embedding': True,
         'typical_turnaround': '2-3 days',
-        'embedded_url': '/plotly_integration/dash-app/app/SecReportEmbeddedApp/',  # ✅ NEW
-        'full_url': '/plotly_integration/dash-app/app/SecReportApp2/'  # ✅ NEW
+        'embedded_url': '/plotly_integration/dash-app/app/SecReportEmbeddedApp/',  # Success: NEW
+        'full_url': '/plotly_integration/dash-app/app/SecReportApp2/'  # Success: NEW
     },
     'TITER': {
         'name': 'Titer Analysis',

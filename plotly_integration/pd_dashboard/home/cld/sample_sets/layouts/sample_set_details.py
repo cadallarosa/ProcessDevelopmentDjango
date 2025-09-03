@@ -364,4 +364,4 @@ def create_analysis_loading_spinner(analysis_type):
     ], className="text-center py-5")
 
 
-print("✅ Complete sample set details layout loaded - 2 tab structure")
+print("Success: Complete sample set details layout loaded - 2 tab structure")

@@ -54,497 +54,244 @@ app.layout = html.Div([
     dcc.Store(id="proa-results-store"),
     dcc.Store(id="kappa-results-store"),
     
-    # Header
+    # Upload Data Button (Small, top-right)
     html.Div([
-        html.H2([
-            html.I(className="fas fa-chart-line me-3"),
-            "Octet Data Analysis"
-        ], style={"color": "#0056b3", "margin-bottom": "15px"}),
-        html.P("Analyze binding kinetics and calculate affinity constants from Octet BLI data",
-               style={"color": "#6c757d", "margin-bottom": "10px", "fontSize": "16px"})
-    ], style={"margin-bottom": "25px", "text-align": "center"}),
+        html.Button([
+            html.I(className="fas fa-upload me-1"),
+            "Upload Data"
+        ], id="upload-modal-btn", className="btn btn-primary btn-sm",
+           style={"float": "right", "margin-bottom": "10px"})
+    ], style={"margin-bottom": "5px"}),
     
-    # Tab structure
-    dbc.Tabs([
-        # Data Import Tab
-        dbc.Tab(label="Data Import", tab_id="import-tab", children=[
-            html.Div([
-                # File Upload Section - Two separate uploads for paired files
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-file-upload me-2"),
-                        "Upload Octet Data Files"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.P("Upload both the raw data file and the experiment metadata file for analysis",
-                           style={"color": "#6c757d", "margin-bottom": "20px"}),
-                    
-                    # Raw Data Upload
-                    html.Div([
-                        html.H5("1. Raw Data File (e.g., plate.xls)", style={"margin-bottom": "10px"}),
-                        dcc.Upload(
-                            id='upload-raw-data',
-                            children=html.Div([
-                                html.I(className="fas fa-chart-line fa-2x",
-                                       style={"color": "#0056b3", "margin-bottom": "10px"}),
-                                html.Br(),
-                                html.Strong("Drop raw data file here"),
-                                html.Br(),
-                                html.Span("Tab-delimited sensor data", style={"color": "#6c757d", "fontSize": "14px"})
-                            ]),
-                            style={**UPLOAD_STYLE, 'height': '100px', 'lineHeight': '100px'},
-                            multiple=False,
-                            accept='.xls,.txt,.tsv'
-                        ),
-                        html.Div(id='raw-upload-status')
-                    ], style={"margin-bottom": "20px"}),
-                    
-                    # Metadata Upload
-                    html.Div([
-                        html.H5("2. Experiment Metadata File (e.g., ExcelReport.xls)", style={"margin-bottom": "10px"}),
-                        dcc.Upload(
-                            id='upload-metadata',
-                            children=html.Div([
-                                html.I(className="fas fa-info-circle fa-2x",
-                                       style={"color": "#0056b3", "margin-bottom": "10px"}),
-                                html.Br(),
-                                html.Strong("Drop metadata file here"),
-                                html.Br(),
-                                html.Span("Experiment conditions and sample info", style={"color": "#6c757d", "fontSize": "14px"})
-                            ]),
-                            style={**UPLOAD_STYLE, 'height': '100px', 'lineHeight': '100px'},
-                            multiple=False,
-                            accept='.xls,.xlsx'
-                        ),
-                        html.Div(id='metadata-upload-status')
-                    ]),
-                    
-                    html.Div(id='upload-status-div', style={"margin-top": "20px"})
-                ], style=CARD_STYLE),
-                
-                # Data Preview Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-table me-2"),
-                        "Data Preview"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.Div(id='data-preview-container')
-                ], id='preview-section', style={'display': 'none', **CARD_STYLE})
-            ])
+    html.Div(style={"clear": "both"}),  # Clear float
+    
+    # Upload Modal
+    dbc.Modal([
+        dbc.ModalHeader([
+            html.H4([
+                html.I(className="fas fa-file-upload me-2"),
+                "Upload Octet Data Files"
+            ], style={"color": "#0056b3"})
         ]),
-        
-        # Visualization Tab
-        dbc.Tab(label="Visualization", tab_id="viz-tab", children=[
-            html.Div([
-                # Controls Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-sliders-h me-2"),
-                        "Visualization Controls"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Select Sample(s):", style={"font-weight": "bold"}),
-                            dcc.Dropdown(
-                                id='sample-selector',
-                                multi=True,
-                                placeholder="Select samples to visualize..."
-                            )
-                        ], md=6),
-                        
-                        dbc.Col([
-                            html.Label("Plot Type:", style={"font-weight": "bold"}),
-                            dcc.RadioItems(
-                                id='plot-type-selector',
-                                options=[
-                                    {"label": " Sensorgram", "value": "sensorgram"},
-                                    {"label": " Binding Curves", "value": "binding"},
-                                    {"label": " Association/Dissociation", "value": "kinetics"}
-                                ],
-                                value="sensorgram",
-                                inline=True
-                            )
-                        ], md=6)
-                    ], className="mb-3"),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            dcc.Checklist(
-                                id='plot-options',
-                                options=[
-                                    {"label": " Show Reference", "value": "show_ref"},
-                                    {"label": " Apply Smoothing", "value": "smooth"},
-                                    {"label": " Baseline Correction", "value": "baseline"},
-                                    {"label": " Show Grid", "value": "grid"},
-                                    {"label": " Analysis View (420s+)", "value": "analysis_view"}
-                                ],
-                                value=["grid"],
-                                inline=True
-                            )
-                        ], md=12)
-                    ])
-                ], style=CARD_STYLE),
+        dbc.ModalBody([
+            dbc.Row([
+                # Raw Data Upload
+                dbc.Col([
+                    html.H5("Raw Data File", style={"margin-bottom": "10px"}),
+                    dcc.Upload(
+                        id='upload-raw-data',
+                        children=html.Div([
+                            html.I(className="fas fa-chart-line fa-2x",
+                                   style={"color": "#0056b3", "margin-bottom": "10px"}),
+                            html.Br(),
+                            html.Strong("Drop raw data file here")
+                        ]),
+                        style={**UPLOAD_STYLE, 'height': '100px', 'lineHeight': '100px'},
+                        multiple=False,
+                        accept='.xls,.txt,.tsv'
+                    ),
+                    html.Div(id='raw-upload-status', style={"margin-top": "15px"})
+                ], md=6),
                 
-                # Plot Display Section
-                html.Div([
-                    dcc.Graph(id='main-plot', style={'height': '600px'})
-                ], id='plot-section', style={'display': 'none', **CARD_STYLE})
-            ])
+                # Metadata Upload
+                dbc.Col([
+                    html.H5("Metadata File", style={"margin-bottom": "10px"}),
+                    dcc.Upload(
+                        id='upload-metadata',
+                        children=html.Div([
+                            html.I(className="fas fa-info-circle fa-2x",
+                                   style={"color": "#0056b3", "margin-bottom": "10px"}),
+                            html.Br(),
+                            html.Strong("Drop metadata file here")
+                        ]),
+                        style={**UPLOAD_STYLE, 'height': '100px', 'lineHeight': '100px'},
+                        multiple=False,
+                        accept='.xls,.xlsx'
+                    ),
+                    html.Div(id='metadata-upload-status', style={"margin-top": "15px"})
+                ], md=6)
+            ]),
+            
+            html.Div(id='upload-status-div', style={"margin-top": "20px"}),
+            
+            # Data Preview Section
+            html.Div([
+                html.H5([
+                    html.I(className="fas fa-table me-2"),
+                    "Data Preview"
+                ], style={"color": "#0056b3", "margin-bottom": "15px"}),
+                
+                html.Div(id='data-preview-container')
+            ], id='preview-section', style={'display': 'none', 'margin-top': '20px'})
         ]),
-        
-        # Analysis Tab
-        dbc.Tab(label="Kinetic Analysis", tab_id="analysis-tab", children=[
-            html.Div([
-                # Analysis Setup
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-calculator me-2"),
-                        "Kinetic Analysis Setup"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Analysis Model:", style={"font-weight": "bold"}),
-                            dcc.Dropdown(
-                                id='analysis-model',
-                                options=[
-                                    {"label": "1:1 Binding", "value": "1to1"},
-                                    {"label": "Heterogeneous Ligand", "value": "hetero"},
-                                    {"label": "Mass Transport", "value": "mass_transport"},
-                                    {"label": "Steady State", "value": "steady_state"}
-                                ],
-                                value="1to1",
-                                clearable=False
-                            )
-                        ], md=4),
-                        
-                        dbc.Col([
-                            html.Label("Association Time (s):", style={"font-weight": "bold"}),
-                            dcc.Input(
-                                id='assoc-time-input',
-                                type="number",
-                                value=180,
-                                min=0,
-                                style={"width": "100%"}
-                            )
-                        ], md=4),
-                        
-                        dbc.Col([
-                            html.Label("Dissociation Time (s):", style={"font-weight": "bold"}),
-                            dcc.Input(
-                                id='dissoc-time-input',
-                                type="number",
-                                value=180,
-                                min=0,
-                                style={"width": "100%"}
-                            )
-                        ], md=4)
-                    ], className="mb-3"),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Ligand Concentration (nM):", style={"font-weight": "bold"}),
-                            dcc.Input(
-                                id='concentration-input',
-                                type="text",
-                                placeholder="e.g., 100,50,25,12.5,6.25",
-                                style={"width": "100%"}
-                            )
-                        ], md=8),
-                        
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-play me-2"),
-                                "Run Analysis"
-                            ], id='run-analysis-btn',
-                                className="btn btn-primary",
-                                style={"width": "100%", "margin-top": "25px"})
-                        ], md=4)
-                    ])
-                ], style=CARD_STYLE),
-                
-                # Analysis Results
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-chart-area me-2"),
-                        "Fitting Results"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.Div(id='fitting-plot-container'),
-                    
-                    html.Hr(),
-                    
-                    html.H5("Kinetic Parameters:", style={"margin-bottom": "15px"}),
-                    html.Div(id='kinetic-parameters-table')
-                ], id='analysis-results-section', style={'display': 'none', **CARD_STYLE})
-            ])
-        ]),
-        
-        # Quantitative Analysis Tab
-        dbc.Tab(label="ProA Analysis", tab_id="proa-tab", children=[
-            html.Div([
-                # Analysis Setup
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-chart-line me-2"),
-                        "ProA Loading Analysis (420-430s)"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.P("Calculate initial response slopes for ProA loading quantification",
-                           style={"color": "#6c757d", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Analysis Time Window:", style={"font-weight": "bold"}),
-                            html.Div([
-                                html.Label("Start Time (s):", style={"margin-right": "10px"}),
-                                dcc.Input(
-                                    id='analysis-start-time',
-                                    type="number",
-                                    value=420,
-                                    step=1,
-                                    style={"width": "80px", "margin-right": "20px"}
-                                ),
-                                html.Label("End Time (s):", style={"margin-right": "10px"}),
-                                dcc.Input(
-                                    id='analysis-end-time',
-                                    type="number",
-                                    value=430,
-                                    step=1,
-                                    style={"width": "80px"}
-                                )
-                            ])
-                        ], md=8),
-                        
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-calculator me-2"),
-                                "Calculate Slopes"
-                            ], id='calculate-slopes-btn',
-                                className="btn btn-primary",
-                                style={"width": "100%", "margin-top": "25px"})
-                        ], md=4)
-                    ])
-                ], style=CARD_STYLE),
-                
-                # Results Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-table me-2"),
-                        "Slope Analysis Results"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.Div(id='slope-results-container')
-                ], id='slope-results-section', style={'display': 'none', **CARD_STYLE}),
-                
-                # Standard Curve Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-chart-area me-2"),
-                        "Standard Curve & Sample Quantification"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Div(id='standard-curve-plot')
-                        ], md=8),
-                        dbc.Col([
-                            html.H5("Sample Concentrations:", style={"margin-bottom": "15px"}),
-                            html.Div(id='sample-concentrations-table')
-                        ], md=4)
-                    ])
-                ], id='standard-curve-section', style={'display': 'none', **CARD_STYLE})
-            ])
-        ]),
-        
-        # Kappa Analysis Tab
-        dbc.Tab(label="Kappa Analysis", tab_id="kappa-tab", children=[
-            html.Div([
-                # Analysis Setup
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-chart-line me-2"),
-                        "Kappa Concentration Analysis (520-530s)"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.P("Calculate initial response slopes for Kappa concentration quantification during Association phase",
-                           style={"color": "#6c757d", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Analysis Time Window:", style={"font-weight": "bold"}),
-                            html.Div([
-                                html.Label("Start Time (s):", style={"margin-right": "10px"}),
-                                dcc.Input(
-                                    id='kappa-start-time',
-                                    type="number",
-                                    value=520,
-                                    step=1,
-                                    style={"width": "80px", "margin-right": "20px"}
-                                ),
-                                html.Label("End Time (s):", style={"margin-right": "10px"}),
-                                dcc.Input(
-                                    id='kappa-end-time',
-                                    type="number",
-                                    value=530,
-                                    step=1,
-                                    style={"width": "80px"}
-                                )
-                            ])
-                        ], md=8),
-                        
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-calculator me-2"),
-                                "Calculate Kappa Slopes"
-                            ], id='calculate-kappa-slopes-btn',
-                                className="btn btn-success",
-                                style={"width": "100%", "margin-top": "25px"})
-                        ], md=4)
-                    ])
-                ], style=CARD_STYLE),
-                
-                # Results Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-table me-2"),
-                        "Kappa Slope Analysis Results"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.Div(id='kappa-slope-results-container')
-                ], id='kappa-slope-results-section', style={'display': 'none', **CARD_STYLE}),
-                
-                # Standard Curve Section
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-chart-area me-2"),
-                        "Kappa Standard Curve & Sample Quantification"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Div(id='kappa-standard-curve-plot')
-                        ], md=8),
-                        dbc.Col([
-                            html.H5("Kappa Concentrations:", style={"margin-bottom": "15px"}),
-                            html.Div(id='kappa-sample-concentrations-table')
-                        ], md=4)
-                    ])
-                ], id='kappa-standard-curve-section', style={'display': 'none', **CARD_STYLE})
-            ])
-        ]),
-        
-        # Summary Tab
-        dbc.Tab(label="Summary", tab_id="summary-tab", children=[
-            html.Div([
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-clipboard-list me-2"),
-                        "Analysis Summary"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    html.P("Combined results from ProA loading and Kappa concentration analysis",
-                           style={"color": "#6c757d", "margin-bottom": "20px"}),
-                    
-                    html.Div(id='summary-table-container'),
-                    
-                    html.Hr(),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-download me-2"),
-                                "Export Summary CSV"
-                            ], id='export-summary-btn',
-                                className="btn btn-info")
-                        ], md=6),
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-chart-bar me-2"),
-                                "Generate Summary Plot"
-                            ], id='generate-summary-plot-btn',
-                                className="btn btn-primary")
-                        ], md=6)
-                    ])
-                ], style=CARD_STYLE),
-                
-                # Summary Plots
-                html.Div([
-                    html.Div(id='summary-plots-container')
-                ], id='summary-plots-section', style={'display': 'none', **CARD_STYLE})
-            ])
-        ]),
-        
-        # Report Tab
-        dbc.Tab(label="Report", tab_id="report-tab", children=[
-            html.Div([
-                html.Div([
-                    html.H4([
-                        html.I(className="fas fa-file-alt me-2"),
-                        "Generate Report"
-                    ], style={"color": "#0056b3", "margin-bottom": "20px"}),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Report Title:", style={"font-weight": "bold"}),
-                            dcc.Input(
-                                id='report-title',
-                                type="text",
-                                value=f"Octet Analysis Report - {datetime.now().strftime('%Y-%m-%d')}",
-                                style={"width": "100%"}
-                            )
-                        ], md=8),
-                        
-                        dbc.Col([
-                            html.Label("Format:", style={"font-weight": "bold"}),
-                            dcc.RadioItems(
-                                id='report-format',
-                                options=[
-                                    {"label": " HTML", "value": "html"},
-                                    {"label": " PDF", "value": "pdf"},
-                                    {"label": " Excel", "value": "excel"}
-                                ],
-                                value="html",
-                                inline=True
-                            )
-                        ], md=4)
-                    ], className="mb-3"),
-                    
-                    dbc.Row([
-                        dbc.Col([
-                            dcc.Checklist(
-                                id='report-sections',
-                                options=[
-                                    {"label": " Raw Data Tables", "value": "raw_data"},
-                                    {"label": " Sensorgrams", "value": "sensorgrams"},
-                                    {"label": " Kinetic Fits", "value": "fits"},
-                                    {"label": " Parameters Table", "value": "parameters"},
-                                    {"label": " QC Metrics", "value": "qc"}
-                                ],
-                                value=["sensorgrams", "fits", "parameters"],
-                                inline=False
-                            )
-                        ], md=8),
-                        
-                        dbc.Col([
-                            html.Button([
-                                html.I(className="fas fa-download me-2"),
-                                "Generate Report"
-                            ], id='generate-report-btn',
-                                className="btn btn-success",
-                                style={"width": "100%", "margin-top": "20px"})
-                        ], md=4)
-                    ])
-                ], style=CARD_STYLE),
-                
-                html.Div(id='report-status')
-            ])
+        dbc.ModalFooter([
+            html.Button("Close", id="close-modal-btn", className="btn btn-secondary")
         ])
-    ], id="tabs", active_tab="import-tab")
+    ], id="upload-modal", is_open=True, size="xl"),
     
-], style={"max-width": "1400px", "margin": "0 auto", "padding": "20px"})
+    # Sample Selection and Analysis Parameters Section (Compact)
+    html.Div([
+        # First Row - Sample Selection (full width) and Run Button
+        dbc.Row([
+            dbc.Col([
+                html.Label("Sample Selection:", style={"font-weight": "bold", "margin-bottom": "3px", "font-size": "12px"}),
+                dcc.Dropdown(
+                    id='sample-selector',
+                    multi=True,
+                    placeholder="Select samples to analyze...",
+                    style={"font-size": "12px"}
+                )
+            ], md=8),
+            
+            dbc.Col([
+                dcc.Checklist(
+                    id='plot-options',
+                    options=[
+                        {"label": " Ref Lines", "value": "show_ref"},
+                        {"label": " Smooth", "value": "smooth"},
+                        {"label": " Grid", "value": "grid"},
+                        {"label": " 420s+", "value": "analysis_view"}
+                    ],
+                    value=["baseline", "grid", "analysis_view"],
+                    inline=True,
+                    style={"font-size": "11px", "margin-top": "20px"},
+                    inputStyle={"margin-right": "6px", "margin-left": "12px"}
+                ),
+                # Hidden baseline option (always enabled)
+                html.Div([
+                    dcc.Checklist(
+                        id='baseline-option',
+                        options=[{"label": "Buffer Baseline Correction", "value": "baseline"}],
+                        value=["baseline"],
+                        style={"display": "none"}
+                    )
+                ])
+            ], md=2),
+            
+            dbc.Col([
+                html.Button([
+                    html.I(className="fas fa-play me-1"),
+                    "Run Analysis"
+                ], id='run-all-analysis-btn', className="btn btn-primary",
+                   style={"width": "100%", "margin-top": "18px"})
+            ], md=2)
+        ], className="mb-3"),
+        
+        # Second Row - Analysis Parameters
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.Label("ProA Loading", style={"font-weight": "bold", "color": "#28a745", "margin-bottom": "5px", "text-align": "center", "font-size": "12px"}),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Label("Start", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='proa-start', type="number", value=420, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6),
+                        dbc.Col([
+                            html.Label("Stop", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='proa-end', type="number", value=430, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6)
+                    ])
+                ], style={"border": "2px solid #28a745", "border-radius": "6px", "padding": "6px", "background-color": "#f8f9fa"})
+            ], md=4),
+            
+            dbc.Col([
+                html.Div([
+                    html.Label("%BB Analysis", style={"font-weight": "bold", "color": "#dc3545", "margin-bottom": "5px", "text-align": "center", "font-size": "12px"}),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Label("Start", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='bb-time1', type="number", value=440, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6),
+                        dbc.Col([
+                            html.Label("Stop", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='bb-time2', type="number", value=450, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6)
+                    ])
+                ], style={"border": "2px solid #dc3545", "border-radius": "6px", "padding": "6px", "background-color": "#f8f9fa"})
+            ], md=4),
+            
+            dbc.Col([
+                html.Div([
+                    html.Label("Kappa Concentration", style={"font-weight": "bold", "color": "#007bff", "margin-bottom": "5px", "text-align": "center", "font-size": "12px"}),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Label("Start", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='kappa-start', type="number", value=520, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6),
+                        dbc.Col([
+                            html.Label("Stop", style={"font-size": "10px", "margin-bottom": "1px"}),
+                            dcc.Input(id='kappa-end', type="number", value=530, step=1, 
+                                     style={"width": "100%", "font-size": "11px"})
+                        ], md=6)
+                    ])
+                ], style={"border": "2px solid #007bff", "border-radius": "6px", "padding": "6px", "background-color": "#f8f9fa"})
+            ], md=4)
+        ])
+    ], style={"border": "1px solid #dee2e6", "border-radius": "8px", "padding": "10px", "margin-bottom": "15px"}),  # More compact card
+    
+    # Content Tabs - Horizontal Layout using dcc.Tabs
+    dcc.Tabs(id="content-tabs", value="graph-tab", style={'display': 'none'}, children=[
+        # Graph Tab
+        dcc.Tab(label="Graph", value="graph-tab", children=[
+            html.Div([
+                dcc.Graph(id='main-plot', style={'height': '650px'})
+            ], style={"padding": "15px"})
+        ]),
+        
+        # Results Table Tab
+        dcc.Tab(label="Results Table", value="results-tab", children=[
+            html.Div([
+                html.Div([
+                    html.Button([
+                        html.I(className="fas fa-download me-2"),
+                        "Export Results"
+                    ], id='export-results-btn', className="btn btn-success btn-sm",
+                       style={"float": "right", "margin-bottom": "10px"}),
+                    html.Div(style={"clear": "both"})
+                ]),
+                html.Div(id='integrated-results-container')
+            ], style={"padding": "15px"})
+        ]),
+        
+        # Standard Curves Tab
+        dcc.Tab(label="Standard Curves", value="std-curves-tab", children=[
+            html.Div([
+                dbc.Row([
+                    # ProA Standard Curve
+                    dbc.Col([
+                        html.Div([
+                            html.H5("ProA Loading", style={"color": "#28a745", "margin-bottom": "10px", "text-align": "center", "font-size": "16px"}),
+                            dcc.Graph(id='proa-std-curve', style={'height': '500px'})
+                        ], style={"border": "1px solid #28a745", "border-radius": "8px", "padding": "10px"})
+                    ], md=4, id='proa-std-curve-section', style={'display': 'none'}),
+                    
+                    # %BB Standard Curve
+                    dbc.Col([
+                        html.Div([
+                            html.H5("%BB Analysis", style={"color": "#dc3545", "margin-bottom": "10px", "text-align": "center", "font-size": "16px"}),
+                            dcc.Graph(id='bb-std-curve', style={'height': '500px'})
+                        ], style={"border": "1px solid #dc3545", "border-radius": "8px", "padding": "10px"})
+                    ], md=4, id='bb-std-curve-section', style={'display': 'none'}),
+                    
+                    # Kappa Standard Curve
+                    dbc.Col([
+                        html.Div([
+                            html.H5("Kappa Concentration", style={"color": "#007bff", "margin-bottom": "10px", "text-align": "center", "font-size": "16px"}),
+                            dcc.Graph(id='kappa-std-curve', style={'height': '500px'})
+                        ], style={"border": "1px solid #007bff", "border-radius": "8px", "padding": "10px"})
+                    ], md=4, id='kappa-std-curve-section', style={'display': 'none'})
+                ])
+            ], id='standard-curves-section', style={"padding": "15px", 'display': 'none'})
+        ])
+    ]),
+    
+], style={"max-width": "95%", "margin": "0 auto", "padding": "20px"})
 
 
 # Helper Functions
@@ -742,8 +489,90 @@ def apply_smoothing(data, window_length=5, polyorder=2):
     return savgol_filter(data, window_length, polyorder)
 
 
+def identify_buffer_samples(processed_data):
+    """Identify buffer samples from the data for baseline correction"""
+    if not processed_data:
+        return []
+    
+    metadata = processed_data.get('metadata', {})
+    sensor_mapping = metadata.get('sensor_mapping', {})
+    buffer_sensors = []
+    
+    # Look for sensors with "Buffer" in their sample ID
+    for sensor_name in processed_data['sensor_names']:
+        if sensor_mapping and sensor_name in sensor_mapping:
+            sample_id = sensor_mapping[sensor_name].get('sample_id', '')
+            if 'BUFFER' in str(sample_id).upper() or 'Buffer' in str(sample_id):
+                buffer_sensors.append(sensor_name)
+    
+    return buffer_sensors
+
+
+def calculate_buffer_baseline(processed_data, buffer_sensors=None):
+    """Calculate average buffer response for baseline correction"""
+    if not processed_data:
+        return None, None
+    
+    if buffer_sensors is None:
+        buffer_sensors = identify_buffer_samples(processed_data)
+    
+    if not buffer_sensors:
+        logging.warning("No buffer samples found for baseline correction")
+        return None, None
+    
+    # Get time points from first sensor (assuming all have same time points)
+    first_sensor = processed_data['sensor_names'][0]
+    sensor_df = pd.DataFrame(processed_data['sensors'][first_sensor])
+    time_points = sensor_df['Time'].values
+    
+    # Average buffer responses across all buffer sensors
+    buffer_responses = []
+    for buffer_sensor in buffer_sensors:
+        if buffer_sensor in processed_data['sensors']:
+            buffer_df = pd.DataFrame(processed_data['sensors'][buffer_sensor])
+            buffer_responses.append(buffer_df['Response'].values)
+    
+    if buffer_responses:
+        # Calculate average buffer response at each time point
+        avg_buffer_response = np.mean(buffer_responses, axis=0)
+        return time_points, avg_buffer_response
+    
+    return None, None
+
+
+def apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response):
+    """Apply buffer-based baseline correction to sensor data"""
+    try:
+        if buffer_time is None or buffer_response is None:
+            # Fallback to simple baseline correction if no buffer available
+            baseline = np.mean(response_data[:10]) if len(response_data) > 10 else response_data[0]
+            return response_data - baseline
+        
+        # Interpolate buffer response to match sensor time points
+        # This handles cases where time points might not exactly match
+        from scipy.interpolate import interp1d
+        
+        # Create interpolation function for buffer
+        buffer_interp = interp1d(buffer_time, buffer_response, 
+                               kind='linear', bounds_error=False, fill_value='extrapolate')
+        
+        # Get buffer values at sensor time points
+        buffer_at_sensor_times = buffer_interp(time_data)
+        
+        # Subtract buffer response
+        corrected_response = response_data - buffer_at_sensor_times
+        
+        return corrected_response
+        
+    except Exception as e:
+        logging.error(f"Error in buffer baseline correction: {str(e)}")
+        # Fallback to simple correction
+        baseline = np.mean(response_data[:10]) if len(response_data) > 10 else response_data[0]
+        return response_data - baseline
+
+
 def calculate_initial_response_slope(time_data, response_data, start_time, end_time):
-    """Calculate slope (initial response rate) for a specific time interval"""
+    """Calculate average slope using all points in the time interval (not just endpoints)"""
     try:
         # Find data points within the specified time interval
         mask = (time_data >= start_time) & (time_data <= end_time)
@@ -754,9 +583,10 @@ def calculate_initial_response_slope(time_data, response_data, start_time, end_t
         time_subset = time_data[mask]
         response_subset = response_data[mask]
         
-        # Calculate linear regression slope
+        # Calculate linear regression slope using ALL points in the range
+        # This gives us the average slope across all data points
         coeffs = np.polyfit(time_subset, response_subset, 1)
-        slope = coeffs[0]  # slope (nm/s)
+        slope = coeffs[0]  # Average slope (nm/s) across all points
         intercept = coeffs[1]
         
         # Calculate R-squared for fit quality
@@ -798,6 +628,33 @@ def extract_standard_concentrations(metadata):
                 break
     
     return standards
+
+
+def calculate_bb_percentage(time_data, response_data, time1, time2, buffer_time=None, buffer_response=None):
+    """Calculate %BB (percentage of binding blocked) analysis"""
+    try:
+        # Apply buffer baseline correction first
+        if buffer_time is not None and buffer_response is not None:
+            response_data = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+        
+        # Find response values at the two time points
+        time1_idx = np.argmin(np.abs(time_data - time1))
+        time2_idx = np.argmin(np.abs(time_data - time2))
+        
+        response_time1 = response_data[time1_idx]  # value1
+        response_time2 = response_data[time2_idx]  # value2
+        
+        # Calculate %BB using the correct formula: (1 - value2/value1 - 0.1) * 100
+        if response_time1 != 0:  # Avoid division by zero
+            bb_percentage = (1 - response_time2/response_time1 - 0.1) * 100
+        else:
+            bb_percentage = 0
+        
+        return bb_percentage, response_time1, response_time2
+        
+    except Exception as e:
+        logging.error(f"Error calculating %BB: {str(e)}")
+        return None, None, None
 
 
 def create_standard_curve(standard_data):
@@ -868,6 +725,29 @@ def calculate_step_times(assay_steps):
             })
     
     return step_markers
+
+
+# Modal callbacks
+@app.callback(
+    Output("upload-modal", "is_open"),
+    [Input("upload-modal-btn", "n_clicks"), Input("close-modal-btn", "n_clicks")],
+    [State("upload-modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+
+# Show content tabs when data is processed
+@app.callback(
+    Output('content-tabs', 'style'),
+    [Input('processed-data-store', 'data')]
+)
+def show_content_tabs(processed_data):
+    if processed_data:
+        return {'display': 'block'}
+    return {'display': 'none'}
 
 
 # Callbacks for paired file uploads
@@ -961,6 +841,11 @@ def process_paired_data(raw_data, metadata):
         sensor_mapping = metadata.get('sensor_mapping', {}) if metadata else {}
         assay_steps = metadata.get('assay_steps', []) if metadata else []
         
+        # Identify buffer samples for baseline correction
+        buffer_sensors = identify_buffer_samples({'sensors': raw_data['sensors'], 
+                                                 'sensor_names': raw_data['sensor_names'],
+                                                 'metadata': metadata})
+        
         # Show sensor list with metadata
         preview_content.append(html.H5("Sensor Summary:", style={"margin-bottom": "10px"}))
         
@@ -983,6 +868,10 @@ def process_paired_data(raw_data, metadata):
                 summary_row['Sample ID'] = sample_info.get('sample_id', 'N/A')
                 summary_row['Type'] = sample_info.get('sensor_type', 'N/A')
                 summary_row['Replicate'] = sample_info.get('replicate', 'N/A')
+                
+                # Mark buffer samples
+                if sensor_name in buffer_sensors:
+                    summary_row['Sample ID'] = f"{summary_row['Sample ID']} (Buffer*)"
             
             sensor_summary.append(summary_row)
         
@@ -1008,6 +897,17 @@ def process_paired_data(raw_data, metadata):
                     ]
                 )
             )
+        
+        # Add buffer baseline correction info
+        if buffer_sensors:
+            preview_content.extend([
+                html.Hr(),
+                html.Div([
+                    html.I(className="fas fa-info-circle me-2", style={"color": "#17a2b8"}),
+                    html.Strong(f"Buffer Baseline Correction: "),
+                    f"Using {len(buffer_sensors)} buffer samples for baseline correction: {', '.join(buffer_sensors)}"
+                ], className="alert alert-info", style={"fontSize": "14px", "margin": "10px 0"})
+            ])
         
         # Show assay steps if available
         if assay_steps:
@@ -1139,23 +1039,34 @@ def update_sample_selector(processed_data):
 
 
 @app.callback(
-    [Output('main-plot', 'figure'),
-     Output('plot-section', 'style')],
+    Output('main-plot', 'figure'),
     [Input('sample-selector', 'value'),
-     Input('plot-type-selector', 'value'),
-     Input('plot-options', 'value')],
+     Input('plot-options', 'value'),
+     Input('baseline-option', 'value'),
+     Input('proa-start', 'value'),
+     Input('proa-end', 'value'),
+     Input('bb-time1', 'value'),
+     Input('bb-time2', 'value'),
+     Input('kappa-start', 'value'),
+     Input('kappa-end', 'value')],
     [State('processed-data-store', 'data')]
 )
-def update_visualization(selected_samples, plot_type, plot_options, processed_data):
+def update_integrated_visualization(selected_samples, plot_options, baseline_options, 
+                                   proa_start, proa_end, bb_time1, bb_time2, 
+                                   kappa_start, kappa_end, processed_data):
     if not selected_samples or not processed_data:
-        return go.Figure(), {'display': 'none'}
+        return go.Figure()
     
     fig = go.Figure()
     
-    # Get metadata
+    # Get metadata and buffer baseline
     metadata = processed_data.get('metadata', {})
     sensor_mapping = metadata.get('sensor_mapping', {})
     assay_steps = metadata.get('assay_steps', [])
+    
+    # Calculate buffer baseline for correction
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    buffer_sensors = identify_buffer_samples(processed_data)
     
     # Default color palette
     default_colors = px.colors.qualitative.Plotly
@@ -1172,10 +1083,8 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
             if 'smooth' in plot_options:
                 y_data = apply_smoothing(y_data, window_length=11, polyorder=3)
             
-            if 'baseline' in plot_options:
-                # Baseline correction - subtract average of first 10 points
-                baseline = np.mean(y_data[:10]) if len(y_data) > 10 else y_data[0]
-                y_data = y_data - baseline
+            # Always apply buffer-based baseline correction (baseline is always enabled)
+            y_data = apply_buffer_baseline_correction(x_data, y_data, buffer_time, buffer_response)
             
             # Apply analysis view filter (420s+)
             if 'analysis_view' in plot_options:
@@ -1186,6 +1095,7 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
             # Get color and sample info from metadata
             trace_name = sensor_name
             trace_color = default_colors[idx % len(default_colors)]
+            line_style = dict(width=2, color=trace_color)
             
             if sensor_mapping and sensor_name in sensor_mapping:
                 sample_info = sensor_mapping[sensor_name]
@@ -1200,6 +1110,13 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
                         # Convert signed integer to RGB
                         color_int = int(color_val) & 0xFFFFFF
                         trace_color = f'#{color_int:06x}'
+                        line_style['color'] = trace_color
+                
+                # Style buffer samples differently
+                if sensor_name in buffer_sensors:
+                    trace_name += " (Buffer)"
+                    line_style['dash'] = 'dash'  # Dashed line for buffers
+                    line_style['width'] = 1.5
             
             # Add trace
             fig.add_trace(go.Scatter(
@@ -1207,13 +1124,100 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
                 y=y_data,
                 mode='lines',
                 name=trace_name,
-                line=dict(width=2, color=trace_color),
+                line=line_style,
                 hovertemplate=f'<b>{trace_name}</b><br>Time: %{{x:.1f}} s<br>Response: %{{y:.3f}} nm<extra></extra>'
             ))
         
         except Exception as e:
             logging.error(f"Error plotting sensor {sensor_name}: {str(e)}")
             continue
+    
+    # Add goal posts for analysis regions
+    analysis_regions = [
+        {'name': 'ProA', 'start': proa_start, 'end': proa_end, 'color': '#28a745'},
+        {'name': '%BB', 'times': [bb_time1, bb_time2], 'color': '#dc3545'}, 
+        {'name': 'Kappa', 'start': kappa_start, 'end': kappa_end, 'color': '#007bff'}
+    ]
+    
+    for region in analysis_regions:
+        if region['name'] == '%BB':
+            # Add shaded region for %BB between the two time points
+            fig.add_vrect(
+                x0=region['times'][0],
+                x1=region['times'][1],
+                fillcolor=region['color'],
+                opacity=0.2,
+                layer="below",
+                line_width=0
+            )
+            
+            # Add goal posts (vertical lines at both time points)
+            fig.add_vline(
+                x=region['times'][0],
+                line_dash="solid",
+                line_color=region['color'],
+                line_width=3,
+                opacity=0.7
+            )
+            fig.add_vline(
+                x=region['times'][1],
+                line_dash="solid",
+                line_color=region['color'],
+                line_width=3,
+                opacity=0.7
+            )
+            
+            # Add annotation at top of plot
+            fig.add_annotation(
+                x=(region['times'][0] + region['times'][1]) / 2,
+                y=1.05,
+                yref="paper",
+                text=f"<b>{region['name']}</b>",
+                showarrow=False,
+                font=dict(size=14, color=region['color']),
+                bgcolor="white",
+                bordercolor=region['color'],
+                borderwidth=1
+            )
+        else:
+            # Add shaded region for ProA and Kappa
+            fig.add_vrect(
+                x0=region['start'],
+                x1=region['end'],
+                fillcolor=region['color'],
+                opacity=0.2,
+                layer="below",
+                line_width=0
+            )
+            
+            # Add goal posts (vertical lines at start and end)
+            fig.add_vline(
+                x=region['start'],
+                line_dash="solid",
+                line_color=region['color'],
+                line_width=3,
+                opacity=0.7
+            )
+            fig.add_vline(
+                x=region['end'],
+                line_dash="solid",
+                line_color=region['color'],
+                line_width=3,
+                opacity=0.7
+            )
+            
+            # Add annotation at top of plot
+            fig.add_annotation(
+                x=(region['start'] + region['end']) / 2,
+                y=1.05,
+                yref="paper",
+                text=f"<b>{region['name']}</b>",
+                showarrow=False,
+                font=dict(size=14, color=region['color']),
+                bgcolor="white",
+                bordercolor=region['color'],
+                borderwidth=1
+            )
     
     # Add vertical markers for assay steps
     if assay_steps:
@@ -1288,21 +1292,16 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
                         legendgrouptitle_text="Assay Steps"
                     ))
     
-    # Update layout based on plot type
-    title_map = {
-        'sensorgram': 'Sensorgram',
-        'binding': 'Binding Curves', 
-        'kinetics': 'Association/Dissociation Kinetics'
-    }
-    
+    # Update layout
     fig.update_layout(
-        title=f"Octet {title_map.get(plot_type, 'Data')}",
+        title=None,
         xaxis_title="Time (s)",
         yaxis_title="Response (nm)",
         hovermode='x unified',
         showlegend=True,
         template="plotly_white",
-        height=600,
+        height=650,
+        margin=dict(t=60),  # Add top margin for labels
         legend=dict(
             orientation="v",
             yanchor="top",
@@ -1316,7 +1315,381 @@ def update_visualization(selected_samples, plot_type, plot_options, processed_da
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
     
-    return fig, CARD_STYLE
+    return fig
+
+
+# Integrated Analysis Callback - Runs all three analyses at once
+@app.callback(
+    [Output('integrated-results-container', 'children'),
+     Output('standard-curves-section', 'style'),
+     Output('proa-std-curve-section', 'style'),
+     Output('bb-std-curve-section', 'style'), 
+     Output('kappa-std-curve-section', 'style')],
+    [Input('run-all-analysis-btn', 'n_clicks')],
+    [State('sample-selector', 'value'),
+     State('proa-start', 'value'),
+     State('proa-end', 'value'),
+     State('bb-time1', 'value'),
+     State('bb-time2', 'value'),
+     State('kappa-start', 'value'),
+     State('kappa-end', 'value'),
+     State('processed-data-store', 'data')]
+)
+def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end, 
+                           bb_time1, bb_time2, kappa_start, kappa_end, processed_data):
+    if not n_clicks or not processed_data:
+        return "", {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}
+    
+    # Get metadata and buffer baseline
+    metadata = processed_data.get('metadata', {})
+    sensor_mapping = metadata.get('sensor_mapping', {})
+    standards_info = extract_standard_concentrations(metadata)
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    
+    # Results storage
+    all_results = []
+    proa_standards = []
+    kappa_standards = []
+    
+    # Process all samples (not just selected ones for comprehensive results)
+    for sensor_name in processed_data['sensor_names']:
+        try:
+            # Get sensor data
+            sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
+            time_data = sensor_df['Time'].values
+            response_data = sensor_df['Response'].values
+            
+            # Get sample info
+            sample_id = sensor_name
+            if sensor_mapping and sensor_name in sensor_mapping:
+                sample_info = sensor_mapping[sensor_name]
+                sample_id = sample_info.get('sample_id', sensor_name)
+            
+            # Skip buffer samples from results
+            if 'BUFFER' in str(sample_id).upper():
+                continue
+            
+            # Apply buffer baseline correction
+            corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+            
+            result_row = {
+                'Sample ID': sample_id,
+                'Sensor': sensor_name
+            }
+            
+            # 1. ProA Analysis
+            proa_slope, _, proa_r2 = calculate_initial_response_slope(
+                time_data, corrected_response, proa_start, proa_end
+            )
+            if proa_slope is not None:
+                result_row['ProA Slope (nm/s)'] = f"{proa_slope:.6f}"
+                result_row['ProA R²'] = f"{proa_r2:.4f}" if proa_r2 else "N/A"
+                
+                # Store for standard curve if it's a standard
+                if sensor_name in standards_info:
+                    proa_standards.append({
+                        'concentration': standards_info[sensor_name]['concentration'],
+                        'slope': proa_slope,
+                        'sensor': sensor_name
+                    })
+            
+            # 2. %BB Analysis  
+            bb_percentage, bb_resp1, bb_resp2 = calculate_bb_percentage(
+                time_data, response_data, bb_time1, bb_time2, buffer_time, buffer_response
+            )
+            if bb_percentage is not None:
+                result_row['%BB'] = f"{bb_percentage:.1f}%"
+                result_row[f'Resp@{bb_time1}s'] = f"{bb_resp1:.4f}"
+                result_row[f'Resp@{bb_time2}s'] = f"{bb_resp2:.4f}"
+            
+            # 3. Kappa Analysis
+            kappa_slope, _, kappa_r2 = calculate_initial_response_slope(
+                time_data, corrected_response, kappa_start, kappa_end
+            )
+            if kappa_slope is not None:
+                result_row['Kappa Slope (nm/s)'] = f"{kappa_slope:.6f}"
+                result_row['Kappa R²'] = f"{kappa_r2:.4f}" if kappa_r2 else "N/A"
+                
+                # Store for standard curve if it's a standard
+                if sensor_name in standards_info:
+                    kappa_standards.append({
+                        'concentration': standards_info[sensor_name]['concentration'],
+                        'slope': kappa_slope,
+                        'sensor': sensor_name
+                    })
+            
+            all_results.append(result_row)
+            
+        except Exception as e:
+            logging.error(f"Error analyzing {sensor_name}: {str(e)}")
+            continue
+    
+    if not all_results:
+        return "No analysis results available", {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}
+    
+    # Create standard curves and calculate concentrations
+    proa_concentrations = {}
+    kappa_concentrations = {}
+    
+    # ProA standard curve
+    if len(proa_standards) >= 3:
+        proa_curve_slope, proa_curve_intercept, proa_curve_r2, _ = create_standard_curve(proa_standards)
+        if proa_curve_slope is not None:
+            for row in all_results:
+                if 'ProA Slope (nm/s)' in row:
+                    slope_val = float(row['ProA Slope (nm/s)'])
+                    conc = (slope_val - proa_curve_intercept) / proa_curve_slope
+                    if conc > 0:
+                        row['ProA Conc. (µg/mL)'] = f"{conc:.2f}"
+                        proa_concentrations[row['Sample ID']] = conc
+                    else:
+                        row['ProA Conc. (µg/mL)'] = "Below LOD"
+    
+    # Kappa standard curve  
+    if len(kappa_standards) >= 3:
+        kappa_curve_slope, kappa_curve_intercept, kappa_curve_r2, _ = create_standard_curve(kappa_standards)
+        if kappa_curve_slope is not None:
+            for row in all_results:
+                if 'Kappa Slope (nm/s)' in row:
+                    slope_val = float(row['Kappa Slope (nm/s)'])
+                    conc = (slope_val - kappa_curve_intercept) / kappa_curve_slope
+                    if conc > 0:
+                        row['Kappa Conc. (µg/mL)'] = f"{conc:.2f}"
+                        kappa_concentrations[row['Sample ID']] = conc
+                    else:
+                        row['Kappa Conc. (µg/mL)'] = "Below LOD"
+    
+    # Create simplified results table with only essential columns
+    simplified_results = []
+    for row in all_results:
+        simplified_row = {
+            'Sample Name': row['Sample ID'],
+            'ProA Conc. (µg/mL)': row.get('ProA Conc. (µg/mL)', 'N/A'),
+            '%BB': row.get('%BB', 'N/A'),
+            'Kappa Conc. (µg/mL)': row.get('Kappa Conc. (µg/mL)', 'N/A')
+        }
+        simplified_results.append(simplified_row)
+    
+    results_table = dash_table.DataTable(
+        data=simplified_results,
+        columns=[{"name": i, "id": i} for i in simplified_results[0].keys()],
+        style_cell={'textAlign': 'center', 'padding': '12px', 'fontSize': '13px'},
+        style_header={'backgroundColor': '#0056b3', 'color': 'white', 'fontWeight': 'bold', 'fontSize': '14px'},
+        style_table={'overflowX': 'auto'},
+        export_format='csv',
+        export_headers='display',
+        page_size=20,
+        style_data_conditional=[
+            {
+                'if': {'column_id': 'ProA Conc. (µg/mL)'},
+                'backgroundColor': '#d5ead5'
+            },
+            {
+                'if': {'column_id': '%BB'},
+                'backgroundColor': '#f2d5d5'
+            },
+            {
+                'if': {'column_id': 'Kappa Conc. (µg/mL)'},
+                'backgroundColor': '#d5e8f2'
+            }
+        ]
+    )
+    
+    # Determine which standard curves to show
+    proa_std_style = {'display': 'block'} if len(proa_standards) >= 3 else {'display': 'none'}
+    bb_std_style = {'display': 'none'}  # %BB doesn't use standard curve typically
+    kappa_std_style = {'display': 'block'} if len(kappa_standards) >= 3 else {'display': 'none'}
+    
+    std_curves_style = {'display': 'block'} if (len(proa_standards) >= 3 or len(kappa_standards) >= 3) else {'display': 'none'}
+    
+    # Return just the table without summary
+    return results_table, std_curves_style, proa_std_style, bb_std_style, kappa_std_style
+
+
+# ProA Standard Curve Callback
+@app.callback(
+    Output('proa-std-curve', 'figure'),
+    [Input('run-all-analysis-btn', 'n_clicks')],
+    [State('proa-start', 'value'),
+     State('proa-end', 'value'),
+     State('processed-data-store', 'data')]
+)
+def update_proa_std_curve(n_clicks, proa_start, proa_end, processed_data):
+    if not n_clicks or not processed_data:
+        return go.Figure()
+    
+    # Get metadata and standards
+    metadata = processed_data.get('metadata', {})
+    standards_info = extract_standard_concentrations(metadata)
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    
+    # Calculate ProA slopes for standards
+    proa_standards = []
+    for sensor_name in processed_data['sensor_names']:
+        if sensor_name in standards_info:
+            try:
+                sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
+                time_data = sensor_df['Time'].values
+                response_data = sensor_df['Response'].values
+                corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+                
+                proa_slope, _, proa_r2 = calculate_initial_response_slope(time_data, corrected_response, proa_start, proa_end)
+                if proa_slope is not None:
+                    proa_standards.append({
+                        'concentration': standards_info[sensor_name]['concentration'],
+                        'slope': proa_slope,
+                        'sensor': sensor_name
+                    })
+            except:
+                continue
+    
+    if len(proa_standards) < 3:
+        fig = go.Figure()
+        fig.add_annotation(text="Need at least 3 standards", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return fig
+    
+    # Create standard curve
+    curve_slope, curve_intercept, curve_r2, curve_data = create_standard_curve(proa_standards)
+    
+    if curve_slope is None:
+        return go.Figure()
+    
+    concentrations, responses, fitted_responses = curve_data
+    
+    fig = go.Figure()
+    
+    # Add standard points
+    fig.add_trace(go.Scatter(
+        x=concentrations,
+        y=responses,
+        mode='markers',
+        name='Standards',
+        marker=dict(size=8, color='#28a745'),
+        hovertemplate='Concentration: %{x:.2f} µg/mL<br>Response: %{y:.6f} nm/s<extra></extra>'
+    ))
+    
+    # Add fitted line
+    fig.add_trace(go.Scatter(
+        x=concentrations,
+        y=fitted_responses,
+        mode='lines',
+        name=f'R² = {curve_r2:.4f}',
+        line=dict(color='red', width=2)
+    ))
+    
+    fig.update_layout(
+        xaxis_title="Concentration (µg/mL)",
+        yaxis_title="ProA Response (nm/s)",
+        template="plotly_white",
+        height=450,
+        margin=dict(l=50, r=50, t=30, b=50),
+        showlegend=True
+    )
+    
+    return fig
+
+
+# Kappa Standard Curve Callback
+@app.callback(
+    Output('kappa-std-curve', 'figure'),
+    [Input('run-all-analysis-btn', 'n_clicks')],
+    [State('kappa-start', 'value'),
+     State('kappa-end', 'value'),
+     State('processed-data-store', 'data')]
+)
+def update_kappa_std_curve(n_clicks, kappa_start, kappa_end, processed_data):
+    if not n_clicks or not processed_data:
+        return go.Figure()
+    
+    # Get metadata and standards
+    metadata = processed_data.get('metadata', {})
+    standards_info = extract_standard_concentrations(metadata)
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    
+    # Calculate Kappa slopes for standards
+    kappa_standards = []
+    for sensor_name in processed_data['sensor_names']:
+        if sensor_name in standards_info:
+            try:
+                sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
+                time_data = sensor_df['Time'].values
+                response_data = sensor_df['Response'].values
+                corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+                
+                kappa_slope, _, kappa_r2 = calculate_initial_response_slope(time_data, corrected_response, kappa_start, kappa_end)
+                if kappa_slope is not None:
+                    kappa_standards.append({
+                        'concentration': standards_info[sensor_name]['concentration'],
+                        'slope': kappa_slope,
+                        'sensor': sensor_name
+                    })
+            except:
+                continue
+    
+    if len(kappa_standards) < 3:
+        fig = go.Figure()
+        fig.add_annotation(text="Need at least 3 standards", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return fig
+    
+    # Create standard curve
+    curve_slope, curve_intercept, curve_r2, curve_data = create_standard_curve(kappa_standards)
+    
+    if curve_slope is None:
+        return go.Figure()
+    
+    concentrations, responses, fitted_responses = curve_data
+    
+    fig = go.Figure()
+    
+    # Add standard points
+    fig.add_trace(go.Scatter(
+        x=concentrations,
+        y=responses,
+        mode='markers',
+        name='Standards',
+        marker=dict(size=8, color='#007bff'),
+        hovertemplate='Concentration: %{x:.2f} µg/mL<br>Response: %{y:.6f} nm/s<extra></extra>'
+    ))
+    
+    # Add fitted line
+    fig.add_trace(go.Scatter(
+        x=concentrations,
+        y=fitted_responses,
+        mode='lines',
+        name=f'R² = {curve_r2:.4f}',
+        line=dict(color='red', width=2)
+    ))
+    
+    fig.update_layout(
+        xaxis_title="Concentration (µg/mL)",
+        yaxis_title="Kappa Response (nm/s)",
+        template="plotly_white",
+        height=450,
+        margin=dict(l=50, r=50, t=30, b=50),
+        showlegend=True
+    )
+    
+    return fig
+
+
+# %BB Standard Curve Callback (placeholder - typically no standard curve for %BB)
+@app.callback(
+    Output('bb-std-curve', 'figure'),
+    [Input('run-all-analysis-btn', 'n_clicks')],
+    [State('processed-data-store', 'data')]
+)
+def update_bb_std_curve(n_clicks, processed_data):
+    fig = go.Figure()
+    fig.add_annotation(
+        text="%BB analysis typically doesn't use standard curves",
+        xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False
+    )
+    fig.update_layout(
+        template="plotly_white",
+        height=450,
+        margin=dict(l=50, r=50, t=30, b=50)
+    )
+    return fig
 
 
 @app.callback(
@@ -1484,6 +1857,9 @@ def calculate_quantitative_analysis(n_clicks, start_time, end_time, processed_da
     standards_info = extract_standard_concentrations(metadata)
     sensor_mapping = metadata.get('sensor_mapping', {})
     
+    # Calculate buffer baseline for correction
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    
     # Calculate slopes for all sensors
     slope_results = []
     standards_data = []
@@ -1496,9 +1872,8 @@ def calculate_quantitative_analysis(n_clicks, start_time, end_time, processed_da
             time_data = sensor_df['Time'].values
             response_data = sensor_df['Response'].values
             
-            # Apply baseline correction
-            baseline = np.mean(response_data[:10]) if len(response_data) > 10 else response_data[0]
-            response_data = response_data - baseline
+            # Apply buffer-based baseline correction
+            response_data = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
             
             # Calculate slope
             slope, intercept, r_squared = calculate_initial_response_slope(
@@ -1699,6 +2074,9 @@ def calculate_kappa_analysis(n_clicks, start_time, end_time, processed_data):
     standards_info = extract_standard_concentrations(metadata)
     sensor_mapping = metadata.get('sensor_mapping', {})
     
+    # Calculate buffer baseline for correction
+    buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    
     # Calculate slopes for all sensors
     slope_results = []
     standards_data = []
@@ -1711,9 +2089,8 @@ def calculate_kappa_analysis(n_clicks, start_time, end_time, processed_data):
             time_data = sensor_df['Time'].values
             response_data = sensor_df['Response'].values
             
-            # Apply baseline correction
-            baseline = np.mean(response_data[:10]) if len(response_data) > 10 else response_data[0]
-            response_data = response_data - baseline
+            # Apply buffer-based baseline correction
+            response_data = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
             
             # Calculate slope
             slope, intercept, r_squared = calculate_initial_response_slope(
@@ -1981,33 +2358,6 @@ def update_summary(proa_results, kappa_results, plot_clicks):
     return summary_table, plots_content, plots_style
 
 
-@app.callback(
-    Output('report-status', 'children'),
-    [Input('generate-report-btn', 'n_clicks')],
-    [State('report-title', 'value'),
-     State('report-format', 'value'),
-     State('report-sections', 'value'),
-     State('analysis-results-store', 'data')]
-)
-def generate_report(n_clicks, title, format_type, sections, analysis_results):
-    if not n_clicks:
-        return ""
-    
-    if not analysis_results:
-        return html.Div([
-            html.I(className="fas fa-exclamation-triangle me-2"),
-            "No analysis results available. Please run analysis first."
-        ], className="alert alert-warning", style={"margin-top": "20px"})
-    
-    # Generate report based on format
-    # This is a placeholder - actual implementation would generate files
-    
-    return html.Div([
-        html.I(className="fas fa-check-circle me-2"),
-        f"Report '{title}' generated successfully in {format_type.upper()} format!",
-        html.Br(),
-        html.Small(f"Included sections: {', '.join(sections)}", style={"color": "#6c757d"})
-    ], className="alert alert-success", style={"margin-top": "20px"})
 
 
 if __name__ == '__main__':

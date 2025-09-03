@@ -2,7 +2,7 @@
 
 EXTERNAL_APPS = {
     "sec_report": {
-        "url": "/plotly_integration/dash-app/app/SecReportEmbeddedApp/",  # ✅ UPDATED URL
+        "url": "/plotly_integration/dash-app/app/SecReportEmbeddedApp/",  # Success: UPDATED URL
         "name": "SEC Analysis (Embedded)",
         "supports_embedding": True,
         "parameters": ["report_id", "samples", "mode", "hide_report_tab"],
@@ -57,6 +57,9 @@ INTERNAL_ROUTES = {
     "cld_create_samples": "/cld/create-samples",
     "cld_view_samples": "/cld/view-samples",
     "cld_sample_sets": "/cld/sample-sets",
+    "usp_create_samples": "/usp/create-samples",
+    "usp_view_samples": "/usp/view-samples",
+    "usp_sample_sets": "/usp/sample-sets",
     "sample_sets_view": "/sample-sets",
     "sample_sets_table": "/sample-sets/table",
     "sample_sets_analytics": "/sample-sets/analytics",

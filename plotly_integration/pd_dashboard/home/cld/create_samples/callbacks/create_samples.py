@@ -11,10 +11,10 @@ from django.db.models import Max
 from datetime import datetime
 from plotly_integration.pd_dashboard.main_app import app
 
-print("🔧 Registering create_samples callbacks...")
+print("Configuring create_samples callbacks...")
 
 
-# ✅ MAIN CALLBACK FOR CREATION METHOD CONTENT
+# MAIN CALLBACK FOR CREATION METHOD CONTENT
 @app.callback(
     Output("creation-method-content", "children"),
     Input("creation-method", "value"),
@@ -22,7 +22,7 @@ print("🔧 Registering create_samples callbacks...")
 )
 def update_creation_method_content(method):
     """Update content based on selected creation method"""
-    print(f"🔄 Creation method changed to: {method}")
+    print(f"Creation method changed to: {method}")
 
     if method == "manual":
         from ..layouts.create_samples import create_manual_entry_section
@@ -43,7 +43,7 @@ def update_creation_method_content(method):
     ])
 
 
-# ✅ FIXED TEMPLATE DOWNLOAD CALLBACK - NO CONTEXT USAGE
+# FIXED TEMPLATE DOWNLOAD CALLBACK - NO CONTEXT USAGE
 @app.callback(
     Output("download-template-file", "data"),
     [Input("download-template-btn", "n_clicks"),
@@ -57,7 +57,7 @@ def download_sample_template(download_btn_clicks, excel_btn_clicks):
         return no_update
 
     try:
-        print(f"📥 Generating template download")
+        print(f"Generating template download")
 
         # Create template dataframe with detailed instructions
         template_data = {
@@ -208,14 +208,14 @@ def download_sample_template(download_btn_clicks, excel_btn_clicks):
 
             except ImportError:
                 # Fallback to CSV if no Excel engines available
-                print("⚠️ No Excel engines available, falling back to CSV")
+                print("Warning: No Excel engines available, falling back to CSV")
                 output = io.BytesIO()  # Reset output buffer
                 csv_content = df.to_csv(index=False)
                 output.write(csv_content.encode('utf-8'))
                 filename = f"CLD_sample_template_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
 
                 output.seek(0)
-                print(f"✅ CSV template generated: {filename}")
+                print(f"Success: CSV template generated: {filename}")
 
                 return dcc.send_bytes(
                     output.read(),
@@ -226,7 +226,7 @@ def download_sample_template(download_btn_clicks, excel_btn_clicks):
         output.seek(0)
         filename = f"CLD_sample_template_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
 
-        print(f"✅ Excel template generated with {excel_engine}: {filename}")
+        print(f"Success: Excel template generated with {excel_engine}: {filename}")
 
         return dcc.send_bytes(
             output.read(),
@@ -234,7 +234,7 @@ def download_sample_template(download_btn_clicks, excel_btn_clicks):
         )
 
     except Exception as e:
-        print(f"❌ Error generating template: {e}")
+        print(f"Error: Error generating template: {e}")
         import traceback
         traceback.print_exc()
         return no_update
@@ -262,7 +262,7 @@ def populate_project_dropdown(pathname):
         for p in project_info:
             if p.protein and p.molecule_type:
                 options.append({
-                    "label": f"🧬 {p.protein} - {p.molecule_type}",
+                    "label": f"{p.protein} - {p.molecule_type}",
                     "value": f"{p.protein}"
                 })
 
@@ -270,7 +270,7 @@ def populate_project_dropdown(pathname):
         for project in existing_projects:
             if project and not any(opt["value"] == project for opt in options):
                 options.append({
-                    "label": f"📊 {project} (Existing)",
+                    "label": f"{project} (Existing)",
                     "value": project
                 })
 
@@ -286,10 +286,10 @@ def populate_project_dropdown(pathname):
 
     except Exception as e:
         print(f"Error loading projects: {e}")
-        return [{"label": "❌ Error loading projects", "value": ""}]
+        return [{"label": "Error: Error loading projects", "value": ""}]
 
 
-# ✅ FIXED SAMPLE TABLE CALLBACK - NO CALLBACK CONTEXT
+# FIXED SAMPLE TABLE CALLBACK - NO CALLBACK CONTEXT
 @app.callback(
     Output("up-sample-table", "data"),
     [Input("add-up-row", "n_clicks"),
@@ -302,9 +302,9 @@ def modify_sample_table(add_clicks, clear_clicks, current_data):
     if current_data is None:
         current_data = []
 
-    # ✅ SIMPLE CHECK - No context needed
+    # SIMPLE CHECK - No context needed
     if clear_clicks and (not add_clicks or clear_clicks > add_clicks):
-        print("🧹 Clearing table")
+        print("Clearing table")
         return []
 
     if add_clicks:
@@ -345,11 +345,11 @@ def modify_sample_table(add_clicks, clear_clicks, current_data):
             }
 
             current_data.append(new_row)
-            print(f"✅ Added sample {next_sample_number}, total rows: {len(current_data)}")
+            print(f"Success: Added sample {next_sample_number}, total rows: {len(current_data)}")
             return current_data
 
         except Exception as e:
-            print(f"❌ Error adding row: {e}")
+            print(f"Error: Error adding row: {e}")
             import traceback
             traceback.print_exc()
             return current_data
@@ -410,13 +410,13 @@ def calculate_recoveries_on_change(table_data):
 
         status_msg = ""
         if calculations_made > 0:
-            status_msg = f"🧮 Calculated {calculations_made} recovery values"
+            status_msg = f"Calculated {calculations_made} recovery values"
 
         return updated_data, status_msg
 
     except Exception as e:
         print(f"Error calculating recoveries: {e}")
-        return table_data, f"❌ Calculation error: {str(e)}"
+        return table_data, f"Error: Calculation error: {str(e)}"
 
 #
 # @app.callback(
@@ -437,11 +437,11 @@ def calculate_recoveries_on_change(table_data):
 #         return no_update
 #
 #     if not table_data:
-#         return dbc.Alert("❌ No data to save.", color="warning", dismissable=True)
+#         return dbc.Alert("Error: No data to save.", color="warning", dismissable=True)
 #     if not project or not vessel_type:
-#         return dbc.Alert("⚠️ Please fill in Project and Vessel Type.", color="warning", dismissable=True)
+#         return dbc.Alert("Warning: Please fill in Project and Vessel Type.", color="warning", dismissable=True)
 #
-#     print(f"💾 Saving UP samples for project '{project}' | vessel: {vessel_type}")
+#     print(f"Saving UP samples for project '{project}' | vessel: {vessel_type}")
 #
 #     created, updated, skipped, errors = 0, 0, 0, 0
 #     error_details = []
@@ -520,25 +520,25 @@ def calculate_recoveries_on_change(table_data):
 #         except Exception as e:
 #             error_msg = f"Sample {row.get('sample_number', 'Unknown')}: {str(e)}"
 #             error_details.append(error_msg)
-#             print(f"❌ Error saving sample {row.get('sample_number')}: {e}")
+#             print(f"Error: Error saving sample {row.get('sample_number')}: {e}")
 #             errors += 1
 #
 #     # Create comprehensive status message
 #     if errors == 0:
 #         return dbc.Alert([
-#             html.H6("✅ Save Successful!", className="alert-heading"),
+#             html.H6("Success: Save Successful!", className="alert-heading"),
 #             html.P([
 #                 f"📝 Created: {created} samples | ",
 #                 f"🔄 Updated: {updated} samples | ",
-#                 f"⏭️ Skipped: {skipped} empty rows"
+#                 f"Skipped: Skipped: {skipped} empty rows"
 #             ], className="mb-0")
 #         ], color="success", dismissable=True)
 #     else:
 #         return dbc.Alert([
-#             html.H6("⚠️ Save Completed with Issues", className="alert-heading"),
+#             html.H6("Warning: Save Completed with Issues", className="alert-heading"),
 #             html.P([
-#                 f"✅ Created: {created} | 🔄 Updated: {updated} | ",
-#                 f"❌ Errors: {errors} | ⏭️ Skipped: {skipped}"
+#                 f"Success: Created: {created} | 🔄 Updated: {updated} | ",
+#                 f"Error: Errors: {errors} | Skipped: Skipped: {skipped}"
 #             ]),
 #             html.Hr(),
 #             html.H6("Error Details:", className="small"),
@@ -565,11 +565,11 @@ def save_up_samples(n_clicks, table_data, project, vessel_type, dev_stage, analy
         return no_update
 
     if not table_data:
-        return dbc.Alert("❌ No data to save.", color="warning", dismissable=True)
+        return dbc.Alert("Error: No data to save.", color="warning", dismissable=True)
     if not project or not vessel_type:
-        return dbc.Alert("⚠️ Please fill in Project and Vessel Type.", color="warning", dismissable=True)
+        return dbc.Alert("Warning: Please fill in Project and Vessel Type.", color="warning", dismissable=True)
 
-    print(f"💾 Saving UP samples for project '{project}' | vessel: {vessel_type}")
+    print(f"Saving UP samples for project '{project}' | vessel: {vessel_type}")
 
     created, updated, skipped, errors = 0, 0, 0, 0
     error_details = []
@@ -652,7 +652,7 @@ def save_up_samples(n_clicks, table_data, project, vessel_type, dev_stage, analy
         except Exception as e:
             error_msg = f"Sample {row.get('sample_number', 'Unknown')}: {str(e)}"
             error_details.append(error_msg)
-            print(f"❌ Error saving sample {row.get('sample_number')}: {e}")
+            print(f"Error: Error saving sample {row.get('sample_number')}: {e}")
             errors += 1
 
     # Create/update sample set if samples were saved successfully
@@ -701,7 +701,7 @@ def save_up_samples(n_clicks, table_data, project, vessel_type, dev_stage, analy
             sample_set.save()
 
             print(
-                f"✅ Sample set '{set_name}' {'created' if set_created else 'updated'} with {sample_set.sample_count} samples")
+                f"Success: Sample set '{set_name}' {'created' if set_created else 'updated'} with {sample_set.sample_count} samples")
 
         except Exception as e:
             print(f"Error creating/updating sample set: {e}")
@@ -710,11 +710,11 @@ def save_up_samples(n_clicks, table_data, project, vessel_type, dev_stage, analy
     # Create comprehensive status message
     if errors == 0:
         status_parts = [
-            html.H6("✅ Save Successful!", className="alert-heading"),
+            html.H6("Success: Save Successful!", className="alert-heading"),
             html.P([
                 f"📝 Created: {created} samples | ",
                 f"🔄 Updated: {updated} samples | ",
-                f"⏭️ Skipped: {skipped} empty rows"
+                f"Skipped: Skipped: {skipped} empty rows"
             ], className="mb-0")
         ]
 
@@ -728,10 +728,10 @@ def save_up_samples(n_clicks, table_data, project, vessel_type, dev_stage, analy
         return dbc.Alert(status_parts, color="success", dismissable=True)
     else:
         return dbc.Alert([
-            html.H6("⚠️ Save Completed with Issues", className="alert-heading"),
+            html.H6("Warning: Save Completed with Issues", className="alert-heading"),
             html.P([
-                f"✅ Created: {created} | 🔄 Updated: {updated} | ",
-                f"❌ Errors: {errors} | ⏭️ Skipped: {skipped}"
+                f"Success: Created: {created} | 🔄 Updated: {updated} | ",
+                f"Error: Errors: {errors} | Skipped: Skipped: {skipped}"
             ]),
             html.Hr(),
             html.H6("Error Details:", className="small"),
@@ -795,15 +795,15 @@ def validate_sample_data(table_data, project):
         if not validation_issues:
             return dbc.Alert([
                 html.I(className="fas fa-check-circle me-2"),
-                f"✅ All {len(table_data)} samples validated successfully"
+                f"Success: All {len(table_data)} samples validated successfully"
             ], color="success"), False
 
         alert_color = "danger" if error_count > 0 else "warning"
         can_save = error_count == 0
 
         return dbc.Alert([
-            html.H6(f"⚠️ Validation Issues Found", className="alert-heading"),
-            html.P(f"🚨 Errors: {error_count} | ⚠️ Warnings: {warning_count}"),
+            html.H6(f"Warning: Validation Issues Found", className="alert-heading"),
+            html.P(f"🚨 Errors: {error_count} | Warning: Warnings: {warning_count}"),
             html.Hr(),
             html.Ul([html.Li(issue, className="small") for issue in validation_issues[:10]]),
             html.P(f"... and {len(validation_issues) - 10} more issues", className="small") if len(
@@ -811,7 +811,7 @@ def validate_sample_data(table_data, project):
         ], color=alert_color), not can_save
 
     except Exception as e:
-        return dbc.Alert(f"❌ Validation error: {str(e)}", color="danger"), True
+        return dbc.Alert(f"Error: Validation error: {str(e)}", color="danger"), True
 
 
 @app.callback(
@@ -832,7 +832,7 @@ def display_project_info(project):
                 html.H6(f"🧬 Project: {project}", className="alert-heading"),
                 html.P([
                     f"🔬 Molecule Type: {project_info.molecule_type or 'N/A'} | ",
-                    f"⚖️ MW: {project_info.molecular_weight / 1000:.1f} kDa" if project_info.molecular_weight else "MW: N/A"
+                    f"MW: MW: {project_info.molecular_weight / 1000:.1f} kDa" if project_info.molecular_weight else "MW: N/A"
                 ], className="mb-0 small")
             ], color="info")
         else:
@@ -884,4 +884,4 @@ def show_analyst_suggestions(analyst):
         return ""
 
 
-print("✅ create_samples callbacks registered successfully")
+print("Success: create_samples callbacks registered successfully")

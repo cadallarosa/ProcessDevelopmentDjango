@@ -7,7 +7,7 @@ import dash_bootstrap_components as dbc
 from .core.routing_layouts import create_page_router
 from .shared.styles.common_styles import CONTENT_STYLE
 
-print("🚀 Starting PD Dashboard initialization...")
+print("Starting PD Dashboard initialization...")
 
 # Create the main dashboard app with suppress_callback_exceptions=True
 app = DjangoDash("PDDashboardApp",
@@ -15,7 +15,7 @@ app = DjangoDash("PDDashboardApp",
                      dbc.themes.BOOTSTRAP,
                      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
                  ],
-                 title="🧬 PD Dashboard",
+                 title="PD Dashboard",
                  suppress_callback_exceptions=True)
 
 # Set the main layout with updated styles
@@ -84,76 +84,118 @@ app.clientside_callback(
     prevent_initial_call=False
 )
 
+# Client-side callback to trigger sidebar initialization
+app.clientside_callback(
+    """
+    function(pathname) {
+        // Trigger sidebar initialization after a short delay
+        setTimeout(function() {
+            const initButton = document.getElementById('sidebar-init-button');
+            if (initButton && initButton.click) {
+                initButton.click();
+                console.log('Sidebar initialized via client callback');
+            }
+        }, 100);
+        return pathname;
+    }
+    """,
+    Output("sidebar-init-button", "n_clicks"),
+    Input("parsed-pathname", "data"),
+    prevent_initial_call=False
+)
+
 # Initialize routing
-print("🔧 Initializing routing...")
+print("Initializing routing...")
 create_page_router(app)
 
 # Register sidebar callbacks
-print("🔧 Registering sidebar callbacks...")
+print("Registering sidebar callbacks...")
 try:
     from .core.sidebar_navigation import register_sidebar_callbacks
     register_sidebar_callbacks(app)
-    print("✅ Sidebar callbacks registered successfully")
+    print("Success: Sidebar callbacks registered successfully")
 except Exception as e:
-    print(f"❌ Sidebar callbacks registration failed: {e}")
+    print(f"Error: Sidebar callbacks registration failed: {e}")
 
 # Import all callbacks to register them
-print("📥 Importing core callbacks...")
+print("Loading core callbacks...")
 
 # Test callback imports individually with updated paths
-print("🔍 Testing callback imports one by one...")
+print("Testing callback imports one by one...")
 
 # Updated imports to match refactored home/cld structure
 try:
-    print("🔍 Testing create_samples import...")
+    print("Testing create_samples import...")
     from .home.cld.create_samples.callbacks import create_samples
-    print("✅ create_samples imported successfully")
+    print("Success: create_samples imported successfully")
 except Exception as e:
-    print(f"❌ create_samples import failed: {e}")
+    print(f"Error: create_samples import failed: {e}")
 
 try:
-    print("🔍 Testing view_samples import...")
+    print("Testing view_samples import...")
     from .home.cld.view_samples.callbacks import view_samples
-    print("✅ view_samples imported successfully")
+    print("Success: view_samples imported successfully")
 except Exception as e:
-    print(f"❌ view_samples import failed: {e}")
+    print(f"Error: view_samples import failed: {e}")
 
 try:
-    print("🔍 Testing sample_sets import...")
+    print("Testing sample_sets import...")
     from .home.cld.sample_sets.callbacks import sample_sets,sample_set_details
-    print("✅ sample_sets imported successfully")
+    print("Success: sample_sets imported successfully")
 except Exception as e:
-    print(f"❌ sample_sets import failed: {e}")
+    print(f"Error: sample_sets import failed: {e}")
 
 try:
-    print("🔍 Testing file_upload_handlers import...")
+    print("Testing file_upload_handlers import...")
     from .home.cld.create_samples.callbacks import file_upload_handlers
-    print("✅ file_upload_handlers imported successfully")
+    print("Success: file_upload_handlers imported successfully")
 except Exception as e:
-    print(f"❌ file_upload_handlers import failed: {e}")
+    print(f"Error: file_upload_handlers import failed: {e}")
 
 try:
-    print("🔍 Testing analysis_requests import...")
+    print("Testing analysis_requests import...")
     from .home.cld.create_samples.callbacks import analysis_requests
-    print("✅ analysis_requests imported successfully")
+    print("Success: analysis_requests imported successfully")
 except Exception as e:
-    print(f"❌ analysis_requests import failed: {e}")
+    print(f"Error: analysis_requests import failed: {e}")
+
+# Import USP callbacks
+try:
+    print("Testing USP create_samples import...")
+    from .home.usp.create_samples.callbacks import create_samples
+    print("Success: USP create_samples imported successfully")
+except Exception as e:
+    print(f"Error: USP create_samples import failed: {e}")
+
+try:
+    print("Testing USP view_samples import...")
+    from .home.usp.view_samples.callbacks import view_samples
+    print("Success: USP view_samples imported successfully")
+except Exception as e:
+    print(f"Error: USP view_samples import failed: {e}")
+
+try:
+    print("Testing USP sample_sets import...")
+    from .home.usp.sample_sets.callbacks import sample_sets
+    print("Success: USP sample_sets imported successfully")
+except Exception as e:
+    print(f"Error: USP sample_sets import failed: {e}")
 
 # Import dashboard home
 try:
-    print("🔍 Testing dashboard_home import...")
+    print("Testing dashboard_home import...")
     from .core import dashboard_home
-    print("✅ dashboard_home imported successfully")
+    print("Success: dashboard_home imported successfully")
 except Exception as e:
-    print(f"❌ dashboard_home import failed: {e}")
+    print(f"Error: dashboard_home import failed: {e}")
 
 # Import SEC integration callbacks
 try:
-    print("🔍 Testing sec_callbacks import...")
+    print("Testing sec_callbacks import...")
     from .embedded_apps.sec_integration import sec_callbacks
-    print("✅ sec_callbacks imported successfully")
+    print("Success: sec_callbacks imported successfully")
 except Exception as e:
-    print(f"❌ sec_callbacks import failed: {e}")
+    print(f"Error: sec_callbacks import failed: {e}")
 
 # Register global error handler
 @app.callback(
@@ -168,12 +210,12 @@ def handle_app_errors(app_state):
             app_state = {"initialized": True, "errors": []}
         return app_state
     except Exception as e:
-        print(f"❌ App error: {e}")
+        print(f"Error: App error: {e}")
         return {"initialized": False, "errors": [str(e)]}
 
 
-print("🚀 PD Dashboard initialization complete!")
-print("   ✅ App created with suppress_callback_exceptions=True")
-print("   ✅ Layout set")
-print("   ✅ Routing initialized")
-print("   🔍 Check above for callback import results")
+print("PD Dashboard initialization complete!")
+print("   Success: App created with suppress_callback_exceptions=True")
+print("   Success: Layout set")
+print("   Success: Routing initialized")
+print("   Check above for callback import results")

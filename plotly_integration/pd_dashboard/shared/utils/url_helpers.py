@@ -16,7 +16,7 @@ def build_sec_report_url(sample_ids=None, report_id=None, mode="samples", hide_r
     Returns:
         str: Complete SEC analysis URL
     """
-    # ✅ UPDATED: Choose between embedded and full app
+    # Success: UPDATED: Choose between embedded and full app
     if embedded:
         base_url = "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
     else:

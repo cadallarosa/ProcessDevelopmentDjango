@@ -63,7 +63,11 @@ def parse_arw_file(file_path):
 
         # Extract additional metadata
         chrom_metadata["system_name"] = chrom_metadata.get("system_name", "")
-        chrom_metadata["sample_set_id"] = int(chrom_metadata.get("sample_set_id", 0))
+        sample_set_id_raw = chrom_metadata.get("sample_set_id", "0")
+        try:
+            chrom_metadata["sample_set_id"] = int(sample_set_id_raw) if sample_set_id_raw.strip() else 0
+        except (ValueError, AttributeError):
+            chrom_metadata["sample_set_id"] = 0
 
         # Parse data points (remaining lines)
         for line in lines[2:]:

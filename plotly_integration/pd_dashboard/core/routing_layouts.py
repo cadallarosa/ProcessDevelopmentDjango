@@ -565,6 +565,65 @@ def create_page_router(app):
                 "zIndex": "999"
             })
 
+        # Analytical cIEF Route - Full screen, non-scrollable
+        elif pathname == "/analytical/octet":
+            # Extract report_id from query params
+            # report_id = query_params.get('report_id', ['0'])[0]  # Default to 320
+            # Display full Titer app taking up entire viewport
+            cief_url = f"/plotly_integration/dash-app/app/OctetAnalysisApp/"
+
+            return html.Div([
+                html.Div([
+                    html.Div([
+                        html.H5("cIEF Analysis", style={"margin": "0", "color": "#333"}),
+                        dbc.ButtonGroup([
+                            dbc.Button([
+                                html.I(className="fas fa-home me-1"),
+                                "Home"
+                            ], href="#!/", color="outline-secondary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-external-link-alt me-1"),
+                                "Open in New Tab"
+                            ], href=cief_url, target="_blank", color="outline-primary", size="sm"),
+                            dbc.Button([
+                                html.I(className="fas fa-sync-alt me-1"),
+                                "Refresh"
+                            ], id="refresh-analytical-cief", color="outline-info", size="sm")
+                        ])
+                    ], style={
+                        "display": "flex",
+                        "justifyContent": "space-between",
+                        "alignItems": "center",
+                        "padding": "8px 16px",
+                        "backgroundColor": "#f8f9fa",
+                        "borderBottom": "1px solid #dee2e6"
+                    })
+                ], style={"height": "50px", "flexShrink": "0"}),
+
+                html.Iframe(
+                    src=cief_url,
+                    style={
+                        "width": "100%",
+                        "height": "calc(100vh - 50px)",
+                        "border": "none",
+                        "display": "block",
+                        "overflow": "hidden"
+                    }
+                )
+            ], style={
+                "position": "fixed",
+                "top": "0",
+                "left": "220px",
+                "right": "20px",
+                "bottom": "0",
+                "height": "100vh",
+                "width": "calc(100vw - 240px)",
+                "overflow": "hidden",
+                "display": "flex",
+                "flexDirection": "column",
+                "zIndex": "999"
+            })
+
         # DSP UFDF Route - Full screen, non-scrollable
         elif pathname == "/dsp/ufdf":
             ufdf_url = "/plotly_integration/dash-app/app/UFDFApp/"
@@ -694,6 +753,10 @@ def create_page_router(app):
             usp_nova_url = "/plotly_integration/dash-app/app/NovaFlex2DataViewerApp/"
             return create_full_screen_app("USP Nova Data", usp_nova_url, "refresh-usp-nova-data")
 
+        elif pathname == "/usp/brx":
+            usp_nova_url = "/plotly_integration/dash-app/app/DasgipReportApp/"
+            return create_full_screen_app("USP Nova Data", usp_nova_url, "refresh-usp-nova-data")
+
         # DSP Create DN Route
         elif pathname == "/dsp/create-dn":
             dn_url = "/plotly_integration/dash-app/app/DnAssignmentApp/"
@@ -744,6 +807,43 @@ def create_page_router(app):
                 return html.Div([
                     html.H2("Sample Set Details"),
                     html.P("Error loading sample set details page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
+        # USP Routes
+        elif pathname == "/usp/create-samples":
+            try:
+                from plotly_integration.pd_dashboard.home.usp.create_samples.layouts.create_samples import create_create_samples_layout
+                return create_create_samples_layout()
+            except ImportError as e:
+                print(f"Error importing USP create samples layout: {e}")
+                return html.Div([
+                    html.H2("Create USP Samples"),
+                    html.P("Error loading create samples page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
+        elif pathname == "/usp/view-samples":
+            try:
+                from plotly_integration.pd_dashboard.home.usp.view_samples.layouts.view_samples import create_view_samples_layout
+                return create_view_samples_layout()
+            except ImportError as e:
+                print(f"Error importing USP view samples layout: {e}")
+                return html.Div([
+                    html.H2("View USP Samples"),
+                    html.P("Error loading view samples page"),
+                    html.P(str(e), className="text-danger")
+                ])
+
+        elif pathname == "/usp/sample-sets":
+            try:
+                from plotly_integration.pd_dashboard.home.usp.sample_sets.layouts.sample_sets import create_sample_sets_main_layout
+                return create_sample_sets_main_layout()
+            except ImportError as e:
+                print(f"Error importing USP sample sets layout: {e}")
+                return html.Div([
+                    html.H2("USP Sample Sets"),
+                    html.P("Error loading sample sets page"),
                     html.P(str(e), className="text-danger")
                 ])
 
@@ -830,6 +930,38 @@ def create_page_router(app):
             cld_nova_url = "/plotly_integration/dash-app/app/NovaDataReportApp/"
             return create_full_screen_app("CLD Nova", cld_nova_url, "refresh-cld-nova")
 
+        # Formulation Routes - Full screen, non-scrollable
+        elif pathname == "/formulation/stability":
+            formulation_url = "/plotly_integration/dash-app/app/FormulationStabilityApp/"
+            return create_full_screen_app("Formulation Stability Studies", formulation_url, "refresh-formulation-stability")
+        
+        elif pathname == "/formulation/excipients":
+            # Placeholder for excipients app
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Excipients Analysis"),
+                    html.P("This feature is under development")
+                ], color="info", style={"margin": "20px"})
+            ])
+        
+        elif pathname == "/formulation/buffer":
+            # Placeholder for buffer optimization app
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Buffer Optimization"),
+                    html.P("This feature is under development")
+                ], color="info", style={"margin": "20px"})
+            ])
+        
+        elif pathname == "/formulation/reports":
+            # Placeholder for formulation reports
+            return html.Div([
+                dbc.Alert([
+                    html.H5("Formulation Reports"),
+                    html.P("This feature is under development")
+                ], color="info", style={"margin": "20px"})
+            ])
+
         # Database Management Routes - Full screen, non-scrollable
         elif pathname == "/database/import-empower":
             empower_url = "/plotly_integration/dash-app/app/DatabaseManagerApp/"
@@ -861,7 +993,7 @@ def create_page_router(app):
 
         # Default case - redirect to home
         else:
-            print(f"⚠️ Unknown route: {pathname}, redirecting to home")
+            print(f"Warning: Unknown route: {pathname}, redirecting to home")
             from ..core.layout_manager import create_dashboard_layout
             return create_dashboard_layout()
 

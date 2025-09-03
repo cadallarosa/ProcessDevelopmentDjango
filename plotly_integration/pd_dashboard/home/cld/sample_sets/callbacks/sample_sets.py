@@ -513,4 +513,4 @@ def create_analysis_status_row(analysis_type, status):
     ])
 
 
-print("✅ Complete Sample Sets Callbacks - Simplified table structure loaded")
+print("Success: Complete Sample Sets Callbacks - Simplified table structure loaded")

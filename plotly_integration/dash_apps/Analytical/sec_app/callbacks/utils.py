@@ -303,3 +303,15 @@ def update_main_peak_rt(settings, n_clicks, selected_report):
         return new_rt
 
     return dash.no_update
+
+
+# Callback to toggle manual scaling inputs visibility
+@app.callback(
+    Output('manual-scaling-inputs', 'style'),
+    Input('manual-scaling-checkbox', 'value'),
+    prevent_initial_call=False
+)
+def toggle_manual_scaling_inputs(checkbox_value):
+    if checkbox_value and 'enable_manual_scaling' in checkbox_value:
+        return {'display': 'block'}
+    return {'display': 'none'}
