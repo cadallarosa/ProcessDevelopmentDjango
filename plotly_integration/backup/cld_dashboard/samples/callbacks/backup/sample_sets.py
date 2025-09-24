@@ -149,7 +149,7 @@ def check_analysis_data_exists(analysis_type, sample_ids):
     if not sample_ids:
         return False
 
-    # Success: SPECIAL HANDLING FOR AKTA
+    # ✅ SPECIAL HANDLING FOR AKTA
     if analysis_type == 'AKTA':
         return check_akta_data_exists(sample_ids)
 
@@ -190,7 +190,7 @@ def check_akta_data_exists(sample_ids):
     if not sample_ids:
         return False
 
-    # Success: REPLACE THIS with your actual AKTA data detection logic
+    # ✅ REPLACE THIS with your actual AKTA data detection logic
     #
     # Option 1: If you have a specific AKTA results table
     # try:
@@ -211,7 +211,7 @@ def check_akta_data_exists(sample_ids):
     # Option 3: Check if AKTA data exists in another table/way
     # You might check for files, database entries, etc.
 
-    # Success: PLACEHOLDER: Always return True for now (shows AKTA button as available)
+    # ✅ PLACEHOLDER: Always return True for now (shows AKTA button as available)
     # Change this to your actual logic
     return True
 
@@ -308,7 +308,7 @@ def submit_analysis_request(n_clicks, selected_set, analysis_types, priority, no
                     create_result_entries(analysis_type, member_samples)
 
         return dbc.Toast([
-            html.P(f"Success: Successfully requested {created_count} analyses for {selected_set['name']}")
+            html.P(f"✅ Successfully requested {created_count} analyses for {selected_set['name']}")
         ],
             header="Analysis Requested",
             is_open=True,
@@ -320,7 +320,7 @@ def submit_analysis_request(n_clicks, selected_set, analysis_types, priority, no
 
     except Exception as e:
         return dbc.Toast([
-            html.P(f"Error: Error: {str(e)}")
+            html.P(f"❌ Error: {str(e)}")
         ],
             header="Request Failed",
             is_open=True,
@@ -615,4 +615,4 @@ def create_samples_table(members):
     )
 
 
-print("Success: sample_sets callbacks loaded successfully")
+print("✅ sample_sets callbacks loaded successfully")

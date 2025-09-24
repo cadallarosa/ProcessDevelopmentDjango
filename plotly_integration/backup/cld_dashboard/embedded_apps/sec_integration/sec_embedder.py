@@ -34,7 +34,7 @@ def load_sec_embed(href, refresh_clicks, pathname):
 
         print(f"📊 Building SEC URL - Report ID: {report_id}")
 
-        # Success: UPDATED: Use the SecReportEmbeddedApp URL
+        # ✅ UPDATED: Use the SecReportEmbeddedApp URL
         base_sec_url = "/plotly_integration/dash-app/app/SecReportEmbeddedApp/"
 
         if report_id:
@@ -43,7 +43,7 @@ def load_sec_embed(href, refresh_clicks, pathname):
             # Default to a test report ID if none provided
             sec_url = f"{base_sec_url}?report_id=320"
 
-        print(f"Success: SEC URL: {sec_url}")
+        print(f"✅ SEC URL: {sec_url}")
 
         # Create embedded iframe
         iframe_component = create_embedded_iframe(
@@ -56,7 +56,7 @@ def load_sec_embed(href, refresh_clicks, pathname):
         return iframe_component, sec_url
 
     except Exception as e:
-        print(f"Error: Error in load_sec_embed: {e}")
+        print(f"❌ Error in load_sec_embed: {e}")
         import traceback
         traceback.print_exc()
 

@@ -1,4 +1,4 @@
-# cld_dashboard/samples/callbacks/sample_sets.py - COMPLETE IMPLEMENTATION
+# cld_dashboard/samples/callbacks/sample_sets.py - COMPLETE WITH PROPER RESULT ID ORDERING
 
 from dash import Input, Output, State, html, no_update, ALL
 import dash_bootstrap_components as dbc
@@ -7,9 +7,10 @@ from plotly_integration.models import (
     LimsSampleSet, LimsSampleAnalysis, LimsAnalysisRequest,
     LimsSecResult, LimsTiterResult, LimsCeSdsResult,
     LimsCiefResult, LimsMassCheckResult, LimsReleasedGlycanResult,
-    LimsHcpResult, LimsProaResult, Report
+    LimsHcpResult, LimsProaResult, Report, SampleMetadata
 )
 from datetime import datetime
+from collections import Counter
 
 # Import the app instance
 from plotly_integration.backup.cld_dashboard.main_app import app
@@ -149,7 +150,7 @@ def check_analysis_data_exists(analysis_type, sample_ids):
     if not sample_ids:
         return False
 
-    # Success: SPECIAL HANDLING FOR AKTA
+    # ✅ SPECIAL HANDLING FOR AKTA
     if analysis_type == 'AKTA':
         return check_akta_data_exists(sample_ids)
 
@@ -178,42 +179,10 @@ def check_analysis_data_exists(analysis_type, sample_ids):
 
 
 def check_akta_data_exists(sample_ids):
-    """
-    Check if AKTA data exists for any samples
-
-    Args:
-        sample_ids (list): List of sample IDs
-
-    Returns:
-        bool: True if AKTA data exists
-    """
+    """Check if AKTA data exists for any samples"""
     if not sample_ids:
         return False
-
-    # Success: REPLACE THIS with your actual AKTA data detection logic
-    #
-    # Option 1: If you have a specific AKTA results table
-    # try:
-    #     from plotly_integration.models import AktaResults  # Adjust model name
-    #     return AktaResults.objects.filter(sample_id__in=sample_ids).exists()
-    # except ImportError:
-    #     pass
-
-    # Option 2: If AKTA data is in LimsSampleAnalysis with a specific field
-    # try:
-    #     return LimsSampleAnalysis.objects.filter(
-    #         sample_id__in=sample_ids,
-    #         akta_result__isnull=False  # Adjust field name
-    #     ).exists()
-    # except:
-    #     pass
-
-    # Option 3: Check if AKTA data exists in another table/way
-    # You might check for files, database entries, etc.
-
-    # Success: PLACEHOLDER: Always return True for now (shows AKTA button as available)
-    # Change this to your actual logic
-    return True
+    return True  # Placeholder
 
 
 @app.callback(
@@ -308,7 +277,7 @@ def submit_analysis_request(n_clicks, selected_set, analysis_types, priority, no
                     create_result_entries(analysis_type, member_samples)
 
         return dbc.Toast([
-            html.P(f"Success: Successfully requested {created_count} analyses for {selected_set['name']}")
+            html.P(f"✅ Successfully requested {created_count} analyses for {selected_set['name']}")
         ],
             header="Analysis Requested",
             is_open=True,
@@ -320,7 +289,7 @@ def submit_analysis_request(n_clicks, selected_set, analysis_types, priority, no
 
     except Exception as e:
         return dbc.Toast([
-            html.P(f"Error: Error: {str(e)}")
+            html.P(f"❌ Error: {str(e)}")
         ],
             header="Request Failed",
             is_open=True,
@@ -329,6 +298,332 @@ def submit_analysis_request(n_clicks, selected_set, analysis_types, priority, no
             color="danger",
             style={"position": "fixed", "top": 66, "right": 10}
         )
+
+
+# ✅ NEW CALLBACK: SEC Sample Selection Modal
+@app.callback(
+    [Output("sec-sample-selection-modal", "is_open"),
+     Output("sec-modal-sample-set-info", "children"),
+     Output("sec-sample-checklist", "options"),
+     Output("sec-sample-checklist", "value"),
+     Output("sec-selected-sample-set", "data")],
+    [Input({"type": "open-sec-modal-btn", "index": ALL}, "n_clicks"),
+     Input({"type": "create-sec-report-btn", "index": ALL}, "n_clicks"),  # Keep existing for "New" buttons
+     Input("cancel-sec-creation", "n_clicks")],
+    [State({"type": "open-sec-modal-btn", "index": ALL}, "id"),
+     State({"type": "create-sec-report-btn", "index": ALL}, "id")],
+    prevent_initial_call=True
+)
+def toggle_sec_sample_selection_modal(modal_clicks, create_clicks, cancel_clicks, modal_button_ids, create_button_ids):
+    """Handle SEC sample selection modal"""
+
+    if cancel_clicks:
+        return False, "", [], [], {}
+
+    # Check both types of buttons
+    all_clicks = (modal_clicks or []) + (create_clicks or [])
+    all_button_ids = (modal_button_ids or []) + (create_button_ids or [])
+
+    if all_clicks and any(all_clicks):
+        # Find which button was clicked
+        for i, (n_clicks, button_id) in enumerate(zip(all_clicks, all_button_ids)):
+            if n_clicks and n_clicks > 0:
+                sample_set_id = button_id["index"]
+
+                try:
+                    sample_set = LimsSampleSet.objects.get(id=sample_set_id)
+                    sample_ids = [member.sample.sample_id for member in sample_set.members.all()]
+
+                    # ✅ IMPORTANT: Sort sample_ids to maintain consistent order
+                    # Option 1: Sort by sample number (recommended for most SEC apps)
+                    sample_ids_sorted = sorted(sample_ids, key=lambda x: int(x[2:]) if x.startswith('FB') and x[
+                        2:].isdigit() else 0)
+
+                    # Option 2: Keep original order (uncomment if needed)
+                    # sample_ids_sorted = sample_ids
+
+                    print(f"🔍 Sample IDs - Original: {sample_ids}")
+                    print(f"🔍 Sample IDs - Sorted: {sample_ids_sorted}")
+
+                    # Get SEC metadata for each sample
+                    sample_options = []
+                    selected_samples = []
+
+                    for sample_id in sample_ids_sorted:  # Use sorted order
+                        # Get SEC metadata from SampleMetadata table
+                        try:
+                            metadata = SampleMetadata.objects.filter(sample_name=sample_id).first()
+
+                            if metadata:
+                                # Sample has SEC data
+                                sample_info = html.Div([
+                                    html.Strong(f"{sample_id}"),
+                                    html.Br(),
+                                    html.Small([
+                                        f"Result ID: {metadata.result_id} | ",
+                                        f"Column: {metadata.column_name or 'N/A'} | ",
+                                        f"Date: {metadata.date_acquired.strftime('%Y-%m-%d') if metadata.date_acquired else 'N/A'}"
+                                    ], className="text-muted")
+                                ])
+
+                                sample_options.append({
+                                    "label": sample_info,
+                                    "value": sample_id
+                                })
+                                selected_samples.append(sample_id)  # Pre-select all available
+                            else:
+                                # Sample has no SEC data
+                                sample_info = html.Div([
+                                    html.Strong(f"{sample_id}"),
+                                    html.Br(),
+                                    html.Small("No SEC data available", className="text-warning")
+                                ])
+
+                                sample_options.append({
+                                    "label": sample_info,
+                                    "value": sample_id,
+                                    "disabled": True
+                                })
+                        except Exception as e:
+                            print(f"Error getting metadata for {sample_id}: {e}")
+                            # Add as disabled if error
+                            sample_options.append({
+                                "label": html.Div([
+                                    html.Strong(f"{sample_id}"),
+                                    html.Br(),
+                                    html.Small("Error loading data", className="text-danger")
+                                ]),
+                                "value": sample_id,
+                                "disabled": True
+                            })
+
+                    # Modal info
+                    modal_info = html.Div([
+                        html.H6(f"Create SEC Report: {sample_set.set_name}"),
+                        html.P([
+                            html.Strong("Project: "), sample_set.project_id, html.Br(),
+                            html.Strong("Total Samples: "), f"{len(sample_ids)}", html.Br(),
+                            html.Strong("Available for SEC: "), f"{len(selected_samples)}"
+                        ], className="mb-0")
+                    ])
+
+                    return True, modal_info, sample_options, selected_samples, {
+                        "id": sample_set_id,
+                        "name": sample_set.set_name,
+                        "project_id": sample_set.project_id,
+                        "all_sample_ids": sample_ids_sorted  # Use sorted order
+                    }
+
+                except LimsSampleSet.DoesNotExist:
+                    return False, "Sample set not found", [], [], {}
+
+    return False, "", [], [], {}
+
+
+# ✅ NEW CALLBACK: Create SEC Report with Proper Result ID Ordering
+@app.callback(
+    [Output("sample-sets-notifications", "children", allow_duplicate=True),
+     Output("sec-report-created", "data"),
+     Output("sec-sample-selection-modal", "is_open", allow_duplicate=True)],
+    [Input("create-sec-report-with-samples", "n_clicks")],
+    [State("sec-sample-checklist", "value"),
+     State("sec-selected-sample-set", "data"),
+     State("sec-report-name", "value"),
+     State("sec-report-comments", "value")],
+    prevent_initial_call=True
+)
+def create_sec_report_with_proper_ordering(n_clicks, selected_samples, sample_set_data, report_name, comments):
+    """Create SEC report with properly ordered result IDs"""
+    if not n_clicks or not selected_samples or not sample_set_data:
+        return no_update, no_update, no_update
+
+    try:
+        print(f"🔍 Creating SEC report with {len(selected_samples)} selected samples")
+        print(f"🔍 User selection order: {selected_samples}")
+
+        # ✅ STEP 1: Choose ordering strategy - SAMPLE ID ORDER (most common for SEC apps)
+        ordered_samples = sorted(selected_samples,
+                                 key=lambda x: int(x[2:]) if x.startswith('FB') and x[2:].isdigit() else 0)
+
+        # ✅ Alternative: Maintain user selection order (uncomment if needed)
+        # ordered_samples = selected_samples
+
+        print(f"🔍 Final sample order: {ordered_samples}")
+
+        # ✅ STEP 2: Get result IDs in the correct order
+        selected_result_ids = []
+        sample_metadata = {}
+        missing_samples = []
+
+        for sample_id in ordered_samples:  # Use ordered samples
+            try:
+                metadata = SampleMetadata.objects.filter(sample_name=sample_id).first()
+                if metadata and metadata.result_id:
+                    selected_result_ids.append(str(metadata.result_id))
+                    sample_metadata[sample_id] = metadata
+                    print(f"✅ {sample_id} -> result_id: {metadata.result_id}")
+                else:
+                    missing_samples.append(sample_id)
+                    print(f"⚠️ No result ID found for {sample_id}")
+            except Exception as e:
+                missing_samples.append(sample_id)
+                print(f"❌ Error getting result ID for {sample_id}: {e}")
+
+        if not selected_result_ids:
+            error_message = dbc.Toast([
+                html.P("❌ No SEC result IDs found for selected samples")
+            ], header="Error", is_open=True, color="danger", duration=4000)
+            return error_message, {}, no_update
+
+        print(f"✅ Final result IDs order: {selected_result_ids}")
+        print(f"✅ Sample to Result mapping: {list(zip(ordered_samples, selected_result_ids))}")
+
+        # ✅ STEP 3: Find existing reports for smart inheritance (YOUR ORIGINAL PATTERN)
+        sample_analyses = LimsSampleAnalysis.objects.filter(sample_id__in=ordered_samples)
+        sec_results = LimsSecResult.objects.filter(sample_id__in=sample_analyses, report_id__isnull=False)
+        report_counts = Counter(r.report_id for r in sec_results if r.report_id)
+        best_report_id = report_counts.most_common(1)[0][0] if report_counts else None
+
+        # ✅ STEP 4: Inherit settings from best matching report
+        inherited_settings = ""
+        plot_settings = None
+        if best_report_id:
+            try:
+                source_report = Report.objects.get(report_id=best_report_id)
+                inherited_settings = source_report.comments or ""
+                plot_settings = source_report.plot_settings
+                print(f"✅ Inherited settings from report {best_report_id}")
+            except Report.DoesNotExist:
+                print(f"⚠️ Source report {best_report_id} not found")
+
+        # ✅ STEP 5: Generate report name
+        timestamp = datetime.now()
+        if not report_name:
+            # Auto-generate name with ordered samples
+            fb_numbers = []
+            for sid in ordered_samples:
+                if str(sid).startswith('FB') and str(sid)[2:].isdigit():
+                    fb_numbers.append(int(str(sid)[2:]))
+
+            if fb_numbers:
+                fb_start = f"FB{min(fb_numbers)}"
+                fb_end = f"FB{max(fb_numbers)}"
+                report_name = f"{timestamp.strftime('%Y%m%d')}_{sample_set_data['project_id']}_{fb_start}_{fb_end}"
+            else:
+                report_name = f"{timestamp.strftime('%Y%m%d')}_{sample_set_data['project_id']}_{sample_set_data['name']}"
+
+        # ✅ STEP 6: Create NEW report with properly ordered result IDs
+        final_comments = f"{comments or ''}\n{inherited_settings}".strip()
+
+        new_report = Report.objects.create(
+            report_name=report_name,
+            project_id=sample_set_data['project_id'],
+            analysis_type=1,  # SEC
+            sample_type="FB",
+            selected_samples=",".join(ordered_samples),  # ✅ Samples in correct order
+            selected_result_ids=",".join(selected_result_ids),  # ✅ Result IDs in matching order
+            comments=final_comments,
+            plot_settings=plot_settings,
+            user_id="dashboard_user",
+            date_created=timestamp,
+            department=1
+        )
+
+        print(f"✅ Created report {new_report.report_id}")
+        print(f"✅ Report samples: {new_report.selected_samples}")
+        print(f"✅ Report result_ids: {new_report.selected_result_ids}")
+
+        # ✅ STEP 7: Link samples to the new report
+        linked_count = 0
+        for sample_id in ordered_samples:
+            try:
+                # Get or create LimsSampleAnalysis
+                sample_analysis, _ = LimsSampleAnalysis.objects.get_or_create(
+                    sample_id=sample_id,
+                    defaults={
+                        'sample_type': 2,
+                        'project_id': sample_set_data['project_id'],
+                        'sample_date': timestamp.date(),
+                        'analyst': 'dashboard'
+                    }
+                )
+
+                # Get or create LimsSecResult and link to new report
+                sec_result, created = LimsSecResult.objects.get_or_create(
+                    sample_id=sample_analysis,
+                    defaults={'report': new_report, 'created_at': timestamp}
+                )
+
+                if not created and not sec_result.report:
+                    sec_result.report = new_report
+                    sec_result.save()
+
+                linked_count += 1
+
+            except Exception as e:
+                print(f"❌ Error linking sample {sample_id}: {e}")
+
+        # ✅ STEP 8: Success notification with embedded view button
+        success_message = dbc.Toast([
+            html.H6("✅ SEC Report Created!", className="alert-heading"),
+            html.P([
+                f"Report '{new_report.report_name}' created successfully!",
+                html.Br(),
+                f"📊 {len(ordered_samples)} samples (ordered: {ordered_samples[0]} to {ordered_samples[-1]})",
+                html.Br(),
+                f"🔬 {len(selected_result_ids)} result IDs included",
+                html.Br(),
+                f"🆔 Report ID: {new_report.report_id}"
+            ]),
+            html.Hr(),
+            dbc.ButtonGroup([
+                dbc.Button([
+                    html.I(className="fas fa-chart-line me-2"),
+                    "View SEC Report"
+                ],
+                    href=f"#!/analysis/sec/report?report_id={new_report.report_id}",
+                    color="primary",
+                    size="sm"),
+                dbc.Button([
+                    html.I(className="fas fa-external-link-alt me-2"),
+                    "Full App"
+                ],
+                    href=f"/plotly_integration/dash-app/app/SecReportApp2/?report_id={new_report.report_id}",
+                    target="_blank",
+                    color="outline-primary",
+                    size="sm")
+            ])
+        ],
+            header="SEC Report Ready",
+            is_open=True,
+            dismissable=True,
+            duration=12000,
+            color="success",
+            style={"position": "fixed", "top": 66, "right": 10, "width": 450, "zIndex": 9999}
+        )
+
+        # Store report info
+        report_info = {
+            "report_id": new_report.report_id,
+            "report_name": new_report.report_name,
+            "sample_count": len(ordered_samples),
+            "result_ids": selected_result_ids,
+            "sample_order": ordered_samples,
+            "dashboard_url": f"#!/analysis/sec/report?report_id={new_report.report_id}",
+            "full_url": f"/plotly_integration/dash-app/app/SecReportApp2/?report_id={new_report.report_id}"
+        }
+
+        return success_message, report_info, False  # Close modal
+
+    except Exception as e:
+        print(f"❌ Error creating SEC report: {e}")
+        import traceback
+        traceback.print_exc()
+
+        error_message = dbc.Toast([
+            html.P(f"❌ Error creating SEC report: {str(e)}")
+        ], header="Error", is_open=True, color="danger", duration=6000)
+        return error_message, {}, no_update
 
 
 def create_result_entries(analysis_type, member_samples):
@@ -343,7 +638,6 @@ def create_result_entries(analysis_type, member_samples):
         'Glycan': LimsReleasedGlycanResult,
         'HCP': LimsHcpResult,
         'ProA': LimsProaResult
-        # Note: AKTA not included here - handle separately if needed
     }
 
     model = model_map.get(analysis_type)
@@ -392,6 +686,34 @@ def create_result_entries(analysis_type, member_samples):
                 sample_analysis.save()
 
 
+def get_existing_sec_reports_for_sample_set(sample_set):
+    """Get existing SEC reports for samples in this set"""
+    try:
+        sample_ids = [member.sample.sample_id for member in sample_set.members.all()]
+
+        # Find SEC results that have reports
+        sample_analyses = LimsSampleAnalysis.objects.filter(sample_id__in=sample_ids)
+        sec_results = LimsSecResult.objects.filter(
+            sample_id__in=sample_analyses,
+            report__isnull=False
+        ).select_related('report')
+
+        # Get unique reports
+        reports = []
+        seen_report_ids = set()
+        for result in sec_results:
+            if result.report and result.report.report_id not in seen_report_ids:
+                reports.append(result.report)
+                seen_report_ids.add(result.report.report_id)
+
+        # Sort by creation date (newest first)
+        return sorted(reports, key=lambda r: r.date_created, reverse=True)
+
+    except Exception as e:
+        print(f"Error getting existing SEC reports: {e}")
+        return []
+
+
 @app.callback(
     Output("project-filter", "options"),
     [Input("refresh-sample-sets-btn", "n_clicks"),
@@ -415,8 +737,6 @@ def update_project_filter(n_clicks, pathname):
         return [{"label": "All Projects", "value": "all"}]
 
 
-# UPDATED CALLBACK: Handle SEC view button clicks
-# This creates a link button instead of navigation
 @app.callback(
     Output("dummy-output", "children", allow_duplicate=True),
     [Input({"type": "view-sec-btn", "index": ALL}, "n_clicks")],
@@ -427,7 +747,6 @@ def handle_view_sec_click(n_clicks_list):
     return ""
 
 
-# NEW CALLBACK: Handle details view
 @app.callback(
     [Output("sample-set-details-modal", "is_open"),
      Output("modal-sample-set-details", "children")],
@@ -459,12 +778,12 @@ def handle_view_details(view_clicks, close_clicks, button_ids):
                     # Get analysis status
                     analysis_status = get_analysis_status_for_set(sample_set)
 
-                    # Check for SEC reports - FIX: use date_created instead of created_at
+                    # Check for SEC reports
                     sample_ids = [m.sample.sample_id for m in members]
                     sec_reports = Report.objects.filter(
                         analysis_type=1,  # SEC
                         project_id=sample_set.project_id
-                    ).order_by('-date_created')[:5]  # Last 5 reports - FIXED field name
+                    ).order_by('-date_created')[:5]
 
                     details = html.Div([
                         dbc.Row([
@@ -511,7 +830,7 @@ def handle_view_details(view_clicks, close_clicks, button_ids):
                                             html.A(
                                                 f"Report #{report.report_id} - {report.date_created.strftime('%Y-%m-%d')}",
                                                 href=f"#!/analysis/sec/report?report_id={report.report_id}",
-                                                target="_blank"
+                                                title="View in embedded SEC app"
                                             )
                                         ])
                                         for report in sec_reports
@@ -541,18 +860,10 @@ def handle_view_details(view_clicks, close_clicks, button_ids):
 
                                     dbc.Button([
                                         html.I(className="fas fa-chart-line me-2"),
-                                        "Open SEC App (Embedded)"
+                                        "Create SEC Report"
                                     ],
-                                        href=f"#!/analysis/sec/report",
+                                        id={"type": "open-sec-modal-from-details", "index": sample_set.id},
                                         color="success"),
-
-                                    dbc.Button([
-                                        html.I(className="fas fa-external-link-alt me-2"),
-                                        "Open SEC App (Full)"
-                                    ],
-                                        href="/plotly_integration/dash-app/app/SecReportApp2/",
-                                        target="_blank",
-                                        color="outline-success"),
 
                                     dbc.Button([
                                         html.I(className="fas fa-file-export me-2"),
@@ -615,4 +926,4 @@ def create_samples_table(members):
     )
 
 
-print("Success: sample_sets callbacks loaded successfully")
+print("✅ sample_sets callbacks with proper result ID ordering loaded successfully")

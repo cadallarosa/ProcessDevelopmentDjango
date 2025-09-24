@@ -52,6 +52,7 @@ def create_sidebar_navigation():
                 {'name': 'Create Samples', 'href': '#!/usp/create-samples', 'icon': 'fa-plus'},
                 {'name': 'View Samples', 'href': '#!/usp/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/usp/sample-sets', 'icon': 'fa-layer-group'},
+                {'name': 'Experiment Manager', 'href': '#!/usp/experiment-manager', 'icon': 'fa-flask'},
                 {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'},
                 {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'},
                 {'name': 'Nova Data View', 'href': '#!/usp/nova-data-table', 'icon': 'fa-table'},
@@ -92,10 +93,13 @@ def create_sidebar_navigation():
             'icon': 'fa-vials',
             'color': '#e67e22',
             'items': [
-                {'name': 'Stability Studies', 'href': '#!/formulation/stability', 'icon': 'fa-clock'},
-                {'name': 'Excipients', 'href': '#!/formulation/excipients', 'icon': 'fa-capsules'},
-                {'name': 'Buffer Optimization', 'href': '#!/formulation/buffer', 'icon': 'fa-flask'},
-                {'name': 'Reports', 'href': '#!/formulation/reports', 'icon': 'fa-file-alt'}
+                {'name': 'Dashboard', 'href': '#!/formulation/dashboard', 'icon': 'fa-chart-pie'},
+                {'name': 'Create Experiment', 'href': '#!/formulation/create-experiment', 'icon': 'fa-plus-circle'},
+                {'name': 'Experiment Manager', 'href': '#!/formulation/experiment-manager', 'icon': 'fa-flask'},
+                {'name': 'Design Formulations', 'href': '#!/formulation/design', 'icon': 'fa-vials'},
+                {'name': 'Sample Management', 'href': '#!/formulation/samples', 'icon': 'fa-plus-circle'},
+                {'name': 'Data Entry', 'href': '#!/formulation/data-entry', 'icon': 'fa-table'},
+                {'name': 'Stability Visualization', 'href': '#!/formulation/visualization', 'icon': 'fa-chart-line'}
             ]
         },
         {

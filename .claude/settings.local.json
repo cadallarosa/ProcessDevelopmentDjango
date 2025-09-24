@@ -6,7 +6,12 @@
       "Bash(timeout:*)",
       "Bash(find:*)",
       "Bash(sed:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(taskkill:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:community.plotly.com)",
+      "Read(//s/Shared/DjangoRawData/CESDS/Imported/**)"
     ],
     "deny": [],
     "ask": []

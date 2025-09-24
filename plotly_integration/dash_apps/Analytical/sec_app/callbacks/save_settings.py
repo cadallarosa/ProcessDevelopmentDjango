@@ -23,6 +23,7 @@ from plotly_integration.models import Report
     State("vertical-spacing-input", "value"),
     State("horizontal-spacing-input", "value"),
     State("hmw-column-selector", "value"),
+    State("peak-detection-mode-dropdown", "value"),  # Add peak detection mode
     # Standard Settings
     State("standard-id-dropdown", "value"),
     State("standard-table", "selected_rows"),
@@ -32,6 +33,7 @@ from plotly_integration.models import Report
 def save_settings_and_reset(save_clicks, interval_n, interval_disabled, report_id,
                             channels, plot_type, shading, peak_labels,
                             main_rt, low_mw_cutoff, num_cols, v_spacing, h_spacing, hmw_cols,
+                            peak_detection_mode,
                             std_id, std_rows, rt_input):
     from dash.exceptions import PreventUpdate
 
@@ -58,6 +60,7 @@ def save_settings_and_reset(save_clicks, interval_n, interval_disabled, report_i
         "vertical_spacing": v_spacing,
         "horizontal_spacing": h_spacing,
         "hmw_columns": hmw_cols,
+        "peak_detection_mode": peak_detection_mode,  # Save peak detection mode
         "std_result_id": std_id,
         "std_selected_rows": std_rows,
         "rt_input": rt_input

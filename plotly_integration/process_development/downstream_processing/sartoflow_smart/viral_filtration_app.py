@@ -1,12 +1,13 @@
 import pandas as pd
 import plotly.graph_objects as go
 from django_plotly_dash import DjangoDash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, dash_table
 # from paramiko.agent import value
 
 from plotly_integration.models import VFMetadata, VFTimeSeriesData
 import numpy as np
 from dash.dependencies import ALL, State
+import dash
 
 # Create Dash App
 app = DjangoDash("ViralFiltrationApp")
@@ -17,6 +18,13 @@ unit_step_options = [
     {"label": "Buffer Flush", "value": 2},
     {"label": "Product Filtration", "value": 3},
 ]
+
+# Unit step name mapping
+unit_step_names = {
+    1: "Water Flush",
+    2: "Buffer Flush",
+    3: "Product Filtration"
+}
 # Query the database for unique experiment names and result IDs
 experiments = VFMetadata.objects.values("result_id", "experiment_name").distinct().order_by("-result_id")
 
@@ -46,30 +54,69 @@ card_style = {
 }
 
 # Define styling
-input_style = {"width": "100%", "padding": "8px", "borderRadius": "5px", "border": "1px solid #ccc",
-               "marginBottom": "10px"}
+input_style = {
+    "width": "100%", 
+    "padding": "12px", 
+    "borderRadius": "8px", 
+    "border": "1px solid #ddd",
+    "fontSize": "14px",
+    "fontFamily": "system-ui, -apple-system, sans-serif",
+    "boxShadow": "0 1px 3px rgba(0,0,0,0.1)",
+    "transition": "border-color 0.3s, box-shadow 0.3s"
+}
 readonly_style = input_style.copy()
-readonly_style["backgroundColor"] = "#e9f1fb"
+readonly_style["backgroundColor"] = "#f8f9fa"
+readonly_style["color"] = "#6c757d"
+
+label_style = {
+    "fontWeight": "600",
+    "fontSize": "14px",
+    "color": "#495057",
+    "marginBottom": "8px",
+    "display": "block"
+}
+
+field_container_style = {
+    "marginBottom": "20px",
+    "padding": "15px",
+    "backgroundColor": "#ffffff",
+    "borderRadius": "8px",
+    "border": "1px solid #e9ecef",
+    "boxShadow": "0 1px 3px rgba(0,0,0,0.05)"
+}
 
 # Dash Layout
 app.layout = html.Div(
     style=app_style,
     children=[
-        html.H2("Viral Filtration Experiment Data", style={"textAlign": "center", "color": "#0047b3"}),
-        html.Button("Refresh Reports", id="refresh-button", n_clicks=0),
+        # Top bar with select button
+        html.Div(
+            style={"display": "flex", "justifyContent": "flex-start", "marginBottom": "10px"},
+            children=[
+                html.Button(
+                    "Select Experiment",
+                    id="select-button",
+                    style={
+                        "backgroundColor": "#007bff",
+                        "color": "white",
+                        "border": "none",
+                        "padding": "10px 20px",
+                        "borderRadius": "5px",
+                        "cursor": "pointer",
+                        "fontSize": "14px"
+                    }
+                )
+            ]
+        ),
 
-        # Experiment selection
+        # Selected experiment info
         html.Div(
             style=card_style,
             children=[
-                html.Label("Select Experiment:", style={"fontWeight": "bold"}),
-                dcc.Dropdown(
-                    id="experiment-dropdown",
-                    options=[{"label": exp["experiment_name"], "value": exp["result_id"]} for exp in experiments],
-                    placeholder="Select an experiment...",
-                    style={"marginBottom": "10px"},
-                ),
-
+                html.Div(id="selected-experiment-info", 
+                        children="No experiment selected. Click 'Select Experiment' to choose one.",
+                        style={"marginBottom": "10px", "fontStyle": "italic", "color": "#666"}),
+                
                 html.Label("Select Unit Step:", style={"fontWeight": "bold"}),
                 dcc.Dropdown(
                     id="unit-step-dropdown",
@@ -92,8 +139,15 @@ app.layout = html.Div(
                 # 🔹 Tab 1: Sample Analysis
                 dcc.Tab(label="Viral Filtration Plot", value="tab-1", children=[
                     html.Div(
-                        style={**card_style, "display": "flex", "justifyContent": "space-between",
-                               "alignItems": "flex-start","flexGrow": 1,},
+                        style={
+                            **card_style, 
+                            "display": "flex", 
+                            "justifyContent": "space-between",
+                            "alignItems": "flex-start",
+                            "flexGrow": 1,
+                            "gap": "20px",
+                            "minHeight": "80vh"
+                        },
                         children=[
                             # Left side: Graph
                             html.Div(
@@ -184,38 +238,287 @@ app.layout = html.Div(
                 ]),
                 # 🔹 Tab 2: Experiment Information
                 dcc.Tab(label="Experiment Information", value="tab-2", children=[
-                    # Graph Output
-
-                    # Metadata Edit Section
                     html.Div(
-                        style=card_style,
+                        style={
+                            **card_style,
+                            "maxWidth": "1200px",
+                            "margin": "0 auto",
+                            "padding": "30px"
+                        },
                         children=[
-                            html.H3("Experiment Metadata", style={"color": "#0047b3"}),
-                            html.Div(id="metadata-fields"),  # Placeholder for dynamically generated metadata fields
-                            html.Button("Update Experiment", id="update-button", n_clicks=0,
-                                        style={"marginTop": "10px"}),
-                            html.Div(id="update-status", style={"marginTop": "10px", "color": "green"}),
+                            html.H3(
+                                "Experiment Metadata", 
+                                style={
+                                    "color": "#0047b3",
+                                    "textAlign": "center",
+                                    "marginBottom": "30px",
+                                    "fontSize": "28px",
+                                    "fontWeight": "600"
+                                }
+                            ),
+                            html.Div(
+                                id="metadata-fields",
+                                style={
+                                    "display": "grid",
+                                    "gridTemplateColumns": "repeat(auto-fit, minmax(300px, 1fr))",
+                                    "gap": "20px",
+                                    "marginBottom": "30px"
+                                }
+                            ),
+                            html.Div(
+                                style={"textAlign": "center"},
+                                children=[
+                                    html.Button(
+                                        "Update Experiment", 
+                                        id="update-button", 
+                                        n_clicks=0,
+                                        style={
+                                            "backgroundColor": "#28a745",
+                                            "color": "white",
+                                            "border": "none",
+                                            "padding": "12px 30px",
+                                            "borderRadius": "8px",
+                                            "fontSize": "16px",
+                                            "fontWeight": "600",
+                                            "cursor": "pointer",
+                                            "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
+                                            "transition": "background-color 0.3s"
+                                        }
+                                    ),
+                                    html.Div(
+                                        id="update-status", 
+                                        style={
+                                            "marginTop": "15px", 
+                                            "color": "green",
+                                            "fontSize": "16px",
+                                            "fontWeight": "500"
+                                        }
+                                    ),
+                                ]
+                            )
                         ],
                     ),
                 ]),
             ])
-        ])
+        ]),
+        
+        # Modal for import experiment
+        html.Div(
+            id="import-modal",
+            style={
+                "display": "none",
+                "position": "fixed",
+                "zIndex": 1000,
+                "left": 0,
+                "top": 0,
+                "width": "100%",
+                "height": "100%",
+                "backgroundColor": "rgba(0,0,0,0.5)"
+            },
+            children=[
+                html.Div(
+                    style={
+                        "position": "relative",
+                        "margin": "1% auto",
+                        "width": "98%",
+                        "height": "95%",
+                        "backgroundColor": "white",
+                        "borderRadius": "10px",
+                        "padding": "10px"
+                    },
+                    children=[
+                        html.Button(
+                            "×",
+                            id="close-modal",
+                            style={
+                                "position": "absolute",
+                                "top": "10px",
+                                "right": "15px",
+                                "backgroundColor": "transparent",
+                                "border": "none",
+                                "fontSize": "24px",
+                                "cursor": "pointer",
+                                "color": "#999"
+                            }
+                        ),
+                        html.H3("Select or Import Experiment", 
+                               style={"marginBottom": "10px", "color": "#0047b3"}),
+                        dcc.Tabs(
+                            id="modal-tabs",
+                            value="select-tab",
+                            children=[
+                                dcc.Tab(label="Select Existing", value="select-tab", 
+                                       style={"fontSize": "16px"}, children=[
+                                    html.Div(
+                                        style={"padding": "10px"},
+                                        children=[
+                                            dash_table.DataTable(
+                                                id="experiments-table",
+                                                columns=[
+                                                    {"name": "Molecule Name", "id": "molecule_name"},
+                                                    {"name": "Experiment Name", "id": "experiment_name"},
+                                                    {"name": "Yield %", "id": "yield_percentage", "type": "numeric", "format": {"specifier": ".1f"}},
+                                                    {"name": "Created At", "id": "created_at", "type": "datetime"}
+                                                ],
+                                                data=[],
+                                                style_table={
+                                                    "overflowX": "auto", 
+                                                    "height": "75vh", 
+                                                    "overflowY": "auto",
+                                                    "borderRadius": "5px"
+                                                },
+                                                style_cell={
+                                                    "textAlign": "center", 
+                                                    "padding": "12px", 
+                                                    "fontSize": "14px",
+                                                    "fontFamily": "system-ui, -apple-system, sans-serif"
+                                                },
+                                                style_header={
+                                                    "backgroundColor": "#f8f9fa", 
+                                                    "fontWeight": "600", 
+                                                    "borderBottom": "2px solid #dee2e6"
+                                                },
+                                                style_data={
+                                                    "borderBottom": "1px solid #dee2e6"
+                                                },
+                                                style_data_conditional=[
+                                                    {
+                                                        'if': {'row_index': 'odd'},
+                                                        'backgroundColor': '#f8f9fa'
+                                                    }
+                                                ],
+                                                row_selectable="single",
+                                                selected_rows=[],
+                                                filter_action="native",
+                                                sort_action="native",
+                                                page_action="native",
+                                                page_size=15,
+                                                fixed_rows={'headers': True}
+                                            ),
+                                            html.Div(
+                                                style={"marginTop": "10px", "display": "flex", "justifyContent": "flex-end"},
+                                                children=[
+                                                    html.Button("Select", id="select-experiment-btn", 
+                                                              style={"backgroundColor": "#28a745", "color": "white", 
+                                                                     "border": "none", "padding": "8px 20px", 
+                                                                     "borderRadius": "4px", "cursor": "pointer"})
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]),
+                                dcc.Tab(label="Import New", value="import-tab", 
+                                       style={"fontSize": "16px"}, children=[
+                                    html.Div(
+                                        style={"padding": "10px"},
+                                        children=[
+                                            html.Iframe(
+                                                src="/plotly_integration/dash-app/app/ViralFiltrationExperimentImport/",
+                                                style={
+                                                    "width": "100%",
+                                                    "height": "75vh",
+                                                    "border": "none"
+                                                }
+                                            )
+                                        ]
+                                    )
+                                ])
+                            ],
+                            colors={"border": "white", "primary": "darkblue", "background": "light-gray"}
+                        )
+                    ]
+                )
+            ]
+        ),
+        
+        # Store for selected experiment
+        dcc.Store(id='selected-experiment-store', data=None),
     ])
 
 
 @app.callback(
-    Output("experiment-dropdown", "options"),
-    Input("refresh-button", "n_clicks")
+    Output("experiments-table", "data"),
+    Input("import-modal", "style")
 )
-def update_experiment_list(n_clicks):
-    experiments = VFMetadata.objects.values("result_id", "experiment_name").distinct().order_by("-result_id")
-    return [{"label": exp["experiment_name"], "value": exp["result_id"]} for exp in experiments]
+def populate_experiments_table(modal_style):
+    if modal_style and modal_style.get("display") == "block":
+        experiments = VFMetadata.objects.all().order_by("-created_at")
+        data = []
+        for exp in experiments:
+            data.append({
+                "result_id": exp.result_id,
+                "molecule_name": exp.molecule_name or "",
+                "experiment_name": exp.experiment_name or "",
+                "yield_percentage": exp.yield_percentage or 0,
+                "created_at": exp.created_at.strftime("%Y-%m-%d %H:%M") if exp.created_at else ""
+            })
+        return data
+    return []
+
+
+@app.callback(
+    [Output("selected-experiment-store", "data"),
+     Output("selected-experiment-info", "children"),
+     Output("import-modal", "style"),
+     Output("unit-step-dropdown", "value")],
+    [Input("select-button", "n_clicks"), 
+     Input("close-modal", "n_clicks"),
+     Input("select-experiment-btn", "n_clicks")],
+    [State("experiments-table", "selected_rows"),
+     State("experiments-table", "data")],
+    prevent_initial_call=True
+)
+def handle_modal_actions(select_btn_clicks, close_btn_clicks, select_exp_clicks, selected_rows, table_data):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, {"display": "none"}, dash.no_update
+    
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    
+    # Open modal when "Select Experiment" button is clicked
+    if button_id == "select-button":
+        return dash.no_update, dash.no_update, {
+            "display": "block",
+            "position": "fixed",
+            "zIndex": 1000,
+            "left": 0,
+            "top": 0,
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "rgba(0,0,0,0.5)"
+        }, dash.no_update
+    
+    # Close modal when close button (×) is clicked
+    elif button_id == "close-modal":
+        return dash.no_update, dash.no_update, {"display": "none"}, dash.no_update
+    
+    # Handle experiment selection
+    elif button_id == "select-experiment-btn":
+        if not select_exp_clicks:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        
+        # Close modal regardless of selection
+        modal_style = {"display": "none"}
+        
+        if selected_rows and table_data and len(selected_rows) > 0:
+            selected_exp = table_data[selected_rows[0]]
+            experiment_info = f"Selected: {selected_exp['experiment_name']} ({selected_exp['molecule_name']}) - Yield: {selected_exp['yield_percentage']:.1f}%"
+            
+            # Default to Product Filtration (unit step 3)
+            default_unit_step = 3
+            
+            return selected_exp['result_id'], experiment_info, modal_style, default_unit_step
+        else:
+            # Button was clicked but no row selected - still close modal
+            return dash.no_update, "Please select an experiment from the table first.", modal_style, dash.no_update
+    
+    return dash.no_update, dash.no_update, {"display": "none"}, dash.no_update
 
 
 @app.callback(
     Output("time-series-graph", "figure"),
     Output("overall-lmh-output", "children"),
-    Input("experiment-dropdown", "value"),
+    Input("selected-experiment-store", "data"),
     Input("unit-step-dropdown", "value"),
     Input("data-selection", "value"),
     Input("xaxis-selection", "value"),
@@ -223,19 +526,23 @@ def update_experiment_list(n_clicks):
     Input("y-max-input", "value"),
     Input("smoothing-input", "value"),
     Input("water-flush-flux", "value"),
-    Input({"type": "metadata-field", "field": "load_concentration"}, "value"),
+    State({"type": "metadata-field", "field": "load_concentration"}, "value"),
 )
 def update_graph(selected_experiment, selected_unit_step, selected_columns, x_axis, y_min, y_max, smoothing_seconds,
                  water_flux, load_concentration):
     if not selected_experiment or not selected_unit_step:
-        return go.Figure()
+        return go.Figure(), "No experiment selected"
 
     # Query metadata for selected filter area (m²)
     try:
         metadata = VFMetadata.objects.get(result_id=selected_experiment)
         filter_area = float(metadata.filter_type)  # Assuming filter_type stores the m² value
+        experiment_name = metadata.experiment_name or f"Experiment {selected_experiment}"
+        # Use metadata load_concentration if the field value is not available
+        if load_concentration is None:
+            load_concentration = metadata.load_concentration or 0
     except VFMetadata.DoesNotExist:
-        return go.Figure(),0
+        return go.Figure(), "Experiment not found"
 
     # Query database for selected experiment and unit step
     query_set = VFTimeSeriesData.objects.filter(
@@ -354,20 +661,24 @@ def update_graph(selected_experiment, selected_unit_step, selected_columns, x_ax
                 "title": axis_labels.get(column, column),  # Use descriptive labels
                 "overlaying": "y" if i > 0 else None,  # First y-axis is standalone, others overlay it
                 "side": "right" if i % 2 == 0 else "left",
-                "showgrid": False
+                "showgrid": True if i == 0 else False,  # Only show grid for primary y-axis
+                "gridcolor": 'lightgray' if i == 0 else None
             }
 
     # Update layout with dynamically created y-axes and new x-axis label
+    unit_step_name = unit_step_names.get(selected_unit_step, f"Unit Step {selected_unit_step}")
     fig.update_layout(
         title={
-            "text": f"Experiment {selected_experiment} - Unit Step {selected_unit_step}",
+            "text": f"{experiment_name} - {unit_step_name}",
             "x": 0.5,  # Centers the title
             "xanchor": "center",  # Ensures proper centering
             "yanchor": "top"  # Aligns title at the top
         },
-        xaxis=dict(title=axis_labels.get(x_axis, x_axis)),  # Set descriptive x-axis title
+        xaxis=dict(title=axis_labels.get(x_axis, x_axis), showgrid=True, gridcolor='lightgray'),  # Set descriptive x-axis title with grid
         hovermode="x unified",
         height=800,
+        plot_bgcolor='white',  # White background
+        paper_bgcolor='white',  # White paper background
         **y_axes  # Add all y-axes configurations dynamically
     )
     # ✅ Ensure `fig` is returned at the end
@@ -377,7 +688,7 @@ def update_graph(selected_experiment, selected_unit_step, selected_columns, x_ax
 
 @app.callback(
     Output("metadata-fields", "children"),
-    Input("experiment-dropdown", "value")
+    Input("selected-experiment-store", "data")
 )
 def populate_metadata_fields(selected_experiment):
     if not selected_experiment:
@@ -396,14 +707,33 @@ def populate_metadata_fields(selected_experiment):
         if field.name in ["result_id", "created_at"]:  # Skip ID and timestamp
             continue
 
-        fields.append(html.Label(field.verbose_name or field.name, style={"fontWeight": "bold"}))
-        fields.append(dcc.Input(
-            id={"type": "metadata-field", "field": field.name},
-            type="text",
-            value=getattr(metadata, field.name, ""),
-            style=readonly_style if field.name in calculated_fields else input_style,
-            readOnly=field.name in calculated_fields
-        ))
+        field_container = html.Div(
+            style=field_container_style,
+            children=[
+                html.Label(
+                    field.verbose_name or field.name.replace('_', ' ').title(), 
+                    style=label_style
+                ),
+                # Use textarea for experimental_notes field
+                dcc.Textarea(
+                    id={"type": "metadata-field", "field": field.name},
+                    value=getattr(metadata, field.name, ""),
+                    style={
+                        **input_style,
+                        "height": "120px",
+                        "resize": "vertical",
+                        "fontFamily": "system-ui, -apple-system, sans-serif"
+                    }
+                ) if field.name == "experimental_notes" else dcc.Input(
+                    id={"type": "metadata-field", "field": field.name},
+                    type="text",
+                    value=getattr(metadata, field.name, ""),
+                    style=readonly_style if field.name in calculated_fields else input_style,
+                    readOnly=field.name in calculated_fields
+                )
+            ]
+        )
+        fields.append(field_container)
 
     return fields
 
@@ -411,7 +741,7 @@ def populate_metadata_fields(selected_experiment):
 @app.callback(
     Output("update-status", "children"),
     Input("update-button", "n_clicks"),
-    State("experiment-dropdown", "value"),
+    State("selected-experiment-store", "data"),
     State({"type": "metadata-field", "field": ALL}, "value"),
     State({"type": "metadata-field", "field": ALL}, "id"),
     prevent_initial_call=True

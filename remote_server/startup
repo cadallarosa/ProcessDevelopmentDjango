@@ -47,3 +47,10 @@ curl -s -o /dev/null -w "Django (8080): %{http_code}\n" http://localhost:8080 ||
 curl -s -o /dev/null -w "Node.js (3000): %{http_code}\n" http://localhost:3000 || echo "Node.js (3000): No response"
 
 echo "🎯 All services started! Logs saved to: django.log, nodejs.log, celery-worker.log, celery-beat.log"
+
+
+cdallarosa@django:~$ chmod +x /home/cdallarosa/home/cdallarosa/PycharmProjects/start_django_stack.sh
+cdallarosa@django:~$ /home/cdallarosa/home/cdallarosa/PycharmProjects/start_django_stack.sh
+
+
+/bin/bash /home/cdallarosa/home/cdallarosa/PycharmProjects/start_django_stack.sh

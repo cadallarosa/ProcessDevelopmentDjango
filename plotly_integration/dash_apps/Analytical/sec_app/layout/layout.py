@@ -664,6 +664,21 @@ app_layout = html.Div([
                                         )
                                     ]),
 
+                                    # Peak Detection Mode dropdown
+                                    html.Div([
+                                        html.Label("Peak Detection Mode:", style={'fontWeight': '500', 'marginBottom': '8px',
+                                                                                  'display': 'block', 'color': '#495057'}),
+                                        dcc.Dropdown(
+                                            id='peak-detection-mode-dropdown',
+                                            options=[
+                                                {'label': 'Retention Time (RT)', 'value': 'RT'},
+                                                {'label': 'Peak Height', 'value': 'Peak Height'}
+                                            ],
+                                            value='RT',  # Default to RT mode
+                                            style={'marginBottom': '16px'}
+                                        )
+                                    ]),
+
                                     # Numeric inputs with consistent styling
                                     html.Div([
                                         html.Label("Main Peak RT:", style={'fontWeight': '500', 'marginBottom': '8px',
@@ -686,7 +701,7 @@ app_layout = html.Div([
                                                 'fontFamily': 'system-ui, -apple-system, sans-serif'
                                             }
                                         )
-                                    ]),
+                                    ], id='rt-input-container', style={'display': 'block'}),
 
                                     # Enhanced Refresh button
                                     html.Button("Refresh RT", id="refresh-rt-btn", n_clicks=0, style={

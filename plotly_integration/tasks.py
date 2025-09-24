@@ -1,10 +1,7 @@
 # plotly_integration/tasks.py
 # Combined Celery tasks for AKTA, Empower, and ViCell imports
 import os
-import hashlib
-import json
 import logging
-import re
 import requests
 import time
 from datetime import datetime, timedelta
@@ -14,14 +11,14 @@ from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from plotly_integration.models import ViCellData
 from plotly_integration.process_development.cell_culture.vicell.vicell_import_monitor import run_vicell_import
 from plotly_integration.process_development.cell_culture.vicell.sample_id_parsing import parse_sample_id_complete
 import plotly_integration.process_development.cell_culture.nova_flex_2.sample_id_parsing as nova_flex
 from pathlib import Path
 from plotly_integration.models import NovaFlex2
-import plotly_integration.process_development.analytical.ce_sds.process_asc as ce_sds
+import plotly_integration.process_development.analytical.ce_sds.test_files.process_asc as ce_sds
 logger = logging.getLogger(__name__)
 
 # ========== AKTA CONFIGURATION ==========
@@ -1098,9 +1095,114 @@ def import_nova_flex2_files():
     return results
 
 
-# ========== CESDS Import ==========
+# ========== CE-SDS Import (New) ==========
+import plotly_integration.process_development.analytical.ce_sds.database.process_ars as cesds_process_ars
+import plotly_integration.process_development.analytical.ce_sds.database.process_arw as cesds_process_arw
 
-import os
+# Configuration for CE-SDS
+CESDS_NEW_IMPORT_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imports"
+CESDS_NEW_PROCESSED_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imported"
+CESDS_PROCESSED_FILES_LOG = os.path.join(settings.BASE_DIR, 'cesds_processed_files.txt')
+
+
+def load_cesds_processed_files():
+    """Load list of already processed CE-SDS files"""
+    if os.path.exists(CESDS_PROCESSED_FILES_LOG):
+        with open(CESDS_PROCESSED_FILES_LOG, 'r') as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
+
+
+def save_cesds_processed_file(filename):
+    """Mark a CE-SDS file as processed"""
+    with open(CESDS_PROCESSED_FILES_LOG, 'a') as f:
+        f.write(f"{filename}\n")
+
+
+@shared_task(name='plotly_integration.import_cesds_new_files', bind=True)
+def import_cesds_new_files(self):
+    """Import CE-SDS .ars and .arw files"""
+
+    # Get database name from settings
+    db_name = settings.DATABASES['default']['NAME']
+
+    # Check if import is already running
+    if cache.get('cesds_import_lock'):
+        logger.warning("CE-SDS import already in progress")
+        return "Import already in progress"
+
+    # Set lock
+    cache.set('cesds_import_lock', True, timeout=3600)  # 1 hour timeout
+
+    try:
+        # Update task state
+        self.update_state(state='PROGRESS', meta={'current': 0, 'total': 100, 'status': 'Starting import...'})
+
+        # Validate directories
+        if not os.path.isdir(CESDS_NEW_IMPORT_FOLDER):
+            raise Exception(f"Import folder '{CESDS_NEW_IMPORT_FOLDER}' does not exist")
+
+        if not os.path.isdir(CESDS_NEW_PROCESSED_FOLDER):
+            raise Exception(f"Processed folder '{CESDS_NEW_PROCESSED_FOLDER}' does not exist")
+
+        if not os.path.isfile(db_name):
+            raise Exception(f"Database file '{db_name}' does not exist")
+
+        # Get list of files to process
+        processed_files = load_cesds_processed_files()
+        all_files = os.listdir(CESDS_NEW_IMPORT_FOLDER)
+
+        ars_files = [f for f in all_files if f.endswith('.ars') and f not in processed_files]
+        arw_files = [f for f in all_files if f.endswith('.arw') and f not in processed_files]
+
+        total_files = len(ars_files) + len(arw_files)
+
+        if total_files == 0:
+            return "No new files to process"
+
+        logger.info(f"Found {len(ars_files)} .ars files and {len(arw_files)} .arw files to process")
+
+        # Process .ars files
+        if ars_files:
+            self.update_state(state='PROGRESS', meta={'current': 10, 'total': 100,
+                                                      'status': f'Processing {len(ars_files)} .ars files...'})
+            cesds_process_ars.process_files(directory=CESDS_NEW_IMPORT_FOLDER, reported_folder=CESDS_NEW_PROCESSED_FOLDER)
+
+            # Mark all ars files as processed
+            for filename in ars_files:
+                save_cesds_processed_file(filename)
+
+        # Process .arw files
+        if arw_files:
+            self.update_state(state='PROGRESS', meta={'current': 40, 'total': 100,
+                                                      'status': f'Processing {len(arw_files)} .arw files...'})
+            cesds_process_arw.process_files(directory=CESDS_NEW_IMPORT_FOLDER, reported_folder=CESDS_NEW_PROCESSED_FOLDER)
+
+            # Mark all arw files as processed
+            for filename in arw_files:
+                save_cesds_processed_file(filename)
+
+        # Update last import time
+        cache.set('cesds_last_import', timezone.now().isoformat())
+
+        # Complete
+        self.update_state(state='SUCCESS', meta={'current': 100, 'total': 100, 'status': 'Import completed'})
+
+        result_message = f"File import completed successfully! Processed {total_files} files ({len(ars_files)} .ars, {len(arw_files)} .arw)"
+        logger.info(result_message)
+        return result_message
+
+    except Exception as e:
+        logger.error(f"CE-SDS import error: {str(e)}")
+        self.update_state(state='FAILURE', meta={'exc': str(e)})
+        raise
+
+    finally:
+        # Always remove lock
+        cache.delete('cesds_import_lock')
+
+
+# ========== CESDS Import (Old - ASC files) ==========
 
 # Configuration - adjust these paths as needed
 CESDS_IMPORT_FOLDER = "/mnt/fs2/DjangoRawData/CESDS/Imports"

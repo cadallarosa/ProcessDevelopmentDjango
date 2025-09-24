@@ -87,4 +87,4 @@ def parse_and_plot_asc(file_path):
     return df
 
 # Example usage:
-df = parse_and_plot_asc('../test_data/R PD3181 4-8-2025 7-33-00 PM.dat.asc')
+df = parse_and_plot_asc('../test_files/test_data/R PD3181 4-8-2025 7-33-00 PM.dat.asc')

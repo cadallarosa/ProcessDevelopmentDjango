@@ -16,12 +16,13 @@ import dash
         Input("selected-report", "data"),
         Input('main-peak-rt-input', 'value'),
         Input('low-mw-cutoff-input', 'value'),
-        Input('regression-parameters', 'data')
+        Input('regression-parameters', 'data'),
+        Input('peak-detection-mode-dropdown', 'value')  # Add peak detection mode
     ],
     [State('selected-report', 'data')],
     prevent_initial_call=True
 )
-def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff, regression_params, selected_report):
+def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff, regression_params, peak_detection_mode, selected_report):
     from plotly_integration.models import LimsProjectInformation, TimeSeriesData,SystemInformation
 
     report_id = report_name or selected_report
@@ -77,12 +78,25 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
         df['peak_end_time'] = df['peak_end_time'].astype(float)
         df['height'] = df['height'].astype(float)
 
-        try:
-            closest_index = (df['peak_retention_time'] - main_peak_rt).abs().idxmin()
-        except ValueError:
-            continue
+        # Choose peak detection method based on mode
+        if peak_detection_mode == 'Peak Height':
+            # Find the peak with the highest height
+            try:
+                main_peak_index = df['height'].idxmax()
+                main_peak_row = df.loc[main_peak_index]
+                # Update actual_peak_rt to the retention time of the highest peak for consistent calculations
+                actual_peak_rt = main_peak_row['peak_retention_time']
+            except (ValueError, KeyError):
+                continue
+        else:
+            # Default RT mode - find closest peak to user-defined RT
+            try:
+                main_peak_index = (df['peak_retention_time'] - main_peak_rt).abs().idxmin()
+                main_peak_row = df.loc[main_peak_index]
+                actual_peak_rt = main_peak_rt  # Use the user-defined RT for calculations
+            except ValueError:
+                continue
 
-        main_peak_row = df.loc[closest_index]
         main_peak_area = round(main_peak_row['area'], 2)
         main_peak_start = main_peak_row['peak_start_time']
         main_peak_end = main_peak_row['peak_end_time']
@@ -95,14 +109,16 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
         if lmw_end > low_mw_cutoff:
             lmw_end = low_mw_cutoff
 
-        df_excluding_main_peak = df.drop(index=closest_index)
+        # Exclude the main peak using the correct index
+        df_excluding_main_peak = df.drop(index=main_peak_index)
 
+        # Use actual_peak_rt for HMW/LMW calculations
         hmw_area = round(
-            df_excluding_main_peak[df_excluding_main_peak['peak_retention_time'] < main_peak_rt]['area'].sum(), 2
+            df_excluding_main_peak[df_excluding_main_peak['peak_retention_time'] < actual_peak_rt]['area'].sum(), 2
         )
         lmw_area = round(
             df_excluding_main_peak[
-                (df_excluding_main_peak['peak_retention_time'] > main_peak_rt) &
+                (df_excluding_main_peak['peak_retention_time'] > actual_peak_rt) &
                 (df_excluding_main_peak['peak_retention_time'] <= low_mw_cutoff)
                 ]['area'].sum(), 2
         )

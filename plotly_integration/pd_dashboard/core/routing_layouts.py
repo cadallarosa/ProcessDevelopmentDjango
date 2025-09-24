@@ -757,6 +757,10 @@ def create_page_router(app):
             usp_nova_url = "/plotly_integration/dash-app/app/DasgipReportApp/"
             return create_full_screen_app("USP Nova Data", usp_nova_url, "refresh-usp-nova-data")
 
+        elif pathname == "/usp/experiment-manager":
+            usp_experiment_url = "/plotly_integration/dash-app/app/USPExperimentManagementApp/"
+            return create_full_screen_app("USP Experiment Manager", usp_experiment_url, "refresh-usp-experiment-manager")
+
         # DSP Create DN Route
         elif pathname == "/dsp/create-dn":
             dn_url = "/plotly_integration/dash-app/app/DnAssignmentApp/"
@@ -931,36 +935,37 @@ def create_page_router(app):
             return create_full_screen_app("CLD Nova", cld_nova_url, "refresh-cld-nova")
 
         # Formulation Routes - Full screen, non-scrollable
+        elif pathname == "/formulation/dashboard":
+            formulation_dashboard_url = "/plotly_integration/dash-app/app/FormulationDashboardApp/"
+            return create_full_screen_app("Formulation Dashboard", formulation_dashboard_url, "refresh-formulation-dashboard")
+        
+        elif pathname == "/formulation/create-experiment":
+            create_experiment_url = "/plotly_integration/dash-app/app/ExperimentCreationApp/"
+            return create_full_screen_app("Create New Experiment", create_experiment_url, "refresh-create-experiment")
+        
+        elif pathname == "/formulation/experiment-manager":
+            experiment_manager_url = "/plotly_integration/dash-app/app/FormulationExperimentManager/"
+            return create_full_screen_app("Experiment Manager", experiment_manager_url, "refresh-experiment-manager")
+        
+        elif pathname == "/formulation/design":
+            formulation_design_url = "/plotly_integration/dash-app/app/FormulationDesignApp/"
+            return create_full_screen_app("Design Formulations", formulation_design_url, "refresh-formulation-design")
+        
+        elif pathname == "/formulation/samples":
+            sample_management_url = "/plotly_integration/dash-app/app/SampleManagementApp/"
+            return create_full_screen_app("Sample Management", sample_management_url, "refresh-sample-management")
+        
+        elif pathname == "/formulation/data-entry":
+            data_entry_url = "/plotly_integration/dash-app/app/DataEntryApp/"
+            return create_full_screen_app("Analytical Data Entry", data_entry_url, "refresh-data-entry")
+        
         elif pathname == "/formulation/stability":
-            formulation_url = "/plotly_integration/dash-app/app/FormulationStabilityApp/"
-            return create_full_screen_app("Formulation Stability Studies", formulation_url, "refresh-formulation-stability")
-        
-        elif pathname == "/formulation/excipients":
-            # Placeholder for excipients app
-            return html.Div([
-                dbc.Alert([
-                    html.H5("Excipients Analysis"),
-                    html.P("This feature is under development")
-                ], color="info", style={"margin": "20px"})
-            ])
-        
-        elif pathname == "/formulation/buffer":
-            # Placeholder for buffer optimization app
-            return html.Div([
-                dbc.Alert([
-                    html.H5("Buffer Optimization"),
-                    html.P("This feature is under development")
-                ], color="info", style={"margin": "20px"})
-            ])
-        
-        elif pathname == "/formulation/reports":
-            # Placeholder for formulation reports
-            return html.Div([
-                dbc.Alert([
-                    html.H5("Formulation Reports"),
-                    html.P("This feature is under development")
-                ], color="info", style={"margin": "20px"})
-            ])
+            formulation_stability_url = "/plotly_integration/dash-app/app/FormulationStabilityApp/"
+            return create_full_screen_app("Formulation Stability Studies", formulation_stability_url, "refresh-formulation-stability")
+
+        elif pathname == "/formulation/visualization":
+            formulation_visualization_url = "/plotly_integration/dash-app/app/FormulationVisualizationApp/"
+            return create_full_screen_app("Formulation Stability Visualization", formulation_visualization_url, "refresh-formulation-visualization")
 
         # Database Management Routes - Full screen, non-scrollable
         elif pathname == "/database/import-empower":

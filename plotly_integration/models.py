@@ -13,7 +13,7 @@ class SampleMetadata(models.Model):
     sample_number = models.IntegerField(null=True, blank=True)
     sample_suffix = models.CharField(max_length=255, null=True, blank=True)
     sample_type = models.CharField(max_length=255, null=True, blank=True)
-    analysis_type = models.IntegerField(null=True, blank=True)  # 1:SEC,2:PROA
+    analysis_type = models.IntegerField(null=True, blank=True)  # 1:SEC,2:PROA, 3:CESDS,4:CIEF
     sample_name = models.CharField(max_length=255, null=True, blank=True)  # ✅ Fixed
     sample_set_id = models.IntegerField(null=True, blank=True)
     sample_set_name = models.CharField(max_length=255, null=True, blank=True)
@@ -248,6 +248,7 @@ class UFDFMetadata(models.Model):
 class SartoflowTimeSeriesData(models.Model):
     id = models.AutoField(primary_key=True)
     result_id = models.ForeignKey(UFDFMetadata, on_delete=models.CASCADE, null=True, blank=True)
+    unit_step = models.BigIntegerField(null=True, blank=True)  # 1=UF1, 2=UF2, 3=DF1, 4=DF2, 5=Rinse
     batch_id = models.CharField(max_length=255)
     pdat_time = models.DateTimeField()
     process_time = models.FloatField(null=True, blank=True)
@@ -1469,73 +1470,94 @@ class USPTimeSeriesData(models.Model):
         ordering = ['run', 'timestamp']
 
 
-# Formulation Stability Study Models
-class FormulationStudy(models.Model):
-    """Model to store formulation study information"""
-    id = models.AutoField(primary_key=True)
-    study_id = models.CharField(max_length=50, unique=True, help_text="Study identifier (e.g., FD-003)")
-    name = models.CharField(max_length=200, help_text="Study name or description")
-    molecule = models.CharField(max_length=100, help_text="Molecule being tested")
+# =====================================================
+# COMPLETE FORMULATION DATABASE - 4 TABLES ONLY
+# =====================================================
+
+class FormulationExperiment(models.Model):
+    """Master experiment table"""
+
+    experiment_id = models.CharField(max_length=50, unique=True, primary_key=True, help_text="e.g., FD-003")
+    name = models.CharField(max_length=200, help_text="Experiment name/description")
+    molecule = models.CharField(max_length=100, help_text="Molecule/Protein name")
+    target_concentration_mg_ml = models.FloatField(default=50.0, help_text="Target protein concentration")
+    start_date = models.DateField(null=True, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
-    updated_date = models.DateTimeField(auto_now=True)
-    notes = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.study_id}: {self.name}"
-    
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+
     class Meta:
-        db_table = 'formulation_study'
-        verbose_name = "Formulation Study"
-        verbose_name_plural = "Formulation Studies"
+        db_table = 'formulation_experiment'
+        ordering = ['-created_date']
+
+    def __str__(self):
+        return f"{self.experiment_id}: {self.name}"
 
 
-class FormulationCondition(models.Model):
-    """Model to store formulation conditions/compositions"""
-    id = models.AutoField(primary_key=True)
-    study = models.ForeignKey(FormulationStudy, on_delete=models.CASCADE, related_name='conditions')
-    formulation_number = models.IntegerField(help_text="Formulation identifier number")
-    
-    # Buffer system
-    buffer_type = models.CharField(max_length=100, null=True, blank=True, help_text="Buffer type (e.g., Phosphate, Histidine)")
-    buffer_concentration = models.FloatField(null=True, blank=True, help_text="Buffer concentration (mM)")
-    ph = models.FloatField(help_text="pH value")
-    
-    # Excipients
-    arginine_hcl = models.FloatField(null=True, blank=True, help_text="Arginine HCl concentration (mg/mL)")
-    sucrose = models.FloatField(null=True, blank=True, help_text="Sucrose concentration (mg/mL)")
-    sorbitol = models.FloatField(null=True, blank=True, help_text="Sorbitol concentration (mg/mL)")
-    trehalose = models.FloatField(null=True, blank=True, help_text="Trehalose concentration (mg/mL)")
-    glycine = models.FloatField(null=True, blank=True, help_text="Glycine concentration (mg/mL)")
-    polysorbate_80 = models.FloatField(null=True, blank=True, help_text="Polysorbate 80 concentration (mg/mL)")
-    
-    # Additional excipients (generic fields)
-    excipient_1_name = models.CharField(max_length=100, null=True, blank=True)
-    excipient_1_concentration = models.FloatField(null=True, blank=True)
-    excipient_2_name = models.CharField(max_length=100, null=True, blank=True)
-    excipient_2_concentration = models.FloatField(null=True, blank=True)
-    excipient_3_name = models.CharField(max_length=100, null=True, blank=True)
-    excipient_3_concentration = models.FloatField(null=True, blank=True)
-    
-    # Physical properties
-    osmolality = models.FloatField(null=True, blank=True, help_text="Osmolality (mOsm/kg)")
-    
-    def __str__(self):
-        return f"{self.study.study_id} - Formulation {self.formulation_number}"
-    
+class FormulationMatrix(models.Model):
+    """Each formulation design (buffer matrix)"""
+
+    formulation_id = models.AutoField(primary_key=True)
+    experiment = models.ForeignKey(FormulationExperiment, on_delete=models.CASCADE, related_name='formulations')
+    formulation_number = models.IntegerField(help_text="Formulation number (1, 2, 3...)")
+    target_ph = models.FloatField(help_text="Target pH")
+    osmolality = models.FloatField(null=True, blank=True, help_text="Target osmolality (mOsm/kg)")
+    notes = models.TextField(blank=True)
+
     class Meta:
-        db_table = 'formulation_condition'
-        verbose_name = "Formulation Condition"
-        verbose_name_plural = "Formulation Conditions"
-        unique_together = ('study', 'formulation_number')
+        db_table = 'formulation_matrix'
+        unique_together = ('experiment', 'formulation_number')
+        ordering = ['experiment', 'formulation_number']
+
+    def get_formulation_code(self):
+        return f"{self.experiment_id}-F{self.formulation_number:02d}"
+
+    def __str__(self):
+        return f"{self.experiment_id}-F{self.formulation_number:02d}"
+
+
+class FormulationComponent(models.Model):
+    """Flexible components for each formulation"""
+
+    COMPONENT_TYPE = [
+        ('buffer', 'Buffer'),
+        ('excipient', 'Excipient'),
+        ('surfactant', 'Surfactant'),
+        ('salt', 'Salt'),
+        ('sugar', 'Sugar/Polyol'),
+        ('amino_acid', 'Amino Acid'),
+        ('preservative', 'Preservative'),
+        ('other', 'Other')
+    ]
+
+    CONCENTRATION_UNIT = [
+        ('mg/mL', 'mg/mL'),
+        ('mM', 'mM'),
+        ('M', 'M'),
+        ('g/L', 'g/L'),
+        ('%', '% (w/v)'),
+        ('% v/v', '% (v/v)'),
+    ]
+
+    component_id = models.AutoField(primary_key=True)
+    formulation = models.ForeignKey(FormulationMatrix, on_delete=models.CASCADE, related_name='components')
+    component_type = models.CharField(max_length=20, choices=COMPONENT_TYPE)
+    name = models.CharField(max_length=100, help_text="e.g., Histidine, Sucrose, Arginine HCl, PS80")
+    concentration = models.FloatField()
+    unit = models.CharField(max_length=10, choices=CONCENTRATION_UNIT, default='mg/mL')
+
+    class Meta:
+        db_table = 'formulation_component'
+        unique_together = ('formulation', 'name')
+        ordering = ['formulation', 'component_type', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.concentration} {self.unit})"
 
 
 class FormulationSample(models.Model):
-    """Model to store individual samples from formulation studies"""
-    id = models.AutoField(primary_key=True)
-    sample_id = models.CharField(max_length=50, unique=True, help_text="Sample identifier (e.g., FD-003-001)")
-    formulation = models.ForeignKey(FormulationCondition, on_delete=models.CASCADE, related_name='samples')
-    
-    # Storage conditions
+    """Combined sample info + all analytical results in ONE table"""
+
     STORAGE_CONDITIONS = [
         ('FT', 'Freeze/Thaw'),
         ('25C', '25°C'),
@@ -1543,144 +1565,693 @@ class FormulationSample(models.Model):
         ('4C', '4°C'),
         ('-80C', '-80°C'),
     ]
+
+    # Sample Identity
+    sample_id = models.CharField(max_length=50, primary_key=True, help_text="e.g., FD-003-001")
+    formulation = models.ForeignKey(FormulationMatrix, on_delete=models.CASCADE, related_name='samples')
+
+    # Storage and Timepoint
     storage_condition = models.CharField(max_length=10, choices=STORAGE_CONDITIONS)
-    pull_day = models.IntegerField(help_text="Day sample was pulled for analysis")
-    time_point_months = models.FloatField(help_text="Time point in months")
-    
-    # Sample properties at analysis
-    appearance = models.CharField(max_length=200, null=True, blank=True)
-    concentration = models.FloatField(null=True, blank=True, help_text="Protein concentration (mg/mL)")
+    pull_day = models.IntegerField(null=True, blank=True, help_text="Day of pull (e.g., 7, 14, 30)")
+    time_point_months = models.FloatField(help_text="Time point in months (e.g., 0, 1, 3, 6, 12)")
+    pull_date = models.DateField(null=True, blank=True)
+
+    # Physical Properties & Appearance
+    appearance = models.CharField(max_length=200, blank=True, help_text="Visual appearance")
+    concentration_mg_ml = models.FloatField(null=True, blank=True, help_text="Measured protein concentration")
     ph_measured = models.FloatField(null=True, blank=True, help_text="Measured pH")
     osmolality_measured = models.FloatField(null=True, blank=True, help_text="Measured osmolality (mOsm/kg)")
-    
-    def __str__(self):
-        return f"{self.sample_id} ({self.storage_condition}, {self.time_point_months}m)"
-    
-    class Meta:
-        db_table = 'formulation_sample'
-        verbose_name = "Formulation Sample"
-        verbose_name_plural = "Formulation Samples"
-        indexes = [
-            models.Index(fields=['formulation', 'storage_condition', 'time_point_months']),
-            models.Index(fields=['storage_condition', 'time_point_months']),
-        ]
 
+    # SEC Results
+    sec_result_id = models.CharField(max_length=100, null=True, blank=True, help_text="HPLC/SEC Result ID")
+    hmw = models.FloatField(null=True, blank=True, help_text="High Molecular Weight (%)")
+    main = models.FloatField(null=True, blank=True, help_text="Main Peak (%)")
+    lmw = models.FloatField(null=True, blank=True, help_text="Low Molecular Weight (%)")
+    total_area = models.FloatField(null=True, blank=True, help_text="Total peak area")
 
-class FormulationSecResult(models.Model):
-    """Model to store SEC (Size Exclusion Chromatography) results"""
-    id = models.AutoField(primary_key=True)
-    sample = models.ForeignKey(FormulationSample, on_delete=models.CASCADE, related_name='sec_results')
-    result_id = models.CharField(max_length=100, null=True, blank=True, help_text="External result ID")
-    
-    # SEC measurements
-    hmw_percent = models.FloatField(help_text="High Molecular Weight species (%)")
-    main_percent = models.FloatField(help_text="Main peak/monomer (%)")
-    lmw_percent = models.FloatField(help_text="Low Molecular Weight species (%)")
-    total_area = models.FloatField(null=True, blank=True, help_text="Total chromatogram area")
-    
-    # Additional stability measurements
+    # Thermal Stability
     tm_celsius = models.FloatField(null=True, blank=True, help_text="Melting temperature (°C)")
-    scattering_onset = models.FloatField(null=True, blank=True, help_text="Light scattering onset temperature")
-    
-    # Analysis metadata
-    analysis_date = models.DateTimeField(null=True, blank=True)
-    instrument = models.CharField(max_length=100, null=True, blank=True)
-    method = models.CharField(max_length=200, null=True, blank=True)
-    analyst = models.CharField(max_length=100, null=True, blank=True)
-    
-    def __str__(self):
-        return f"{self.sample.sample_id} SEC: {self.main_percent:.1f}% Main, {self.hmw_percent:.1f}% HMW"
-    
-    class Meta:
-        db_table = 'formulation_sec_result'
-        verbose_name = "SEC Result"
-        verbose_name_plural = "SEC Results"
-        indexes = [
-            models.Index(fields=['sample', 'analysis_date']),
-        ]
+    scattering_onset = models.FloatField(null=True, blank=True, help_text="Light scattering onset temperature (°C)")
 
-
-class FormulationStabilityMetric(models.Model):
-    """Model to store calculated stability metrics and trends"""
-    id = models.AutoField(primary_key=True)
-    formulation = models.ForeignKey(FormulationCondition, on_delete=models.CASCADE, related_name='stability_metrics')
-    storage_condition = models.CharField(max_length=10, help_text="Storage condition")
-    
-    # Degradation rates (% change per month)
-    hmw_rate_per_month = models.FloatField(null=True, blank=True, help_text="HMW increase rate (% per month)")
-    main_rate_per_month = models.FloatField(null=True, blank=True, help_text="Main decrease rate (% per month)")
-    lmw_rate_per_month = models.FloatField(null=True, blank=True, help_text="LMW increase rate (% per month)")
-    
-    # Statistical metrics
-    r_squared = models.FloatField(null=True, blank=True, help_text="R² for linear fit")
-    half_life_months = models.FloatField(null=True, blank=True, help_text="Estimated half-life (months)")
-    
-    # Calculated stability ranking
-    stability_score = models.FloatField(null=True, blank=True, help_text="Overall stability score (0-100)")
-    
-    def __str__(self):
-        return f"{self.formulation} - {self.storage_condition} stability"
-    
-    class Meta:
-        db_table = 'formulation_stability_metric'
-        verbose_name = "Stability Metric"
-        verbose_name_plural = "Stability Metrics"
-        unique_together = ('formulation', 'storage_condition')
-
-
-# Simplified Formulation Data Model - Exact match to Excel structure
-class FormulationData(models.Model):
-    """Model to store formulation data exactly matching Excel structure"""
-    id = models.AutoField(primary_key=True)
-    
-    # Excel columns in exact order
-    sample_number = models.CharField(max_length=50, unique=True, help_text="Sample Number")
-    buffer = models.CharField(max_length=100, null=True, blank=True, help_text="Buffer")
-    ph = models.FloatField(null=True, blank=True, help_text="pH")
-    excipients = models.TextField(null=True, blank=True, help_text="Excipients")
-    formulation = models.TextField(null=True, blank=True, help_text="Formulation")
-    condition = models.CharField(max_length=50, null=True, blank=True, help_text="Condition")
-    pull_day = models.IntegerField(null=True, blank=True, help_text="Pull Day")
-    time_point_months = models.FloatField(null=True, blank=True, help_text="Time Point (months)")
-    appearance = models.CharField(max_length=200, null=True, blank=True, help_text="Appearance")
-    concentration = models.FloatField(null=True, blank=True, help_text="Concentration (mg/mL)")
-    ph_measured = models.FloatField(null=True, blank=True, help_text="pH (measured)")  # This is pH.1 from Excel
-    result_id = models.CharField(max_length=100, null=True, blank=True, help_text="Result ID")
-    hmw = models.FloatField(null=True, blank=True, help_text="HMW")
-    main = models.FloatField(null=True, blank=True, help_text="Main")
-    lmw = models.FloatField(null=True, blank=True, help_text="LMW")
-    total_area = models.FloatField(null=True, blank=True, help_text="Total Area")
-    osmolality = models.FloatField(null=True, blank=True, help_text="Osmolality (mOsm/kg)")
-    tm_celsius = models.FloatField(null=True, blank=True, help_text="Tm (°C)")
-    scattering_onset = models.FloatField(null=True, blank=True, help_text="Scattering Onset")
-    
-    # Metadata (not from Excel)
+    # Metadata
+    analysis_date = models.DateField(null=True, blank=True)
+    analyst = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"{self.sample_number}"
-    
-    @property
-    def experiment_id(self):
-        """Extract experiment ID from sample number"""
-        if self.sample_number:
-            parts = self.sample_number.split('-')
-            if len(parts) >= 2:
-                return f"{parts[0]}-{parts[1]}"
-        return "Unknown"
-    
-    @property
-    def formulation_number(self):
-        """Extract formulation number from sample number"""
-        if self.sample_number:
-            parts = self.sample_number.split('-')
-            if len(parts) >= 3:
-                return parts[2]
-        return "Unknown"
-    
+    notes = models.TextField(blank=True)
+
     class Meta:
-        db_table = 'formulation_data_simple'
-        verbose_name = "Formulation Data"
-        verbose_name_plural = "Formulation Data"
-        ordering = ['sample_number']
+        db_table = 'formulation_sample'
+        ordering = ['formulation__experiment', 'formulation__formulation_number', 'time_point_months',
+                    'storage_condition']
+        unique_together = ('formulation', 'storage_condition', 'time_point_months')
+
+    def __str__(self):
+        return f"{self.sample_id} - {self.storage_condition} @ {self.time_point_months}M"
+
+    def save(self, *args, **kwargs):
+        # Auto-generate sample_id if not provided
+        if not self.sample_id:
+            base_id = f"{self.formulation.experiment_id}-{self.formulation.formulation_number:03d}"
+            condition_code = self.storage_condition.replace('°C', '').replace('/', '')
+            time_code = f"{int(self.time_point_months)}M" if self.time_point_months else "T0"
+            self.sample_id = f"{base_id}-{condition_code}-{time_code}"
+        super().save(*args, **kwargs)
+
+
+# CLD Project Management Models
+class CLDProject(models.Model):
+    """Model for tracking CLD projects with Gantt chart visualization"""
+    HARVEST_TYPE_CHOICES = [
+        ('24_deepwell', '24 Deepwell'),
+        ('48_deepwell', '48 Deepwell'),
+        ('shake_flask', 'Shake Flask'),
+        ('beacon', 'Beacon'),
+    ]
+
+    PURIFICATION_TYPE_CHOICES = [
+        ('PROA', 'Protein A'),
+        ('Kappa', 'Kappa'),
+        ('Lambda', 'Lambda'),
+        ('G_protein', 'G Protein'),
+        ('L_protein', 'L Protein'),
+        ('Other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Planning', 'Planning'),
+        ('In Progress', 'In Progress'),
+        ('Complete', 'Complete'),
+    ]
+
+    TRANSFECTION_TYPE_CHOICES = [
+        ('Lonza', 'Lonza'),
+        ('BTX', 'BTX'),
+    ]
+
+    OPTIONS_CHOICES = [
+        ('Minipool', 'Minipool'),
+        ('Bulkpool', 'Bulkpool'),
+        ('Minipool+Bulkpool', 'Minipool+Bulkpool'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    project_id = models.CharField(max_length=100, default='CLD-2025-001')  # Project ID field
+    sip_number = models.CharField(max_length=100, default='SIP-001')  # SIP Number
+    project_number = models.CharField(max_length=100)  # Keep for backward compatibility
+    number_of_samples = models.IntegerField()
+
+    # Transfection details
+    transfection_start_date = models.DateField(null=True, blank=True)  # New primary date field
+    transfection_type = models.CharField(max_length=20, choices=TRANSFECTION_TYPE_CHOICES, default='Lonza')
+    transfection_amount_mg = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)  # mg
+    options = models.CharField(max_length=50, choices=OPTIONS_CHOICES, default='Minipool')
+
+    # Legacy fields (keep for backward compatibility)
+    start_date = models.DateField(null=True, blank=True)
+    target_harvest_date = models.DateField(null=True, blank=True)
+    harvest_type = models.CharField(max_length=50, choices=HARVEST_TYPE_CHOICES, null=True, blank=True)
+    purification_type = models.CharField(max_length=50, choices=PURIFICATION_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Planning')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'cld_project'
+        ordering = ['-created_date', '-start_date']
+        indexes = [
+            models.Index(fields=['project_number', '-created_date']),
+            models.Index(fields=['status', '-start_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.project_number} - {self.start_date}"
+
+    def days_to_harvest(self):
+        """Calculate days remaining to harvest"""
+        from datetime import date
+        if self.target_harvest_date:
+            delta = self.target_harvest_date - date.today()
+            return delta.days
+        return None
+
+    def project_duration(self):
+        """Calculate total project duration in days"""
+        if self.start_date and self.target_harvest_date:
+            delta = self.target_harvest_date - self.start_date
+            return delta.days
+        return None
+
+
+class CLDAnalytics(models.Model):
+    """Model for tracking analytics requirements and status for CLD projects"""
+    ANALYSIS_TYPE_CHOICES = [
+        ('SEC', 'Size Exclusion Chromatography'),
+        ('Titer', 'Titer'),
+        ('Octet', 'Octet'),
+        ('CE-SDS', 'CE-SDS'),
+        ('cIEF', 'cIEF'),
+        ('LCMS', 'LC-MS'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
+        ('Complete', 'Complete'),
+        ('Reported', 'Reported'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    project = models.ForeignKey(CLDProject, on_delete=models.CASCADE, related_name='analytics')
+    analysis_type = models.CharField(max_length=20, choices=ANALYSIS_TYPE_CHOICES)
+    required = models.BooleanField(default=True)
+    scheduled_date = models.DateField(null=True, blank=True)
+    completed_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cld_analytics'
+        unique_together = ('project', 'analysis_type')
+        ordering = ['project', 'scheduled_date', 'analysis_type']
+        indexes = [
+            models.Index(fields=['project', 'status']),
+            models.Index(fields=['scheduled_date', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.project_number} - {self.analysis_type} - {self.status}"
+
+    def days_until_scheduled(self):
+        """Calculate days until scheduled analysis"""
+        from datetime import date
+        if self.scheduled_date:
+            delta = self.scheduled_date - date.today()
+            return delta.days
+        return None
+
+
+class CLDProcessStep(models.Model):
+    """Model for tracking individual process steps in CLD projects"""
+    STEP_TYPE_CHOICES = [
+        ('Transfection', 'Transfection'),
+        ('mP/BP', 'mP/BP'),
+        ('Recovery', 'Recovery'),
+        ('Beacon', 'Beacon'),
+        ('Grow Up', 'Grow Up'),
+        ('Cydem', 'Cydem'),
+        ('Harvest', 'Harvest'),
+        ('Purification', 'Purification'),
+        ('Analytics', 'Analytics'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
+        ('Complete', 'Complete'),
+        ('Skipped', 'Skipped'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    project = models.ForeignKey(CLDProject, on_delete=models.CASCADE, related_name='process_steps')
+    step_name = models.CharField(max_length=50, choices=STEP_TYPE_CHOICES)
+    step_order = models.PositiveIntegerField()  # Order in the process
+    planned_duration_days = models.PositiveIntegerField()  # Planned duration
+    actual_duration_days = models.PositiveIntegerField(null=True, blank=True)  # Actual duration
+    planned_start_date = models.DateField(null=True, blank=True)  # Calculated
+    actual_start_date = models.DateField(null=True, blank=True)  # When actually started
+    planned_end_date = models.DateField(null=True, blank=True)  # Calculated
+    actual_end_date = models.DateField(null=True, blank=True)  # When actually completed
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    notes = models.TextField(blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cld_process_step'
+        unique_together = ('project', 'step_name')
+        ordering = ['project', 'step_order']
+        indexes = [
+            models.Index(fields=['project', 'step_order']),
+            models.Index(fields=['status', 'planned_start_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.project_id} - {self.step_name} ({self.status})"
+
+    def calculate_dates(self):
+        """Calculate planned dates based on project start and previous steps"""
+        from datetime import timedelta
+
+        # Get the project's transfection start date
+        base_date = self.project.transfection_start_date
+
+        # Get all previous steps in order
+        previous_steps = CLDProcessStep.objects.filter(
+            project=self.project,
+            step_order__lt=self.step_order
+        ).order_by('step_order')
+
+        # Calculate start date based on previous steps
+        current_date = base_date
+        for prev_step in previous_steps:
+            duration = prev_step.actual_duration_days if prev_step.actual_duration_days else prev_step.planned_duration_days
+            current_date += timedelta(days=duration)
+
+        self.planned_start_date = current_date
+        self.planned_end_date = current_date + timedelta(days=self.planned_duration_days)
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate dates when saving
+        self.calculate_dates()
+
+        # Auto-calculate actual duration if step is complete and we have dates
+        if self.status == 'Complete' and not self.actual_duration_days:
+            self.auto_calculate_duration()
+
+        super().save(*args, **kwargs)
+
+        # Recalculate subsequent steps if this step's duration changed
+        self.recalculate_subsequent_steps()
+
+    def auto_calculate_duration(self):
+        """Auto-calculate actual duration when step is marked complete"""
+        from datetime import date, timedelta
+
+        # Determine start date (end of previous step or project start)
+        previous_step = CLDProcessStep.objects.filter(
+            project=self.project,
+            step_order__lt=self.step_order
+        ).order_by('-step_order').first()
+
+        if previous_step and previous_step.actual_end_date:
+            start_date = previous_step.actual_end_date
+        elif previous_step and previous_step.status == 'Complete':
+            # Calculate from previous step's completion
+            start_date = previous_step.planned_start_date + timedelta(days=previous_step.planned_duration_days)
+        else:
+            start_date = self.project.transfection_start_date
+
+        # Set actual start date if not already set
+        if not self.actual_start_date:
+            self.actual_start_date = start_date
+
+        # Set actual end date to today if not set and calculate duration
+        if not self.actual_end_date:
+            self.actual_end_date = date.today()
+
+        # Calculate actual duration
+        if self.actual_start_date and self.actual_end_date:
+            duration = (self.actual_end_date - self.actual_start_date).days
+            self.actual_duration_days = max(1, duration)  # Minimum 1 day
+
+    def recalculate_subsequent_steps(self):
+        """Recalculate dates for all subsequent steps when this step's duration changes"""
+        subsequent_steps = CLDProcessStep.objects.filter(
+            project=self.project,
+            step_order__gt=self.step_order
+        ).order_by('step_order')
+
+        for step in subsequent_steps:
+            step.calculate_dates()
+            step.save_without_recalculation()
+
+    def save_without_recalculation(self):
+        """Save without triggering recalculation to avoid infinite loops"""
+        super().save()
+
+
+class CLDProcessTemplate(models.Model):
+    """Model for storing reusable process templates"""
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'cld_process_template'
+        ordering = ['-created_date']
+
+    def __str__(self):
+        return self.name
+
+
+class CLDProcessTemplateStep(models.Model):
+    """Model for storing template step definitions"""
+    STEP_TYPE_CHOICES = [
+        ('Transfection', 'Transfection'),
+        ('mP/BP', 'mP/BP'),
+        ('Recovery', 'Recovery'),
+        ('Beacon', 'Beacon'),
+        ('Grow Up', 'Grow Up'),
+        ('Cydem', 'Cydem'),
+        ('Harvest', 'Harvest'),
+        ('Purification', 'Purification'),
+        ('Analytics', 'Analytics'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    template = models.ForeignKey(CLDProcessTemplate, on_delete=models.CASCADE, related_name='template_steps')
+    step_name = models.CharField(max_length=50, choices=STEP_TYPE_CHOICES)
+    step_order = models.PositiveIntegerField()
+    default_duration_days = models.PositiveIntegerField()
+    is_required = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'cld_process_template_step'
+        unique_together = ('template', 'step_name')
+        ordering = ['template', 'step_order']
+
+    def __str__(self):
+        return f"{self.template.name} - {self.step_name} ({self.default_duration_days}d)"
+
+
+# USP Experiment Management Models
+class USPExperiment(models.Model):
+    """Model for tracking USP experiments with bioreactors and shake flasks"""
+
+    STATUS_CHOICES = [
+        ('Planning', 'Planning'),
+        ('In Progress', 'In Progress'),
+        ('Complete', 'Complete'),
+        ('On Hold', 'On Hold'),
+        ('Cancelled', 'Cancelled'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    experiment_id = models.CharField(max_length=100, unique=True)
+    experiment_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Planning')
+    start_date = models.DateField()
+    target_end_date = models.DateField(null=True, blank=True)
+    actual_end_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, blank=True, null=True)
+    modified_date = models.DateTimeField(auto_now=True)
+    modified_by = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        db_table = 'usp_experiment'
+        ordering = ['-created_date']
+
+    def __str__(self):
+        return f"{self.experiment_id} - {self.experiment_name}"
+
+
+class USPProcessStep(models.Model):
+    """Model for tracking process steps (can contain multiple vessels)"""
+    STEP_TYPE_CHOICES = [
+        ('Seed_Train', 'Seed Train'),
+        ('Bioreactor', 'Bioreactor'),
+        ('Shake_Flask', 'Shake Flask'),
+        ('Bioreactor_and_Shake_Flask', 'Bioreactor and Shake Flask'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
+        ('Complete', 'Complete'),
+        ('Skipped', 'Skipped'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    experiment = models.ForeignKey(USPExperiment, on_delete=models.CASCADE, related_name='process_steps')
+    step_name = models.CharField(max_length=100)
+    step_type = models.CharField(max_length=50, choices=STEP_TYPE_CHOICES)
+    step_order = models.PositiveIntegerField()
+    planned_duration_days = models.PositiveIntegerField()
+    actual_duration_days = models.PositiveIntegerField(null=True, blank=True)
+    planned_start_date = models.DateField(null=True, blank=True)
+    actual_start_date = models.DateField(null=True, blank=True)
+    planned_end_date = models.DateField(null=True, blank=True)
+    actual_end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    notes = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_process_step'
+        unique_together = ('experiment', 'step_order')
+        ordering = ['experiment', 'step_order']
+
+    def save(self, *args, **kwargs):
+        """Calculate planned dates based on previous steps"""
+        if not self.planned_start_date and self.experiment:
+            previous_steps = USPProcessStep.objects.filter(
+                experiment=self.experiment,
+                step_order__lt=self.step_order
+            ).order_by('-step_order')
+
+            if previous_steps.exists():
+                prev_step = previous_steps.first()
+                self.planned_start_date = prev_step.planned_end_date or prev_step.planned_start_date
+            else:
+                self.planned_start_date = self.experiment.start_date
+
+        if self.planned_start_date and self.planned_duration_days and not self.planned_end_date:
+            from datetime import timedelta
+            self.planned_end_date = self.planned_start_date + timedelta(days=self.planned_duration_days)
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.experiment.experiment_id} - {self.step_name} ({self.step_type})"
+
+
+class USPSeedTrain(models.Model):
+    """Model for tracking seed train samples (thawed cells in T-flasks or small shake flasks)"""
+    SEED_VESSEL_TYPE_CHOICES = [
+        ('T25', 'T25 Flask'),
+        ('T75', 'T75 Flask'),
+        ('T175', 'T175 Flask'),
+        ('T225', 'T225 Flask'),
+        ('125mL_SF', '125mL Shake Flask'),
+        ('250mL_SF', '250mL Shake Flask'),
+        ('500mL_SF', '500mL Shake Flask'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='seed_trains')
+    seed_train_id = models.CharField(max_length=100, unique=True)  # UPST####
+    vessel_type = models.CharField(max_length=20, choices=SEED_VESSEL_TYPE_CHOICES)
+    thaw_date = models.DateField()
+    culture_volume = models.FloatField(help_text="mL")
+    cell_line = models.CharField(max_length=100)
+    media_type = models.CharField(max_length=100)
+    passage_number = models.IntegerField(null=True, blank=True)
+    vial_id = models.CharField(max_length=100, blank=True, null=True)
+    viability_at_thaw = models.FloatField(null=True, blank=True, help_text="percentage")
+    cell_density_at_thaw = models.FloatField(null=True, blank=True, help_text="cells/mL")
+    notes = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_seed_train'
+        ordering = ['process_step', 'seed_train_id']
+
+    def __str__(self):
+        return f"{self.seed_train_id} ({self.cell_line})"
+
+
+class USPVessel(models.Model):
+    """Model for tracking bioreactors and shake flasks (production vessels)"""
+    VESSEL_TYPE_CHOICES = [
+        ('2L_BRX', '2L Bioreactor'),
+        ('5L_BRX', '5L Bioreactor'),
+        ('10L_BRX', '10L Bioreactor'),
+        ('15L_BRX', '15L Bioreactor'),
+        ('250mL_SF', '250mL Shake Flask'),
+        ('500mL_SF', '500mL Shake Flask'),
+        ('1L_SF', '1L Shake Flask'),
+        ('2L_SF', '2L Shake Flask'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='vessels')
+    seed_train = models.ForeignKey(USPSeedTrain, on_delete=models.SET_NULL, null=True, blank=True, related_name='downstream_vessels')
+    vessel_id = models.CharField(max_length=100)  # UPFB####
+    vessel_type = models.CharField(max_length=20, choices=VESSEL_TYPE_CHOICES)
+    cell_line = models.CharField(max_length=100, blank=True, null=True)
+    media_type = models.CharField(max_length=100, blank=True, null=True)
+    inoculation_date = models.DateField(null=True, blank=True)
+    inoculation_density = models.FloatField(null=True, blank=True, help_text="cells/mL")
+    harvest_date = models.DateField(null=True, blank=True)
+    harvest_viability = models.FloatField(null=True, blank=True, help_text="percentage")
+    harvest_vcd = models.FloatField(null=True, blank=True, help_text="cells/mL")
+    harvest_volume = models.FloatField(null=True, blank=True, help_text="mL")
+    temperature_setpoint = models.FloatField(null=True, blank=True, default=37.0, help_text="°C")
+    ph_setpoint = models.FloatField(null=True, blank=True, default=7.0)
+    do_setpoint = models.FloatField(null=True, blank=True, default=40.0, help_text="% air saturation")
+    agitation_rpm = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_vessel'
+        unique_together = ('process_step', 'vessel_id')
+        ordering = ['process_step', 'vessel_id']
+
+    def __str__(self):
+        return f"{self.vessel_id} ({self.vessel_type})"
+
+
+class USPMediaRecipe(models.Model):
+    """Model for storing media recipe templates"""
+    id = models.AutoField(primary_key=True)
+    recipe_id = models.CharField(max_length=100, unique=True)  # e.g., RCP001
+    recipe_name = models.CharField(max_length=200)
+    recipe_type = models.CharField(max_length=100)  # e.g., Growth Media, Feed A, Feed B, Basal Media
+    version = models.CharField(max_length=20, default='1.0')
+    description = models.TextField(blank=True, null=True)
+    base_volume = models.FloatField(default=1.0, help_text="Base volume in L for recipe calculations")
+    ph_target = models.FloatField(null=True, blank=True)
+    osmolality_target = models.FloatField(null=True, blank=True, help_text="mOsm/kg")
+    storage_temp = models.CharField(max_length=50, blank=True, null=True)
+    shelf_life_days = models.IntegerField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, blank=True, null=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_media_recipe'
+        ordering = ['recipe_type', 'recipe_name']
+
+    def __str__(self):
+        return f"{self.recipe_name} v{self.version}"
+
+
+class USPMediaRecipeComponent(models.Model):
+    """Model for storing components in media recipes"""
+    COMPONENT_TYPE_CHOICES = [
+        ('base_powder', 'Base Powder'),
+        ('glucose', 'Glucose'),
+        ('glutamine', 'Glutamine'),
+        ('amino_acid', 'Amino Acid'),
+        ('vitamin', 'Vitamin'),
+        ('salt', 'Salt'),
+        ('growth_factor', 'Growth Factor'),
+        ('antibiotic', 'Antibiotic'),
+        ('buffer', 'Buffer'),
+        ('serum', 'Serum'),
+        ('supplement', 'Supplement'),
+        ('other', 'Other'),
+    ]
+
+    UNIT_CHOICES = [
+        ('g/L', 'g/L'),
+        ('mg/L', 'mg/L'),
+        ('mL/L', 'mL/L'),
+        ('µL/L', 'µL/L'),
+        ('mM', 'mM'),
+        ('µM', 'µM'),
+        ('%', '%'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    recipe = models.ForeignKey(USPMediaRecipe, on_delete=models.CASCADE, related_name='recipe_components')
+    component_type = models.CharField(max_length=50, choices=COMPONENT_TYPE_CHOICES)
+    component_name = models.CharField(max_length=200)
+    catalog_number = models.CharField(max_length=100, blank=True, null=True)
+    concentration_per_liter = models.FloatField(help_text="Amount per liter of final media")
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
+    vendor = models.CharField(max_length=100, blank=True, null=True)
+    preparation_notes = models.TextField(blank=True, null=True)
+    order_index = models.IntegerField(default=0, help_text="Order for adding components")
+
+    class Meta:
+        db_table = 'usp_media_recipe_component'
+        ordering = ['recipe', 'order_index', 'component_name']
+
+    def __str__(self):
+        return f"{self.component_name} ({self.concentration_per_liter} {self.unit})"
+
+
+class USPMediaPrep(models.Model):
+    """Model for tracking media preparations for cell culture"""
+    id = models.AutoField(primary_key=True)
+    media_id = models.CharField(max_length=100, unique=True)  # UPMP#### (changed from UPMD)
+    recipe = models.ForeignKey(USPMediaRecipe, on_delete=models.SET_NULL, null=True, blank=True, related_name='preparations')
+    media_name = models.CharField(max_length=200)
+    media_type = models.CharField(max_length=100)  # e.g., Growth Media, Feed Media, Basal Media
+    batch_size = models.FloatField(help_text="Total volume in L")
+    preparation_date = models.DateField()
+    expiration_date = models.DateField(null=True, blank=True)
+    prepared_by = models.CharField(max_length=100)
+    ph_actual = models.FloatField(null=True, blank=True)
+    osmolality_actual = models.FloatField(null=True, blank=True, help_text="mOsm/kg")
+    sterility_check = models.BooleanField(default=False)
+    storage_location = models.CharField(max_length=200, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    # Link to experiment
+    experiment = models.ForeignKey(USPExperiment, on_delete=models.SET_NULL, null=True, blank=True, related_name='media_preps')
+
+    class Meta:
+        db_table = 'usp_media_prep'
+        ordering = ['-preparation_date', 'media_id']
+
+    def __str__(self):
+        return f"{self.media_id} - {self.media_name} ({self.preparation_date})"
+
+
+class USPMediaComponent(models.Model):
+    """Model for tracking individual components in media preparations"""
+    COMPONENT_TYPE_CHOICES = [
+        ('base_powder', 'Base Powder'),
+        ('glucose', 'Glucose'),
+        ('glutamine', 'Glutamine'),
+        ('amino_acid', 'Amino Acid'),
+        ('vitamin', 'Vitamin'),
+        ('salt', 'Salt'),
+        ('growth_factor', 'Growth Factor'),
+        ('antibiotic', 'Antibiotic'),
+        ('buffer', 'Buffer'),
+        ('serum', 'Serum'),
+        ('other', 'Other'),
+    ]
+
+    UNIT_CHOICES = [
+        ('g', 'g'),
+        ('mg', 'mg'),
+        ('L', 'L'),
+        ('mL', 'mL'),
+        ('µL', 'µL'),
+        ('g/L', 'g/L'),
+        ('mg/L', 'mg/L'),
+        ('mM', 'mM'),
+        ('µM', 'µM'),
+        ('%', '%'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    media_prep = models.ForeignKey(USPMediaPrep, on_delete=models.CASCADE, related_name='components')
+    component_type = models.CharField(max_length=50, choices=COMPONENT_TYPE_CHOICES)
+    component_name = models.CharField(max_length=200)
+    lot_number = models.CharField(max_length=100, blank=True, null=True)
+    target_amount = models.FloatField()
+    actual_amount = models.FloatField()
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
+    vendor = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'usp_media_component'
+        ordering = ['media_prep', 'component_type', 'component_name']
+
+    def __str__(self):
+        return f"{self.component_name} ({self.actual_amount} {self.unit})"
