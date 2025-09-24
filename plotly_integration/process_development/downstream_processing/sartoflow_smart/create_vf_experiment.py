@@ -31,24 +31,7 @@ readonly_input_style = input_style.copy()
 readonly_input_style["backgroundColor"] = "#e9f1fb"  # Light blue background for calculated fields
 readonly_input_style["border"] = "1px solid #bbb"  # Slightly darker border for contrast
 
-# Define layout
-app.layout = html.Div(
-    style={"fontFamily": "Arial, sans-serif", "padding": "20px"},
-    children=[
-        dcc.Tabs(
-            id="tabs",
-            value="viral-filtration",
-            children=[
-                dcc.Tab(label="UFDF", value="ufdf", style={"fontSize": "18px"}),
-                dcc.Tab(label="Viral Filtration", value="viral-filtration", style={"fontSize": "18px"}),
-            ],
-            colors={"border": "white", "primary": "darkblue", "background": "light-gray"},
-        ),
-        html.Div(id="tab-content"),
-    ],
-)
-
-# UFDF Tab Layout
+# Viral Filtration Layout
 viral_filtration_layout = html.Div(
     style={"maxWidth": "800px", "margin": "0 auto"},  # Centers content and limits width
     children=[
@@ -151,6 +134,7 @@ viral_filtration_layout = html.Div(
             style_table={"overflowX": "auto", "marginTop": "10px"},
             style_cell={"textAlign": "center", "padding": "5px"},
             style_header={"fontWeight": "bold", "backgroundColor": "#e9f1fb"},
+            fixed_rows={"headers": True},
         ),
         html.Button("Import and Submit Report", id="submit-report", n_clicks=0,
                     style={"backgroundColor": "#28a745", "color": "white", "padding": "10px 20px",
@@ -161,16 +145,13 @@ viral_filtration_layout = html.Div(
     ]
 )
 
-
-@app.callback(
-    Output("tab-content", "children"),
-    Input("tabs", "value"),
+# Define layout
+app.layout = html.Div(
+    style={"fontFamily": "Arial, sans-serif", "padding": "20px"},
+    children=[
+        viral_filtration_layout
+    ],
 )
-def render_tab_content(tab):
-    if tab == "viral-filtration":
-        return viral_filtration_layout
-    else:
-        return html.Div(html.H3("Viral Filtration Analysis (Coming Soon)", style={"textAlign": "center"}))
 
 
 # Callbacks

@@ -32,10 +32,14 @@ class PlotlyIntegrationConfig(AppConfig):
                 # import plotly_integration.process_development.downstream_processing.empower.sec_report_app.app
                 # import plotly_integration.process_development.downstream_processing.empower.titer_report_app
                 import plotly_integration.process_development.downstream_processing.empower.column_analysis_app
+
+                #Sartoflow Smart Apps
                 import plotly_integration.process_development.downstream_processing.sartoflow_smart.viral_filtration_app
                 import plotly_integration.process_development.downstream_processing.sartoflow_smart.ufdf_app
-                import plotly_integration.process_development.downstream_processing.sartoflow_smart.create_experiment
+                import plotly_integration.process_development.downstream_processing.sartoflow_smart.create_ufdf_experiment
                 import plotly_integration.process_development.downstream_processing.sartoflow_smart.create_vf_experiment
+
+
                 # import plotly_integration.process_development.downstream_processing.akta.opcua_server.test_files.akta_data_import
 
                 import plotly_integration.process_development.downstream_processing.akta.akta_app.akta_app
@@ -84,8 +88,8 @@ class PlotlyIntegrationConfig(AppConfig):
 
                 #CE_SDS Apps
                 # import plotly_integration.process_development.analytical.ce_sds.data_import_app
-                import plotly_integration.process_development.analytical.ce_sds.create_report_app
-                import plotly_integration.process_development.analytical.ce_sds.ce_sds_analysis_app
+                import plotly_integration.process_development.analytical.ce_sds.app.create_report_app
+                import plotly_integration.process_development.analytical.ce_sds.app.app
 
                 #cIEF Apps
                 # import plotly_integration.process_development.analytical.cief.data_import_app
@@ -111,10 +115,22 @@ class PlotlyIntegrationConfig(AppConfig):
                 # import plotly_integration.cld_dashboard.main_app
 
                 #Formualtion
-                import plotly_integration.process_development.formulation.stability_app.formulation_stability_app
                 import plotly_integration.process_development.formulation.stability_app.formulation_stability_app_simple
-                import plotly_integration.process_development.formulation.stability_app.formulation_simple_table_app
+                import plotly_integration.process_development.formulation.formulation_experiment_manager
+                import plotly_integration.process_development.formulation.data_entry_app
+                import plotly_integration.process_development.formulation.experiment_creation_app
+                import plotly_integration.process_development.formulation.formulation_dashboard_app
+                import plotly_integration.process_development.formulation.sample_management_app
+                import plotly_integration.process_development.formulation.formulation_design_app
+                import plotly_integration.process_development.formulation.formulation_visualization_app
 
+                #CLD Project Management
+                import plotly_integration.cld.project_management_app
+                import plotly_integration.cld.clonality_report_analyzer
+
+                #USP Experiment Management
+                import plotly_integration.usp.experiment_management_app
+                import plotly_integration.usp.media_tracking_app
 
                 #New PD Dash App
                 try:

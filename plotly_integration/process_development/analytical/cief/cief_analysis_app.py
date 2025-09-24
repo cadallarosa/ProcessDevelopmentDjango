@@ -138,22 +138,68 @@ def detect_peaks_derivative(time, signal, smooth_factor, zero_threshold):
 
 
 def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indices=None):
-    """Find integration boundaries for peaks"""
-    corrected_signal = signal - baseline
+    """
+    Find integration boundaries for peaks with robust error handling.
+    
+    Parameters:
+    -----------
+    peaks : array-like
+        Indices of detected peaks
+    signal : np.ndarray
+        Raw signal data
+    baseline : np.ndarray
+        Baseline values
+    method : str
+        Boundary detection method ('valley', 'baseline', 'threshold')
+    std_peak_indices : array-like, optional
+        Indices of standard peaks
+    
+    Returns:
+    --------
+    list : List of dictionaries with 'left' and 'right' boundary indices
+    """
+    # Input validation
+    if peaks is None or len(peaks) == 0:
+        return []
+    
+    if signal is None or baseline is None:
+        return [{'left': p, 'right': p} for p in peaks]
+    
+    # Ensure arrays are numpy arrays
+    signal = np.asarray(signal)
+    baseline = np.asarray(baseline)
+    peaks = np.asarray(peaks)
+    
+    # Validate signal and baseline have same length
+    if len(signal) != len(baseline):
+        return [{'left': p, 'right': p} for p in peaks]
+    
+    # Calculate corrected signal with error handling
+    try:
+        corrected_signal = signal - baseline
+    except:
+        corrected_signal = signal.copy()
+    
     boundaries = []
-
+    
+    # Handle standard peaks
     std_peaks_set = set(std_peak_indices) if std_peak_indices is not None else set()
-
+    
     # Find actual sample peak indices (not positions in the peaks array)
     sample_peak_indices = []
     for i, peak in enumerate(peaks):
         if peak not in std_peaks_set:
             sample_peak_indices.append(peak)
-
+    
     for idx, peak in enumerate(peaks):
+        # Validate peak index
+        if peak < 0 or peak >= len(signal):
+            boundaries.append({'left': 0, 'right': min(1, len(signal) - 1)})
+            continue
+        
         left_bound = peak
         right_bound = peak
-
+        
         is_sample_peak = peak not in std_peaks_set
         is_first_sample = False
         is_last_sample = False
@@ -171,10 +217,13 @@ def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indi
             # Use 5% of prominence as threshold
             threshold = peak_prominence * 0.05
 
-            # Try threshold method first
+            # Try threshold method first with bounds checking
             left_bound = peak
-            while left_bound > 0 and corrected_signal[left_bound] > threshold:
-                left_bound -= 1
+            try:
+                while left_bound > 0 and left_bound < len(corrected_signal) and corrected_signal[left_bound] > threshold:
+                    left_bound -= 1
+            except (IndexError, ValueError):
+                left_bound = max(0, peak - 10)  # Fallback to reasonable default
 
             # Check if we have a previous peak (should be the 2nd standard)
             if idx > 0:
@@ -197,13 +246,19 @@ def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indi
                         min_idx = np.argmin(valley_region) + peak
                         right_bound = min_idx
             elif method == 'baseline':
-                threshold = corrected_signal[peak] * 0.01
-                while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
-                    right_bound += 1
+                threshold = max(0, corrected_signal[peak] * 0.01)
+                try:
+                    while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
+                        right_bound += 1
+                except (IndexError, ValueError):
+                    right_bound = min(len(signal) - 1, peak + 10)
             elif method == 'threshold':
-                threshold = corrected_signal[peak] * 0.05
-                while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
-                    right_bound += 1
+                threshold = max(0, corrected_signal[peak] * 0.05)
+                try:
+                    while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
+                        right_bound += 1
+                except (IndexError, ValueError):
+                    right_bound = min(len(signal) - 1, peak + 10)
 
         # Special handling for last sample peak
         elif is_last_sample:
@@ -216,13 +271,19 @@ def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indi
                         min_idx = np.argmin(valley_region) + prev_peak
                         left_bound = min_idx
             elif method == 'baseline':
-                threshold = corrected_signal[peak] * 0.01
-                while left_bound > 0 and corrected_signal[left_bound] > threshold:
-                    left_bound -= 1
+                threshold = max(0, corrected_signal[peak] * 0.01)
+                try:
+                    while left_bound > 0 and corrected_signal[left_bound] > threshold:
+                        left_bound -= 1
+                except (IndexError, ValueError):
+                    left_bound = max(0, peak - 10)
             elif method == 'threshold':
-                threshold = corrected_signal[peak] * 0.05
-                while left_bound > 0 and corrected_signal[left_bound] > threshold:
-                    left_bound -= 1
+                threshold = max(0, corrected_signal[peak] * 0.05)
+                try:
+                    while left_bound > 0 and corrected_signal[left_bound] > threshold:
+                        left_bound -= 1
+                except (IndexError, ValueError):
+                    left_bound = max(0, peak - 10)
 
             # RIGHT: Use threshold method to extend to baseline
             peak_height = corrected_signal[peak]
@@ -230,8 +291,11 @@ def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indi
             if peak_height < 20000:
                 threshold = peak_height * 0.02  # 2% for small peaks
 
-            while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
-                right_bound += 1
+            try:
+                while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
+                    right_bound += 1
+            except (IndexError, ValueError):
+                right_bound = min(len(signal) - 1, peak + 20)
 
         # All other peaks use the user-selected method for both boundaries
         else:
@@ -254,18 +318,30 @@ def find_peak_boundaries(peaks, signal, baseline, method='valley', std_peak_indi
                             right_bound = min_idx
 
             elif method == 'baseline':
-                threshold = corrected_signal[peak] * 0.01
-                while left_bound > 0 and corrected_signal[left_bound] > threshold:
-                    left_bound -= 1
-                while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
-                    right_bound += 1
+                threshold = max(0, corrected_signal[peak] * 0.01)
+                try:
+                    while left_bound > 0 and corrected_signal[left_bound] > threshold:
+                        left_bound -= 1
+                except (IndexError, ValueError):
+                    left_bound = max(0, peak - 10)
+                try:
+                    while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
+                        right_bound += 1
+                except (IndexError, ValueError):
+                    right_bound = min(len(signal) - 1, peak + 10)
 
             elif method == 'threshold':
-                threshold = corrected_signal[peak] * 0.05
-                while left_bound > 0 and corrected_signal[left_bound] > threshold:
-                    left_bound -= 1
-                while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
-                    right_bound += 1
+                threshold = max(0, corrected_signal[peak] * 0.05)
+                try:
+                    while left_bound > 0 and corrected_signal[left_bound] > threshold:
+                        left_bound -= 1
+                except (IndexError, ValueError):
+                    left_bound = max(0, peak - 10)
+                try:
+                    while right_bound < len(signal) - 1 and corrected_signal[right_bound] > threshold:
+                        right_bound += 1
+                except (IndexError, ValueError):
+                    right_bound = min(len(signal) - 1, peak + 10)
 
         boundaries.append({'left': left_bound, 'right': right_bound})
 
@@ -380,11 +456,114 @@ def calculate_baseline(signal, method='rolling_ball', window=50, percentile=10, 
 
 
 def integrate_peak(signal, baseline, left_bound, right_bound, time):
-    """Integrate peak area using trapezoidal rule"""
-    corrected_signal = np.maximum(0, signal[left_bound:right_bound + 1] - baseline[left_bound:right_bound + 1])
-    if len(corrected_signal) > 1:
-        return np.trapz(corrected_signal, time[left_bound:right_bound + 1])
-    return 0
+    """
+    Robust peak integration using trapezoidal rule with error handling.
+    
+    Parameters:
+    -----------
+    signal : np.ndarray
+        Raw signal data
+    baseline : np.ndarray
+        Baseline values (same length as signal)
+    left_bound : int
+        Left boundary index for integration
+    right_bound : int
+        Right boundary index for integration
+    time : np.ndarray
+        Time array corresponding to signal
+    
+    Returns:
+    --------
+    float : Integrated peak area
+    """
+    # Input validation
+    if signal is None or baseline is None or time is None:
+        return 0
+    
+    # Ensure bounds are integers
+    try:
+        left_bound = int(left_bound)
+        right_bound = int(right_bound)
+    except (TypeError, ValueError):
+        return 0
+    
+    # Check bounds validity
+    if left_bound < 0 or right_bound >= len(signal) or left_bound >= right_bound:
+        # Try to fix invalid bounds
+        left_bound = max(0, min(left_bound, len(signal) - 1))
+        right_bound = min(len(signal) - 1, max(right_bound, left_bound + 1))
+        
+        if left_bound >= right_bound:
+            return 0
+    
+    # Extract the peak region
+    try:
+        signal_segment = signal[left_bound:right_bound + 1]
+        baseline_segment = baseline[left_bound:right_bound + 1]
+        time_segment = time[left_bound:right_bound + 1]
+    except IndexError:
+        return 0
+    
+    # Check for sufficient data points
+    if len(signal_segment) < 2:
+        # For single point, return the point value * small time width as approximation
+        if len(signal_segment) == 1:
+            # Estimate width based on neighboring time points if available
+            if left_bound > 0 and right_bound < len(time) - 1:
+                dt = (time[right_bound + 1] - time[left_bound - 1]) / 3
+            else:
+                dt = 0.01  # Default small width
+            return max(0, (signal_segment[0] - baseline_segment[0]) * dt)
+        return 0
+    
+    # Apply baseline correction with noise handling
+    corrected_signal = signal_segment - baseline_segment
+    
+    # Apply adaptive noise threshold based on signal characteristics
+    # Estimate noise level from the baseline region
+    if len(baseline_segment) > 10:
+        noise_level = np.std(baseline_segment[:10])  # Use first 10 points to estimate noise
+    else:
+        noise_level = np.std(baseline_segment) if len(baseline_segment) > 0 else 0
+    
+    # Set values below noise threshold to zero
+    noise_threshold = 2 * noise_level  # 2 sigma threshold
+    corrected_signal[corrected_signal < noise_threshold] = 0
+    
+    # Additional smoothing for very noisy data
+    if noise_level > np.mean(corrected_signal) * 0.1:  # If noise is > 10% of signal
+        # Apply light smoothing to reduce noise impact
+        if len(corrected_signal) > 5:
+            from scipy.signal import savgol_filter
+            try:
+                window_length = min(5, len(corrected_signal))
+                if window_length % 2 == 0:
+                    window_length -= 1
+                if window_length >= 3:
+                    corrected_signal = savgol_filter(corrected_signal, window_length, 1)
+            except:
+                pass  # If smoothing fails, use unsmoothed signal
+    
+    # Calculate area using Simpson's rule for better accuracy (fallback to trapz if needed)
+    try:
+        # Check for uniform spacing
+        dt = np.diff(time_segment)
+        if np.allclose(dt, dt[0], rtol=1e-5):
+            # Uniform spacing - use Simpson's rule for better accuracy
+            from scipy.integrate import simpson
+            area = simpson(corrected_signal, x=time_segment)
+        else:
+            # Non-uniform spacing - use trapezoidal rule
+            area = np.trapz(corrected_signal, time_segment)
+    except:
+        # Fallback to simple trapezoidal integration
+        try:
+            area = np.trapz(corrected_signal, time_segment)
+        except:
+            area = 0
+    
+    # Ensure non-negative area
+    return max(0, area)
 
 
 def generate_peak_colors(n_peaks):

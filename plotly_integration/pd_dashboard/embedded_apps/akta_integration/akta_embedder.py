@@ -1,4 +1,4 @@
-from dash import html, Input, Output, State, callback, no_update
+from dash import html, Input, Output
 import dash_bootstrap_components as dbc
 from urllib.parse import parse_qs
 
@@ -62,7 +62,7 @@ except ImportError:
             html.P(error_msg)
         ], color="danger")
 
-from plotly_integration.cld_dashboard.main_app import app
+from plotly_integration.backup.cld_dashboard.main_app import app
 
 
 def create_embedded_akta_report(query_params):
