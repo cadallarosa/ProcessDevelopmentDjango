@@ -1358,7 +1358,7 @@ def plot_standard_time_series(report_clicks, selected_report):
     std_samples = SampleMetadata.objects.filter(
         sample_set_id__in=sample_set_ids,
         sample_name__contains="Std_"
-    ).values("sample_name", "injection_volume", "result_id")
+    ).values("sample_name", "injection_volume", "result_id", "injection_id")
 
     # If not enough standards found, use fallback logic
     if len(std_samples) < 3:
@@ -1375,13 +1375,13 @@ def plot_standard_time_series(report_clicks, selected_report):
                 sample_name__startswith=project_prefix,
                 sample_name__contains="Std_"
             ).exclude(date_acquired__isnull=True).values(
-                "sample_name", "injection_volume", "result_id", "sample_set_id", "date_acquired"
+                "sample_name", "injection_volume", "result_id", "sample_set_id", "date_acquired","injection_id"
             )
 
             grouped_by_set = defaultdict(list)
             for std in candidate_stds:
                 grouped_by_set[std["sample_set_id"]].append(std)
-
+            0
             best_group = None
             best_time_diff = timedelta.max
 
@@ -1405,8 +1405,9 @@ def plot_standard_time_series(report_clicks, selected_report):
     for std in std_samples:
         result_id = std["result_id"]
         sample_name = std["sample_name"]
+        injection_id = std["injection_id"]
 
-        time_series = TimeSeriesData.objects.filter(result_id=result_id).values("time", "channel_1")
+        time_series = TimeSeriesData.objects.filter(result_id=injection_id).values("time", "channel_1")
 
         df = pd.DataFrame(list(time_series))
 
@@ -2100,9 +2101,10 @@ def plot_sample_time_series(report_clicks, channel, selected_report):
 
     for idx, sample in enumerate(samples):
         result_id = sample.result_id
+        injection_id = sample.injection_id
         sample_name = sample.sample_name
 
-        time_series = TimeSeriesData.objects.filter(result_id=result_id).values("time", channel)
+        time_series = TimeSeriesData.objects.filter(result_id=injection_id).values("time", channel)
 
         df = pd.DataFrame(list(time_series))
 

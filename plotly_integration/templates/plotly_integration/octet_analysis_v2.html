@@ -1,0 +1,104 @@
+{% extends "base_generic.html" %}
+{% load static %}
+{% load plotly_dash %}
+
+{% block title %}Octet Analysis V2{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f5f5;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #0056b3 0%, #004494 100%);
+        color: white;
+        padding: 20px 30px;
+        margin-bottom: 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .page-header .subtitle {
+        font-size: 14px;
+        opacity: 0.9;
+        margin-top: 5px;
+    }
+
+    .app-container {
+        padding: 0;
+        background-color: white;
+        min-height: calc(100vh - 100px);
+    }
+
+    /* Dash app iframe styling */
+    .dash-app-container {
+        width: 100%;
+        min-height: calc(100vh - 100px);
+        border: none;
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 400px;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        color: #0056b3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>
+        <i class="bi bi-graph-up-arrow"></i>
+        Octet Biolayer Interferometry Analysis
+    </h1>
+    <div class="subtitle">
+        Advanced binding kinetics analysis and visualization platform
+    </div>
+</div>
+
+<div class="app-container">
+    <!-- Loading Spinner (shown while app loads) -->
+    <div id="loading-spinner" class="loading-spinner">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Dash App Container -->
+    <div id="dash-app-wrapper" style="display: none;">
+        {% plotly_app name="OctetAnalysisAppV2" %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Hide loading spinner and show app once loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            document.getElementById('loading-spinner').style.display = 'none';
+            document.getElementById('dash-app-wrapper').style.display = 'block';
+        }, 1000);
+    });
+</script>
+{% endblock %}

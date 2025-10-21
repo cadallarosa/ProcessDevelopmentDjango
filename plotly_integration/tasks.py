@@ -430,8 +430,8 @@ def import_empower_files(self):
         processed_files = load_empower_processed_files()
         all_files = os.listdir(EMPOWER_IMPORT_FOLDER)
 
-        ars_files = [f for f in all_files if f.endswith('.ars') and f not in processed_files]
-        arw_files = [f for f in all_files if f.endswith('.arw') and f not in processed_files]
+        ars_files = [f for f in all_files if f.endswith('.ars') ]#and f not in processed_files]
+        arw_files = [f for f in all_files if f.endswith('.arw') ]#and f not in processed_files]
 
         total_files = len(ars_files) + len(arw_files)
 
@@ -634,8 +634,9 @@ def import_vicell_data_complete(self):
         df_cleaned = df[available_columns].copy()
         df_cleaned.rename(columns=column_mapping, inplace=True)
 
-        # Convert date column to datetime
-        df_cleaned["date_time"] = pd.to_datetime(df_cleaned["date_time"], errors="coerce")
+
+        # Convert date column to datetime with mixed format support
+        df_cleaned["date_time"] = pd.to_datetime(df_cleaned["date_time"], format='mixed', dayfirst=False, errors="coerce")
 
         # Make datetimes timezone-aware (same as manual import)
         df_cleaned["date_time"] = df_cleaned["date_time"].apply(
@@ -706,13 +707,18 @@ def import_vicell_data_complete(self):
         duplicate_samples = []
 
         if new_records:
-            # Get existing sample IDs to check for duplicates
-            existing_sample_ids = set(ViCellData.objects.values_list('sample_id', flat=True))
+            # Get existing (sample_id, date_time) combinations to check for duplicates
+            # Changed from only sample_id to include date_time since samples can have multiple measurements
+            existing_combinations = set(
+                ViCellData.objects.values_list('sample_id', 'date_time')
+            )
 
             # Separate new and duplicate records
             records_to_create = []
             for record in new_records:
-                if record.sample_id in existing_sample_ids:
+                # Check if this specific sample_id + date_time combination already exists
+                record_key = (record.sample_id, record.date_time)
+                if record_key in existing_combinations:
                     duplicate_samples.append(record.sample_id)
                 else:
                     records_to_create.append(record)
@@ -878,6 +884,24 @@ def import_nova_flex2_files():
             return None
         return dt - timedelta(hours=7)
 
+    def parse_dilution_ratio(dilution_str):
+        """Parse dilution ratio string (e.g., '1:1', '1:5', '1:10') to dilution factor (integer)
+        The dilution factor is the second number (denominator) which represents how much to multiply by.
+        For example: '1:5' means 5x dilution factor, '1:10' means 10x dilution factor"""
+        if pd.isna(dilution_str) or not dilution_str:
+            return 1.0  # Default to 1 (no dilution)
+        try:
+            dilution_str = str(dilution_str).strip()
+            if ':' in dilution_str:
+                parts = dilution_str.split(':')
+                if len(parts) >= 2:
+                    # Return the second number (denominator) as the dilution factor
+                    return float(parts[1])
+            # If no colon, try to parse as a number
+            return float(dilution_str)
+        except (ValueError, TypeError):
+            return 1.0
+
     def process_excel_file(file_path):
         """Process Nova Flex 2 Excel file"""
         df = pd.read_excel(file_path, engine='xlrd' if file_path.endswith('.xls') else None)
@@ -896,7 +920,8 @@ def import_nova_flex2_files():
                 'pH': 'pH',
                 'PO2': 'po2',
                 'PCO2': 'pco2',
-                'Osm': 'osm'
+                'Osm': 'osm',
+                'Chemistry Dilution Ratio': 'dilution_ratio'
             }
         else:
             column_mapping = {
@@ -910,7 +935,8 @@ def import_nova_flex2_files():
                 'pH': 'pH',
                 'pO2 (%)': 'po2',
                 'pCO2 (%)': 'pco2',
-                'Osm (mOsm/kg)': 'osm'
+                'Osm (mOsm/kg)': 'osm',
+                'Chemistry Dilution Ratio': 'dilution_ratio'
             }
 
         df.rename(columns=column_mapping, inplace=True)
@@ -947,7 +973,8 @@ def import_nova_flex2_files():
                 'pH': 'pH',
                 'PO2': 'po2',
                 'PCO2': 'pco2',
-                'Osm': 'osm'
+                'Osm': 'osm',
+                'Chemistry Dilution Ratio': 'dilution_ratio'
             }
         elif 'Viable cells' in df.columns:
             return None  # Skip cell viability CSV
@@ -963,7 +990,8 @@ def import_nova_flex2_files():
                 'pH': 'pH',
                 'pO2 (%)': 'po2',
                 'pCO2 (%)': 'pco2',
-                'Osm (mOsm/kg)': 'osm'
+                'Osm (mOsm/kg)': 'osm',
+                'Chemistry Dilution Ratio': 'dilution_ratio'
             }
 
         df.rename(columns=column_mapping, inplace=True)
@@ -1044,7 +1072,8 @@ def import_nova_flex2_files():
                             'day': parsed_info['day'],
                             'reactor_type': parsed_info['reactor_type'],
                             'reactor_number': parsed_info['reactor_number'],
-                            'special': parsed_info['special']
+                            'special': parsed_info['special'],
+                            'dilution_factor': parse_dilution_ratio(row.get('dilution_ratio'))
                         }
 
                         if pd.isna(data['date_time']) or pd.isna(data['sample_id']):
@@ -1311,3 +1340,315 @@ def import_cief_files(self):
             print(f"Failed to import {filename}: {e}")
 
     return f"Import completed. Success: {successful}, Failed: {failed}"
+
+
+# ========== OCTET IMPORT ==========
+from pathlib import Path
+import subprocess
+import sys
+
+# Configuration
+OCTET_BASE_FOLDER = r"S:\Shared\DjangoRawData\Octet"
+OCTET_GROUPS = ['Process Development', 'Protein Engineering', 'Cell Science', 'IO']
+OCTET_ASSAY_TYPES = ['Asymmetric', 'Binding Kinetics', 'HCP', 'Octet Titer']
+
+
+@shared_task(name='plotly_integration.import_octet_experiments', bind=True)
+def import_octet_experiments(self, auto_move=True, import_user='system'):
+    """
+    Scan S:\Shared\DjangoRawData\Octet folder structure for experiments in "Imports" folders,
+    consolidate them, and import to database.
+
+    Args:
+        auto_move: If True, move folders to "Imported" after successful import
+        import_user: Username to record in database as importer
+
+    Returns:
+        Dictionary with import results
+    """
+
+    # Check if import is already running
+    if cache.get('octet_import_lock'):
+        logger.warning("Octet import already in progress")
+        return {"status": "error", "message": "Import already in progress"}
+
+    # Set lock
+    cache.set('octet_import_lock', True, timeout=7200)  # 2 hour timeout
+
+    results = {
+        'start_time': datetime.now().isoformat(),
+        'total_found': 0,
+        'total_consolidated': 0,
+        'total_imported': 0,
+        'total_failed': 0,
+        'experiments': [],
+        'errors': [],
+        'status': 'started'
+    }
+
+    try:
+        # Update task state
+        self.update_state(state='PROGRESS', meta={
+            'current': 0,
+            'total': 100,
+            'status': 'Scanning for experiments...'
+        })
+
+        # Verify base folder exists
+        base_path = Path(OCTET_BASE_FOLDER)
+        if not base_path.exists():
+            raise Exception(f"Base folder not found: {OCTET_BASE_FOLDER}")
+
+        logger.info(f"🔍 Scanning Octet folder structure: {OCTET_BASE_FOLDER}")
+
+        # Find all experiment folders in Imports directories
+        experiment_folders = []
+
+        for group in OCTET_GROUPS:
+            group_path = base_path / group / "Imports"
+
+            if not group_path.exists():
+                logger.warning(f"Group Imports folder not found: {group_path}")
+                continue
+
+            # Search each assay type folder
+            for assay_type in OCTET_ASSAY_TYPES:
+                assay_path = group_path / assay_type
+
+                if not assay_path.exists():
+                    continue
+
+                # Find experiment folders (folders containing .frd files)
+                for folder in assay_path.iterdir():
+                    if folder.is_dir():
+                        # Check if folder contains FRD files (indicating it's an experiment)
+                        frd_files = list(folder.glob('*.frd'))
+                        if frd_files:
+                            experiment_folders.append({
+                                'path': folder,
+                                'group': group,
+                                'assay_type': assay_type,
+                                'name': folder.name
+                            })
+                            logger.info(f"   Found: {folder.name} ({group}/{assay_type})")
+
+        results['total_found'] = len(experiment_folders)
+
+        if not experiment_folders:
+            results['status'] = 'completed'
+            results['message'] = 'No experiments found in Imports folders'
+            logger.info("✅ No experiments found to import")
+            return results
+
+        logger.info(f"📊 Found {len(experiment_folders)} experiments to process")
+
+        # Process each experiment
+        for idx, exp_info in enumerate(experiment_folders):
+            exp_path = exp_info['path']
+            exp_name = exp_info['name']
+            group = exp_info['group']
+            assay_type = exp_info['assay_type']
+
+            # Update progress
+            progress = int((idx / len(experiment_folders)) * 90) + 5
+            self.update_state(state='PROGRESS', meta={
+                'current': progress,
+                'total': 100,
+                'status': f'Processing {idx+1}/{len(experiment_folders)}: {exp_name}'
+            })
+
+            logger.info(f"\n{'='*60}")
+            logger.info(f"[{idx+1}/{len(experiment_folders)}] Processing: {exp_name}")
+            logger.info(f"Group: {group}, Assay: {assay_type}")
+            logger.info(f"{'='*60}")
+
+            exp_result = {
+                'name': exp_name,
+                'group': group,
+                'assay_type': assay_type,
+                'path': str(exp_path),
+                'consolidated': False,
+                'imported': False,
+                'moved': False,
+                'error': None
+            }
+
+            try:
+                # Step 1: Consolidate experiment
+                logger.info("📦 Step 1: Consolidating experiment...")
+
+                consolidate_script = Path(__file__).parent / 'process_development' / 'analytical' / 'octet' / 'consolidate_experiment.py'
+
+                # Run consolidation script
+                result = subprocess.run(
+                    [sys.executable, str(consolidate_script), str(exp_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=600  # 10 minute timeout per consolidation
+                )
+
+                if result.returncode != 0:
+                    raise Exception(f"Consolidation failed: {result.stderr}")
+
+                # Find the consolidated Excel file
+                consolidated_file = exp_path / f"{exp_name}_CONSOLIDATED.xlsx"
+                if not consolidated_file.exists():
+                    raise Exception("Consolidated file not found after consolidation")
+
+                exp_result['consolidated'] = True
+                exp_result['consolidated_file'] = str(consolidated_file)
+                results['total_consolidated'] += 1
+                logger.info(f"✅ Consolidation complete: {consolidated_file.name}")
+
+                # Step 2: Import to database
+                logger.info("💾 Step 2: Importing to database...")
+
+                # Import using Django management command
+                from django.core.management import call_command
+                from io import StringIO
+
+                out = StringIO()
+
+                # Build import arguments
+                import_args = [
+                    str(consolidated_file),
+                    '--user', import_user,
+                    '--auto-detect',
+                    '--overwrite'  # Overwrite if already exists
+                ]
+
+                if auto_move:
+                    import_args.append('--move-to-imported')
+
+                # Call import command
+                call_command('import_octet_data', *import_args, stdout=out)
+
+                exp_result['imported'] = True
+                exp_result['moved'] = auto_move
+                results['total_imported'] += 1
+                logger.info(f"✅ Import complete")
+
+                if auto_move:
+                    logger.info(f"✅ Moved to Imported folder")
+
+            except subprocess.TimeoutExpired:
+                error_msg = f"Consolidation timeout (>10 minutes)"
+                exp_result['error'] = error_msg
+                results['errors'].append(f"{exp_name}: {error_msg}")
+                results['total_failed'] += 1
+                logger.error(f"❌ {error_msg}")
+
+            except Exception as e:
+                error_msg = str(e)
+                exp_result['error'] = error_msg
+                results['errors'].append(f"{exp_name}: {error_msg}")
+                results['total_failed'] += 1
+                logger.error(f"❌ Error: {error_msg}")
+
+                # Log full traceback for debugging
+                import traceback
+                logger.error(traceback.format_exc())
+
+            results['experiments'].append(exp_result)
+
+        # Final update
+        results['status'] = 'completed'
+        results['completed_at'] = datetime.now().isoformat()
+
+        # Update cache with last import time
+        cache.set('octet_last_import', datetime.now().isoformat())
+
+        # Log summary
+        duration = (datetime.fromisoformat(results['completed_at']) -
+                   datetime.fromisoformat(results['start_time'])).total_seconds()
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"OCTET IMPORT COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"Duration: {duration:.1f} seconds")
+        logger.info(f"Found: {results['total_found']} experiments")
+        logger.info(f"Consolidated: {results['total_consolidated']}")
+        logger.info(f"Imported: {results['total_imported']}")
+        logger.info(f"Failed: {results['total_failed']}")
+        logger.info(f"{'='*60}")
+
+        # Update final task state
+        self.update_state(state='SUCCESS', meta={
+            'current': 100,
+            'total': 100,
+            'status': 'Import completed',
+            'results': results
+        })
+
+        return results
+
+    except Exception as e:
+        error_msg = f"Fatal error in Octet import: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+
+        results['status'] = 'failed'
+        results['error'] = error_msg
+
+        self.update_state(state='FAILURE', meta={'exc': error_msg})
+
+        return results
+
+    finally:
+        # Always remove lock
+        cache.delete('octet_import_lock')
+
+
+@shared_task(name='plotly_integration.check_octet_import_status')
+def check_octet_import_status():
+    """
+    Check status of Octet import folders.
+    Returns count of experiments waiting to be imported.
+    """
+    status = {
+        'base_folder': OCTET_BASE_FOLDER,
+        'last_import': cache.get('octet_last_import'),
+        'is_locked': cache.get('octet_import_lock') is not None,
+        'pending_experiments': 0,
+        'groups': {}
+    }
+
+    try:
+        base_path = Path(OCTET_BASE_FOLDER)
+
+        if not base_path.exists():
+            status['error'] = 'Base folder not accessible'
+            return status
+
+        # Count experiments in each group
+        for group in OCTET_GROUPS:
+            group_path = base_path / group / "Imports"
+            group_count = 0
+
+            if group_path.exists():
+                for assay_type in OCTET_ASSAY_TYPES:
+                    assay_path = group_path / assay_type
+
+                    if assay_path.exists():
+                        # Count folders with FRD files
+                        for folder in assay_path.iterdir():
+                            if folder.is_dir() and list(folder.glob('*.frd')):
+                                group_count += 1
+
+            status['groups'][group] = group_count
+            status['pending_experiments'] += group_count
+
+    except Exception as e:
+        status['error'] = str(e)
+
+    return status
+
+
+def reset_octet_import_tracking():
+    """
+    Reset Octet import tracking.
+    Clears cache for fresh start.
+    """
+    cache.delete('octet_last_import')
+    cache.delete('octet_import_lock')
+    return "Octet import tracking reset"

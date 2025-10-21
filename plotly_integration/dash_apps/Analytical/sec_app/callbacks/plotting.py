@@ -3,11 +3,34 @@ import re
 from plotly_integration.models import SampleMetadata, TimeSeriesData, Report
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import plotly.colors
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from dash import dcc, html, Input, Output, State, dash_table, Dash, MATCH, callback_context
 from ..app import app
+
+
+def natural_sort_key(sample_name):
+    """
+    Extract prefix and numeric components from sample name for natural sorting.
+
+    Examples:
+        'UP001' -> ('UP', 1)
+        'UPFB0012' -> ('UPFB', 12)
+        'FB10' -> ('FB', 10)
+        'PD002' -> ('PD', 2)
+
+    This ensures samples are sorted by prefix first, then numerically within each prefix.
+    """
+    # Match pattern: prefix (letters) + number
+    match = re.match(r'([A-Za-z]+)(\d+)', sample_name)
+    if match:
+        prefix = match.group(1)
+        number = int(match.group(2))
+        return (prefix, number)
+    # Fallback for non-standard names
+    return (sample_name, 0)
 
 def generate_subplots_with_shading(selected_result_ids, sample_list, channels, enable_shading, enable_peak_labeling,
                                    main_peak_rt, slope,
@@ -68,13 +91,15 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
         sample = SampleMetadata.objects.filter(result_id=result_id).first()
         if not sample:
             continue
-        time_series = TimeSeriesData.objects.filter(result_id=sample.result_id)
+        time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id)
         df = pd.DataFrame(list(time_series.values()))
         sample_name = sample.sample_name
         # Get HMW Table row for the current sample
-        # ✅ Find HMW row safely
-        hmw_row = next((r for r in hmw_table_data if isinstance(r, dict) and r.get('Sample Name') == sample_name), None)
+        # ✅ Find HMW row by result_id (not sample_name, as multiple results can have the same sample name)
+        # Convert both to int for comparison since result_id might be string or int
+        hmw_row = next((r for r in hmw_table_data if isinstance(r, dict) and int(r.get('Result ID', 0)) == int(result_id)), None)
         if not hmw_row:
+            print(f"⚠️ No HMW row found for result_id={result_id}")
             continue
 
         # Extract values from HMW Table
@@ -315,14 +340,20 @@ def manage_pagination(report_name, prev_clicks_top, next_clicks_top, prev_clicks
     # Get all samples
     sample_list = [sample.strip() for sample in report.selected_samples.split(",") if sample.strip()]
     selected_result_ids = [result_id.strip() for result_id in report.selected_result_ids.split(",") if result_id.strip()]
-    selected_result_ids = sorted(selected_result_ids, key=lambda x: int(x))
-    
-    # Build sample list by querying SampleMetadata
-    final_sample_list = []
+
+    # Build list of (sample_name, result_id) tuples by querying SampleMetadata
+    sample_result_pairs = []
     for result_id in selected_result_ids:
         sample = SampleMetadata.objects.filter(result_id=result_id).first()
         if sample:
-            final_sample_list.append(sample.sample_name)
+            sample_result_pairs.append((sample.sample_name, result_id))
+
+    # Sort by sample name using natural sorting (prefix + numeric)
+    sample_result_pairs.sort(key=lambda x: natural_sort_key(x[0]))
+
+    # Extract sorted lists
+    final_sample_list = [pair[0] for pair in sample_result_pairs]
+    selected_result_ids = [pair[1] for pair in sample_result_pairs]
     
     total_samples = len(final_sample_list)
     samples_per_page = 30
@@ -448,12 +479,16 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
 
     # ✅ 4. Render Plot Based on Plot Type
     if plot_type == 'plotly':
+        # Use Dark24 color palette (cycles after 24 colors)
+        colors = plotly.colors.qualitative.Dark24
+
         fig = go.Figure()
+        color_idx = 0
         for result_id in selected_result_ids:
             sample = SampleMetadata.objects.filter(result_id=result_id).first()
             if not sample:
                 continue
-            time_series = TimeSeriesData.objects.filter(result_id=result_id)
+            time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id)
             df = pd.DataFrame(list(time_series.values()))
             for channel in selected_channels:
                 if channel in df.columns:
@@ -461,8 +496,10 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
                         x=df['time'],
                         y=df[channel],
                         mode='lines',
-                        name=f"{sample.sample_name} - {channel}"
+                        name=f"{sample.sample_name} - {channel}",
+                        line=dict(color=colors[color_idx % len(colors)])
                     ))
+                    color_idx += 1
 
         fig.update_layout(
             title='Time Series Data (Plotly)',

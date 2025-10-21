@@ -20,6 +20,10 @@ def get_default_columns_and_data():
     for sample in samples:
         row = {col: getattr(sample, col, None) for col in default_columns}  # ✅ Use `None` instead of erroring out
 
+        # Convert result_id to string for proper filtering
+        if "result_id" in row and row["result_id"] is not None:
+            row["result_id"] = str(row["result_id"])
+
         if "date_acquired" in row and row["date_acquired"]:
             dt_value = row["date_acquired"]
 
@@ -357,6 +361,10 @@ def update_table(sample_types, sample_set_names, selected_columns):
     data = []
     for sample in query:
         row = {col: getattr(sample, col, None) for col in selected_columns}  # ✅ Use `None` instead of erroring out
+
+        # Convert result_id to string for proper filtering
+        if "result_id" in row and row["result_id"] is not None:
+            row["result_id"] = str(row["result_id"])
 
         if "date_acquired" in row and row["date_acquired"]:
             dt_value = row["date_acquired"]

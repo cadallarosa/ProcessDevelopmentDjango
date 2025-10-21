@@ -17,12 +17,19 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from django.urls import path
+from plotly_integration.views import pd_dashboard_view
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('plotly_integration/', include('plotly_integration.urls')),
+
+    # Root URL embeds PD Dashboard
+    path('', pd_dashboard_view, name='pd_dashboard'),
+
+    # Shortcut to PD Dashboard
+    path('dashboard/', pd_dashboard_view, name='pd_dashboard_alt'),
 
 
 

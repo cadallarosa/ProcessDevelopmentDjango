@@ -129,12 +129,21 @@ def extract_metadata(file_path):
     # Extract metadata
     start_found = False
     metadata = []
-    for row in data:
+    for i, row in enumerate(data):
         print(row)
-        # if is_data_start_row(row): # Try this for making the first row find more robust
+        # Handle both formats:
+        # Format 1: ['#', 'Inj Summary Report CAD Final 2  '] (tab-separated on one line)
+        # Format 2: ['#'] on one line, ['Inj Summary Report CAD Final 2  '] on next line
         if row == ['#', 'Inj Summary Report CAD Final 2  ']:
             start_found = True
-            print('START FOUND')
+            print('START FOUND (Format 1: tab-separated)')
+            continue
+        elif row == ['#'] and i + 1 < len(data) and data[i + 1] == ['Inj Summary Report CAD Final 2  ']:
+            start_found = True
+            print('START FOUND (Format 2: newline-separated)')
+            continue
+        elif start_found and row == ['Inj Summary Report CAD Final 2  ']:
+            # Skip the second part of the header in Format 2
             continue
         if start_found and ("Project Name:" in row and "Reported by User:" in row):
             break
@@ -147,14 +156,18 @@ def extract_metadata(file_path):
         for key, value in [row.split(":", 1)]
     }
     # print(metadata_dict['Dilution'])
-    # Extract `result_id` from "Injection Id" field in metadata
-    result_id = int(metadata_dict.get("Injection Id", 0))
+    # Extract `result_id` from "Result Id" field in metadata
+    # Handle cases where multiple Result IDs are comma-separated (take the last one)
+    result_id_str = metadata_dict.get("Result Id", "0")
+    result_id = int(result_id_str.split(",")[-1].strip())
+
+    # Update metadata_dict with the parsed result_id
+    metadata_dict["Result Id"] = result_id
 
     # Check if the result_id is valid
     if result_id == 0:
         return None, None  # Return None to skip further processing
     # print(metadata_dict)
-    metadata_dict['Result Id'] = result_id
     print(metadata_dict)
 
     return metadata_dict, result_id
@@ -387,7 +400,7 @@ def string_to_float(value):
 def insert_peak_results(peak_results_df, use_orm=True):
     """
     Inserts peak results into MySQL using Django ORM or raw SQL.
-    If (result_id, peak_retention_time) exists, REPLACE INTO ensures updates.
+    Deletes existing peak results for the same result_id and system_name before inserting new ones.
     """
     if peak_results_df is None or peak_results_df.empty:
         print("⚠️ No peak results to insert.")
@@ -396,6 +409,19 @@ def insert_peak_results(peak_results_df, use_orm=True):
     if use_orm:
         # ✅ Insert using Django ORM with bulk_create (faster insertions)
         with transaction.atomic():
+            # Get result_id and system_name from the first row
+            result_id = peak_results_df.iloc[0]["result_id"]
+            system_name = peak_results_df.iloc[0]["system_name"]
+
+            # Delete existing peak results for this result_id and system_name
+            deleted_count = PeakResults.objects.filter(
+                result_id=result_id,
+                system_name=system_name
+            ).delete()[0]
+
+            if deleted_count > 0:
+                print(f"🗑️ Deleted {deleted_count} existing peak results for result_id={result_id}, system_name={system_name}")
+
             peak_objects = [
                 PeakResults(
                     result_id=row["result_id"],
@@ -414,7 +440,7 @@ def insert_peak_results(peak_results_df, use_orm=True):
                 )
                 for _, row in peak_results_df.iterrows()
             ]
-            PeakResults.objects.bulk_create(peak_objects, ignore_conflicts=True)  # ✅ Faster insert
+            PeakResults.objects.bulk_create(peak_objects)  # ✅ No ignore_conflicts needed since we deleted existing ones
         print(f"✅ Inserted {len(peak_objects)} peak results via ORM.")
 
     else:
@@ -490,20 +516,25 @@ def process_files(directory, reported_folder):
 
             # Extract peak results using the result_id (assuming result_id comes from process_file)
             metadata_dict, result_id = extract_metadata(file_path)
-            system_name = metadata_dict['System Name']
-            if result_id != 0:
-                peak_results_df = extract_peak_results(file_path, result_id,system_name)
 
-                # Step 2: Insert peak results into the DB if the dataframe is not None
-                if peak_results_df is not None:
-                    insert_peak_results(peak_results_df, use_orm=True)
-                else:
-                    print(f"No peak result data found for file: {filename}")
+            # Check if metadata extraction was successful before proceeding
+            if metadata_dict is None or result_id == 0:
+                print(f"⚠️ Skipping peak results for {filename} - invalid metadata or result_id")
+                continue
+
+            system_name = metadata_dict['System Name']
+            peak_results_df = extract_peak_results(file_path, result_id, system_name)
+
+            # Step 2: Insert peak results into the DB if the dataframe is not None
+            if peak_results_df is not None:
+                insert_peak_results(peak_results_df, use_orm=True)
+            else:
+                print(f"No peak result data found for file: {filename}")
 
             # Add the file to the list of files to move
             files_to_move.append(file_path)
 
-            files_processed = True
+        files_processed = True
 
     # Step 3: Move all processed files to the Reported folder in bulk
     for file_path in files_to_move:

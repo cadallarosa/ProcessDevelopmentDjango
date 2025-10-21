@@ -182,6 +182,7 @@ let traversalState = {
     insertedRecords: 0,
     errors: 0,
     skippedBranches: 0,
+    invalidPaths: 0,  // Track invalid nodeIds we skip
     currentPath: '',
     startTime: null,
     rate: 0,
@@ -307,6 +308,84 @@ function getBrowseName(reference) {
     return null;
 }
 
+// Validate nodeId format and path structure
+function isValidNodeId(nodeId) {
+    if (!nodeId || typeof nodeId !== 'string') {
+        return { valid: false, reason: 'nodeId is null or not a string' };
+    }
+
+    // Must follow format: ns=X;s=Y:path/structure
+    if (!nodeId.includes('ns=') || !nodeId.includes(';s=')) {
+        return { valid: false, reason: 'nodeId does not follow ns=X;s=Y format' };
+    }
+
+    // For archive paths, should contain expected structure
+    if (nodeId.includes('Archive/OPCuser/Folders/DefaultHome')) {
+        const pathMatch = nodeId.match(/ns=\d+;s=\d+:(.+)/);
+        if (!pathMatch) {
+            return { valid: false, reason: 'Could not extract path from nodeId' };
+        }
+
+        const path = pathMatch[1];
+        const pathParts = path.split('/');
+
+        // Must have at least: Archive, OPCuser, Folders, DefaultHome, and some folder
+        if (pathParts.length < 5) {
+            return { valid: false, reason: 'Path too short - missing required structure' };
+        }
+
+        // Verify starts with expected structure
+        if (pathParts[0] !== 'Archive' ||
+            pathParts[1] !== 'OPCuser' ||
+            pathParts[2] !== 'Folders' ||
+            pathParts[3] !== 'DefaultHome') {
+            return { valid: false, reason: 'Path does not start with Archive/OPCuser/Folders/DefaultHome' };
+        }
+
+        // Check for suspicious patterns that might indicate bad path construction
+        if (path.includes('//') || path.includes('\\')) {
+            return { valid: false, reason: 'Path contains double slashes or backslashes' };
+        }
+
+        // Check for empty path segments
+        if (pathParts.some(part => part === '')) {
+            return { valid: false, reason: 'Path contains empty segments' };
+        }
+    }
+
+    return { valid: true };
+}
+
+// Validate that a nodeId actually exists on the server
+async function nodeExists(session, nodeId) {
+    try {
+        // First validate the nodeId format
+        const validation = isValidNodeId(nodeId);
+        if (!validation.valid) {
+            console.log(`   ⚠️ Node validation failed (format): ${validation.reason}`);
+            return false;
+        }
+
+        // Try to read the NodeClass attribute - this is a lightweight check
+        const dataValue = await session.read({
+            nodeId: nodeId,
+            attributeId: opcua.AttributeIds.NodeClass
+        });
+
+        // Check if the read was successful
+        const exists = dataValue.statusCode === opcua.StatusCodes.Good;
+
+        if (!exists) {
+            console.log(`   ⚠️ Node does not exist on server (status: ${dataValue.statusCode.toString()})`);
+        }
+
+        return exists;
+    } catch (error) {
+        console.log(`   ⚠️ Node existence check failed: ${error.message}`);
+        return false;
+    }
+}
+
 // Browse children with proper details
 async function browseChildNames(session, nodeId) {
     // Check cache first
@@ -314,6 +393,26 @@ async function browseChildNames(session, nodeId) {
     if (cached) {
         console.log(`📦 Cache hit for ${nodeId}`);
         return cached;
+    }
+
+    // VALIDATE: Check format before trying to browse
+    const validation = isValidNodeId(nodeId);
+    if (!validation.valid) {
+        console.log(`❌ Invalid nodeId format, skipping: ${nodeId}`);
+        console.log(`   Reason: ${validation.reason}`);
+        traversalState.invalidPaths++;
+        cache.set(cache.browseResults, nodeId, []); // Cache as empty to avoid retry
+        return [];
+    }
+
+    // VALIDATE: Check if node actually exists on server
+    console.log(`🔍 Validating node exists: ${nodeId}`);
+    const exists = await nodeExists(session, nodeId);
+    if (!exists) {
+        console.log(`❌ Node does not exist, skipping: ${nodeId}`);
+        traversalState.invalidPaths++;
+        cache.set(cache.browseResults, nodeId, []); // Cache as empty
+        return [];
     }
 
     // Rate limit to prevent overwhelming the server
@@ -675,7 +774,23 @@ async function traverseFolder(session, nodeId, depth = 0, visitedNodes = new Set
             const childName = getBrowseName(child);
             const childNodeId = child.nodeId?.toString();
 
-            if (!childNodeId) continue;
+            if (!childNodeId) {
+                console.log(`${'  '.repeat(depth)}⚠️ Skipping child with no nodeId: ${childName}`);
+                traversalState.invalidPaths++;
+                broadcastProgress();
+                continue;
+            }
+
+            // VALIDATE child nodeId before traversing
+            const validation = isValidNodeId(childNodeId);
+            if (!validation.valid) {
+                console.log(`${'  '.repeat(depth)}⚠️ Skipping invalid child nodeId: ${childName}`);
+                console.log(`${'  '.repeat(depth)}   NodeId: ${childNodeId}`);
+                console.log(`${'  '.repeat(depth)}   Reason: ${validation.reason}`);
+                traversalState.invalidPaths++;
+                broadcastProgress();
+                continue;
+            }
 
             console.log(`${'  '.repeat(depth)}➡️ Traversing into: ${childName}`);
             await traverseFolder(session, childNodeId, depth + 1, visitedNodes);
@@ -726,6 +841,7 @@ async function startTraversal() {
         insertedRecords: 0,
         errors: 0,
         skippedBranches: 0,
+        invalidPaths: 0,
         currentPath: '',
         startTime: Date.now(),
         rate: 0,
@@ -787,7 +903,8 @@ async function startTraversal() {
         console.log(`   • Found: ${traversalState.discoveredVariables} variables`);
         console.log(`   • Inserted: ${traversalState.insertedRecords} records`);
         console.log(`   • Errors: ${traversalState.errors}`);
-        console.log(`   • Skipped: ${traversalState.skippedBranches} branches`);
+        console.log(`   • Skipped branches: ${traversalState.skippedBranches}`);
+        console.log(`   • Invalid paths: ${traversalState.invalidPaths}`);
         console.log(`   • Duration: ${Math.round((Date.now() - traversalState.startTime) / 1000)} seconds`);
 
         // Disconnect OPC UA after traversal completes
@@ -821,6 +938,7 @@ function broadcastProgress() {
         insertedRecords: traversalState.insertedRecords,
         errors: traversalState.errors,
         skippedBranches: traversalState.skippedBranches,
+        invalidPaths: traversalState.invalidPaths,
         currentPath: traversalState.currentPath,
         rate: traversalState.processedFolders > 0
             ? (traversalState.processedFolders / ((Date.now() - traversalState.startTime) / 1000))
@@ -886,6 +1004,8 @@ app.get('/api/traverse/stats', (req, res) => {
         discoveredVariables: traversalState.discoveredVariables,
         insertedRecords: traversalState.insertedRecords,
         errors: traversalState.errors,
+        skippedBranches: traversalState.skippedBranches,
+        invalidPaths: traversalState.invalidPaths,
         currentPath: traversalState.currentPath,
         rate: traversalState.processedFolders > 0
             ? (traversalState.processedFolders / ((Date.now() - traversalState.startTime) / 1000))

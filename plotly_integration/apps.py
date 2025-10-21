@@ -100,9 +100,13 @@ class PlotlyIntegrationConfig(AppConfig):
 
                 #Octet Apps
                 import plotly_integration.dash_apps.Analytical.octet.octet_analysis_app
+                import plotly_integration.dash_apps.Analytical.octet_app.octet_analysis_app
+                import plotly_integration.process_development.analytical.octet.apps.octet_analysis_app_v2
+                import plotly_integration.process_development.analytical.octet.octet_kinetics_dash_app
 
                 #Lims Apps
                 import plotly_integration.process_development.lims.dn_assignment_app
+                import plotly_integration.process_development.lims.dn_assignment_app_v2
                 import plotly_integration.dash_apps.DSP.experiment_set
                 import plotly_integration.dash_apps.DSP.experiment_set_improved
                 import plotly_integration.dash_apps.DSP.experiment_set_refined
@@ -128,13 +132,19 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.cld.project_management_app
                 import plotly_integration.cld.clonality_report_analyzer
 
-                #USP Experiment Management
-                import plotly_integration.usp.experiment_management_app
-                import plotly_integration.usp.media_tracking_app
+                #USP Apps
+                import plotly_integration.usp.media_tracking_app.media_tracking_app
+                import plotly_integration.usp.experiment_management_app.experiment_management_app
+                import plotly_integration.usp.vicell.vicell_report_app
+                import plotly_integration.usp.nova_flex_2.nova_report_app
+                import plotly_integration.usp.nova_flex_2.nova_data_viewer
+                import plotly_integration.usp.titer.titer_report_app
 
-                #New PD Dash App
+
+
                 try:
                     import plotly_integration.pd_dashboard.main_app
+                    import plotly_integration.pd_dashboard.home_dashboard_app
                     print('PD Dashboard App loaded successfully')
                 except Exception as e:
                     print(f'PD Dashboard App failed to load: {e}')

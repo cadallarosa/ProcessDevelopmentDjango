@@ -1,0 +1,227 @@
+2025/09/17 15:17:20	Experiment started
+2025/09/17 15:17:20	Plate 1 temperature = 30 C
+2025/09/17 15:17:20	Starting new step
+2025/09/17 15:17:20	Waiting to pick up sensor location A1
+2025/09/17 15:17:20	Picking sensors location A1
+2025/09/17 15:17:29	Checking sensors location A1
+2025/09/17 15:17:30	Sensor 1: Integration Time = 2.54 ms
+2025/09/17 15:17:30	Sensor 2: Integration Time = 2.78 ms
+2025/09/17 15:17:30	Sensor 3: Integration Time = 2.10 ms
+2025/09/17 15:17:30	Sensor 4: Integration Time = 2.40 ms
+2025/09/17 15:17:30	Sensor 5: Integration Time = 3.11 ms
+2025/09/17 15:17:30	Sensor 6: Integration Time = 2.98 ms
+2025/09/17 15:17:30	Sensor 7: Integration Time = 2.26 ms
+2025/09/17 15:17:30	Sensor 8: Integration Time = 2.14 ms
+2025/09/17 15:17:37	Picking sensors completed location A1
+2025/09/17 15:17:37	Plate 1 temperature = 30 C
+2025/09/17 15:17:37	Ready to move to sample location A1
+2025/09/17 15:17:38	Moving to sample location A1
+2025/09/17 15:17:42	Arrived at sample location A1
+2025/09/17 15:17:43	Waiting to start sample location A1
+2025/09/17 15:17:43	Processing sample location A1
+2025/09/17 15:20:42	Sample completed location A1
+2025/09/17 15:20:42	Waiting to start new step
+2025/09/17 15:20:43	Starting new step
+2025/09/17 15:20:43	Ready to move to sample location A2
+2025/09/17 15:20:43	Moving to sample location A2
+2025/09/17 15:20:48	Arrived at sample location A2
+2025/09/17 15:20:48	Waiting to start sample location A2
+2025/09/17 15:20:48	Processing sample location A2
+2025/09/17 15:21:08	Sample completed location A2
+2025/09/17 15:21:08	Waiting to start new step
+2025/09/17 15:21:09	Starting new step
+2025/09/17 15:21:09	Ready to move to sample location A1
+2025/09/17 15:21:09	Moving to sample location A1
+2025/09/17 15:21:14	Arrived at sample location A1
+2025/09/17 15:21:14	Waiting to start sample location A1
+2025/09/17 15:21:14	Processing sample location A1
+2025/09/17 15:21:34	Sample completed location A1
+2025/09/17 15:21:34	Waiting to start new step
+2025/09/17 15:21:34	Starting new step
+2025/09/17 15:21:34	Ready to move to sample location A2
+2025/09/17 15:21:35	Moving to sample location A2
+2025/09/17 15:21:39	Arrived at sample location A2
+2025/09/17 15:21:40	Waiting to start sample location A2
+2025/09/17 15:21:40	Processing sample location A2
+2025/09/17 15:21:59	Sample completed location A2
+2025/09/17 15:22:00	Waiting to start new step
+2025/09/17 15:22:00	Starting new step
+2025/09/17 15:22:00	Ready to move to sample location A1
+2025/09/17 15:22:00	Moving to sample location A1
+2025/09/17 15:22:05	Arrived at sample location A1
+2025/09/17 15:22:05	Waiting to start sample location A1
+2025/09/17 15:22:05	Processing sample location A1
+2025/09/17 15:22:25	Sample completed location A1
+2025/09/17 15:22:25	Waiting to start new step
+2025/09/17 15:22:26	Starting new step
+2025/09/17 15:22:26	Ready to move to sample location A2
+2025/09/17 15:22:26	Moving to sample location A2
+2025/09/17 15:22:31	Arrived at sample location A2
+2025/09/17 15:22:31	Waiting to start sample location A2
+2025/09/17 15:22:31	Processing sample location A2
+2025/09/17 15:22:51	Sample completed location A2
+2025/09/17 15:22:51	Waiting to start new step
+2025/09/17 15:22:51	Starting new step
+2025/09/17 15:22:52	Ready to move to sample location A1
+2025/09/17 15:22:52	Moving to sample location A1
+2025/09/17 15:22:57	Arrived at sample location A1
+2025/09/17 15:22:57	Waiting to start sample location A1
+2025/09/17 15:22:57	Processing sample location A1
+2025/09/17 15:23:17	Sample completed location A1
+2025/09/17 15:23:17	Waiting to start new step
+2025/09/17 15:23:17	Starting new step
+2025/09/17 15:23:17	Ready to move to sample location A3
+2025/09/17 15:23:18	Moving to sample location A3
+2025/09/17 15:23:23	Arrived at sample location A3
+2025/09/17 15:23:23	Waiting to start sample location A3
+2025/09/17 15:23:23	Processing sample location A3
+2025/09/17 15:25:23	Sample completed location A3
+2025/09/17 15:25:23	Waiting to start new step
+2025/09/17 15:25:23	Starting new step
+2025/09/17 15:25:23	Ready to move to sample location A4
+2025/09/17 15:25:23	Moving to sample location A4
+2025/09/17 15:25:29	Arrived at sample location A4
+2025/09/17 15:25:30	Waiting to start sample location A4
+2025/09/17 15:25:30	Processing sample location A4
+2025/09/17 15:25:49	Sample completed location A4
+2025/09/17 15:25:50	Waiting to start new step
+2025/09/17 15:25:50	Starting new step
+2025/09/17 15:25:50	Ready to move to sample location A5
+2025/09/17 15:25:50	Moving to sample location A5
+2025/09/17 15:25:57	Arrived at sample location A5
+2025/09/17 15:25:57	Waiting to start sample location A5
+2025/09/17 15:25:57	Processing sample location A5
+2025/09/17 15:26:57	Sample completed location A5
+2025/09/17 15:26:57	Waiting to start new step
+2025/09/17 15:26:57	Starting new step
+2025/09/17 15:26:58	Ready to move to sample location A6
+2025/09/17 15:26:58	Moving to sample location A6
+2025/09/17 15:27:05	Arrived at sample location A6
+2025/09/17 15:27:05	Waiting to start sample location A6
+2025/09/17 15:27:05	Processing sample location A6
+2025/09/17 15:27:25	Sample completed location A6
+2025/09/17 15:27:25	Waiting to start new step
+2025/09/17 15:27:25	Starting new step
+2025/09/17 15:27:25	Ready to move to sample location A7
+2025/09/17 15:27:25	Moving to sample location A7
+2025/09/17 15:27:33	Arrived at sample location A7
+2025/09/17 15:27:33	Waiting to start sample location A7
+2025/09/17 15:27:33	Processing sample location A7
+2025/09/17 15:29:33	Sample completed location A7
+2025/09/17 15:29:33	Waiting for ejection start location A1
+2025/09/17 15:29:33	Ejecting sensor location A1
+2025/09/17 15:30:01	Ejecting completed location A1
+2025/09/17 15:30:01	Waiting to start new step
+2025/09/17 15:30:02	Starting new step
+2025/09/17 15:30:02	Waiting to pick up sensor location A2
+2025/09/17 15:30:02	Picking sensors location A2
+2025/09/17 15:30:10	Checking sensors location A2
+2025/09/17 15:30:11	Sensor 1: Integration Time = 2.60 ms
+2025/09/17 15:30:11	Sensor 2: Integration Time = 2.68 ms
+2025/09/17 15:30:11	Sensor 3: Integration Time = 2.11 ms
+2025/09/17 15:30:11	Sensor 4: Integration Time = 2.29 ms
+2025/09/17 15:30:11	Sensor 5: Integration Time = 3.10 ms
+2025/09/17 15:30:11	Sensor 6: Integration Time = 3.02 ms
+2025/09/17 15:30:11	Sensor 7: Integration Time = 2.26 ms
+2025/09/17 15:30:11	Sensor 8: Integration Time = 2.11 ms
+2025/09/17 15:30:19	Picking sensors completed location A2
+2025/09/17 15:30:19	Ready to move to sample location A1
+2025/09/17 15:30:19	Plate 1 temperature = 30 C
+2025/09/17 15:30:19	Moving to sample location A1
+2025/09/17 15:30:24	Arrived at sample location A1
+2025/09/17 15:30:24	Waiting to start sample location A1
+2025/09/17 15:30:24	Processing sample location A1
+2025/09/17 15:33:24	Sample completed location A1
+2025/09/17 15:33:24	Waiting to start new step
+2025/09/17 15:33:24	Starting new step
+2025/09/17 15:33:24	Ready to move to sample location A2
+2025/09/17 15:33:24	Moving to sample location A2
+2025/09/17 15:33:29	Arrived at sample location A2
+2025/09/17 15:33:29	Waiting to start sample location A2
+2025/09/17 15:33:29	Processing sample location A2
+2025/09/17 15:33:49	Sample completed location A2
+2025/09/17 15:33:49	Waiting to start new step
+2025/09/17 15:33:50	Starting new step
+2025/09/17 15:33:50	Ready to move to sample location A1
+2025/09/17 15:33:50	Moving to sample location A1
+2025/09/17 15:33:55	Arrived at sample location A1
+2025/09/17 15:33:55	Waiting to start sample location A1
+2025/09/17 15:33:55	Processing sample location A1
+2025/09/17 15:34:15	Sample completed location A1
+2025/09/17 15:34:15	Waiting to start new step
+2025/09/17 15:34:16	Starting new step
+2025/09/17 15:34:16	Ready to move to sample location A2
+2025/09/17 15:34:16	Moving to sample location A2
+2025/09/17 15:34:21	Arrived at sample location A2
+2025/09/17 15:34:21	Waiting to start sample location A2
+2025/09/17 15:34:21	Processing sample location A2
+2025/09/17 15:34:40	Sample completed location A2
+2025/09/17 15:34:41	Waiting to start new step
+2025/09/17 15:34:41	Starting new step
+2025/09/17 15:34:41	Ready to move to sample location A1
+2025/09/17 15:34:42	Moving to sample location A1
+2025/09/17 15:34:46	Arrived at sample location A1
+2025/09/17 15:34:46	Waiting to start sample location A1
+2025/09/17 15:34:46	Processing sample location A1
+2025/09/17 15:35:06	Sample completed location A1
+2025/09/17 15:35:06	Waiting to start new step
+2025/09/17 15:35:07	Starting new step
+2025/09/17 15:35:07	Ready to move to sample location A2
+2025/09/17 15:35:07	Moving to sample location A2
+2025/09/17 15:35:12	Arrived at sample location A2
+2025/09/17 15:35:12	Waiting to start sample location A2
+2025/09/17 15:35:12	Processing sample location A2
+2025/09/17 15:35:32	Sample completed location A2
+2025/09/17 15:35:32	Waiting to start new step
+2025/09/17 15:35:32	Starting new step
+2025/09/17 15:35:33	Ready to move to sample location A1
+2025/09/17 15:35:33	Moving to sample location A1
+2025/09/17 15:35:37	Arrived at sample location A1
+2025/09/17 15:35:37	Waiting to start sample location A1
+2025/09/17 15:35:37	Processing sample location A1
+2025/09/17 15:35:57	Sample completed location A1
+2025/09/17 15:35:57	Waiting to start new step
+2025/09/17 15:35:58	Starting new step
+2025/09/17 15:35:58	Ready to move to sample location A3
+2025/09/17 15:35:58	Moving to sample location A3
+2025/09/17 15:36:04	Arrived at sample location A3
+2025/09/17 15:36:04	Waiting to start sample location A3
+2025/09/17 15:36:04	Processing sample location A3
+2025/09/17 15:38:03	Sample completed location A3
+2025/09/17 15:38:04	Waiting to start new step
+2025/09/17 15:38:04	Starting new step
+2025/09/17 15:38:04	Ready to move to sample location A8
+2025/09/17 15:38:04	Moving to sample location A8
+2025/09/17 15:38:12	Arrived at sample location A8
+2025/09/17 15:38:12	Waiting to start sample location A8
+2025/09/17 15:38:12	Processing sample location A8
+2025/09/17 15:38:32	Sample completed location A8
+2025/09/17 15:38:32	Waiting to start new step
+2025/09/17 15:38:33	Starting new step
+2025/09/17 15:38:33	Ready to move to sample location A9
+2025/09/17 15:38:33	Moving to sample location A9
+2025/09/17 15:38:42	Arrived at sample location A9
+2025/09/17 15:38:42	Waiting to start sample location A9
+2025/09/17 15:38:42	Processing sample location A9
+2025/09/17 15:39:42	Sample completed location A9
+2025/09/17 15:39:42	Waiting to start new step
+2025/09/17 15:39:42	Starting new step
+2025/09/17 15:39:43	Ready to move to sample location A10
+2025/09/17 15:39:43	Moving to sample location A10
+2025/09/17 15:39:52	Arrived at sample location A10
+2025/09/17 15:39:52	Waiting to start sample location A10
+2025/09/17 15:39:52	Processing sample location A10
+2025/09/17 15:40:12	Sample completed location A10
+2025/09/17 15:40:12	Waiting to start new step
+2025/09/17 15:40:12	Starting new step
+2025/09/17 15:40:13	Ready to move to sample location A11
+2025/09/17 15:40:13	Moving to sample location A11
+2025/09/17 15:40:23	Arrived at sample location A11
+2025/09/17 15:40:23	Waiting to start sample location A11
+2025/09/17 15:40:23	Processing sample location A11
+2025/09/17 15:42:23	Sample completed location A11
+2025/09/17 15:42:23	Waiting for ejection start location A2
+2025/09/17 15:42:23	Ejecting sensor location A2
+2025/09/17 15:42:52	Ejecting completed location A2
+2025/09/17 15:42:52	Experiment finished
+2025/09/17 15:42:52	Ready

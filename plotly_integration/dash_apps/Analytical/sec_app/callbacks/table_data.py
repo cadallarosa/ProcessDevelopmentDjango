@@ -1,10 +1,33 @@
 import numpy as np
 import pandas as pd
+import re
 
 from plotly_integration.models import Report, SampleMetadata, PeakResults
 from ..app import app
 from dash import Input, Output, State, html
 import dash
+
+
+def natural_sort_key(sample_name):
+    """
+    Extract prefix and numeric components from sample name for natural sorting.
+
+    Examples:
+        'UP001' -> ('UP', 1)
+        'UPFB0012' -> ('UPFB', 12)
+        'FB10' -> ('FB', 10)
+        'PD002' -> ('PD', 2)
+
+    This ensures samples are sorted by prefix first, then numerically within each prefix.
+    """
+    # Match pattern: prefix (letters) + number
+    match = re.match(r'([A-Za-z]+)(\d+)', sample_name)
+    if match:
+        prefix = match.group(1)
+        number = int(match.group(2))
+        return (prefix, number)
+    # Fallback for non-standard names
+    return (sample_name, 0)
 
 
 @app.callback(
@@ -33,10 +56,21 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
     if not report:
         return [], [], []
 
-    selected_result_ids = sorted(
-        [sample.strip() for sample in report.selected_result_ids.split(",") if sample.strip()],
-        key=lambda x: int(x)
-    )
+    # Get result IDs from report
+    result_ids = [sample.strip() for sample in report.selected_result_ids.split(",") if sample.strip()]
+
+    # Build list of (sample_name, result_id) tuples by querying SampleMetadata
+    sample_result_pairs = []
+    for result_id in result_ids:
+        sample = SampleMetadata.objects.filter(result_id=result_id).first()
+        if sample:
+            sample_result_pairs.append((sample.sample_name, result_id))
+
+    # Sort by sample name using natural sorting (prefix + numeric)
+    sample_result_pairs.sort(key=lambda x: natural_sort_key(x[0]))
+
+    # Extract sorted result_ids
+    selected_result_ids = [pair[1] for pair in sample_result_pairs]
 
     project = LimsProjectInformation.objects.filter(protein=report.project_id).first()
     expected_mw = project.molecular_weight / 1000 if project else None
@@ -139,28 +173,33 @@ def update_hmw_table(selected_columns, report_name, main_peak_rt, low_mw_cutoff,
                 lmw_percent = f">{round(100 - ((peak_area_cutoff / total_area) * 100), 2)}"
 
         # ✅ MW calculation using max point in main peak region from time-series
-        try:
-            time_series = TimeSeriesData.objects.filter(result_id=sample.result_id).values("time", "channel_1")
-            ts_df = pd.DataFrame(time_series)
+        if slope == 0 and intercept == 0:
+            # No standard curve available
+            calc_mw = ""
+            mw_deviation = ""
+        else:
+            try:
+                time_series = TimeSeriesData.objects.filter(result_id=sample.result_id).values("time", "channel_1")
+                ts_df = pd.DataFrame(time_series)
 
-            # Filter to main peak region
-            region_df = ts_df[
-                (ts_df['time'] >= main_peak_start) &
-                (ts_df['time'] <= main_peak_end)
-                ]
+                # Filter to main peak region
+                region_df = ts_df[
+                    (ts_df['time'] >= main_peak_start) &
+                    (ts_df['time'] <= main_peak_end)
+                    ]
 
-            max_row = region_df.loc[region_df['channel_1'].idxmax()]
-            max_ret_time = max_row['time']
-            log_mw = slope * float(max_ret_time) + intercept
-            calc_mw = round(np.exp(log_mw) / 1000, 2)
-            mw_deviation = (
-                round(((calc_mw - expected_mw) / expected_mw) * 100, 2)
-                if expected_mw else "N/A"
-            )
-        except Exception as e:
-            print(f"MW calc failed for {sample.sample_name}: {e}")
-            calc_mw = "Error"
-            mw_deviation = "Error"
+                max_row = region_df.loc[region_df['channel_1'].idxmax()]
+                max_ret_time = max_row['time']
+                log_mw = slope * float(max_ret_time) + intercept
+                calc_mw = round(np.exp(log_mw) / 1000, 2)
+                mw_deviation = (
+                    round(((calc_mw - expected_mw) / expected_mw) * 100, 2)
+                    if expected_mw else "N/A"
+                )
+            except Exception as e:
+                print(f"MW calc failed for {sample.sample_name}: {e}")
+                calc_mw = ""
+                mw_deviation = ""
 
         summary_data.append({
             'Sample Name': sample.sample_name,

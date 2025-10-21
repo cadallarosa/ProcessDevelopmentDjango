@@ -141,8 +141,8 @@ app.layout = html.Div([
                     placeholder="Select samples to analyze...",
                     style={"font-size": "12px"}
                 )
-            ], md=8),
-            
+            ], md=6),
+
             dbc.Col([
                 dcc.Checklist(
                     id='plot-options',
@@ -166,8 +166,19 @@ app.layout = html.Div([
                         style={"display": "none"}
                     )
                 ])
-            ], md=2),
-            
+            ], md=3),
+
+            dbc.Col([
+                dcc.Checklist(
+                    id='include-standards-option',
+                    options=[{"label": " Show Standards", "value": "include_standards"}],
+                    value=[],
+                    inline=True,
+                    style={"font-size": "11px", "margin-top": "20px"},
+                    inputStyle={"margin-right": "6px"}
+                )
+            ], md=1),
+
             dbc.Col([
                 html.Button([
                     html.I(className="fas fa-play me-1"),
@@ -175,9 +186,23 @@ app.layout = html.Div([
                 ], id='run-all-analysis-btn', className="btn btn-primary",
                    style={"width": "100%", "margin-top": "18px"})
             ], md=2)
-        ], className="mb-3"),
-        
-        # Second Row - Analysis Parameters
+        ], className="mb-2"),
+
+        # Standards Selection Row
+        dbc.Row([
+            dbc.Col([
+                html.Label("Standards for Curve (select which to include):",
+                          style={"font-weight": "bold", "margin-bottom": "3px", "font-size": "12px"}),
+                dcc.Dropdown(
+                    id='standards-selector',
+                    multi=True,
+                    placeholder="All detected standards selected by default...",
+                    style={"font-size": "12px"}
+                )
+            ], md=12)
+        ], className="mb-3", id='standards-selection-row', style={'display': 'none'}),
+
+        # Third Row - Analysis Parameters
         dbc.Row([
             dbc.Col([
                 html.Div([
@@ -298,32 +323,87 @@ app.layout = html.Div([
 def parse_raw_octet_data(contents, filename):
     """Parse raw Octet data file (tab-delimited with time and response pairs)"""
     try:
+        print(f"\n{'='*80}")
+        print(f"DEBUG: Starting parse_raw_octet_data for file: {filename}")
+        print(f"{'='*80}")
+
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
-        
+        print(f"DEBUG: Decoded file size: {len(decoded)} bytes")
+
         # Try to read as tab-delimited file
+        df = None
         try:
+            print("DEBUG: Attempting to read as UTF-8 CSV with tab delimiter...")
             df = pd.read_csv(io.StringIO(decoded.decode('utf-8', errors='ignore')), sep='\t')
-        except:
+            print(f"DEBUG: Successfully read as UTF-8 CSV")
+        except Exception as e:
+            print(f"DEBUG: UTF-8 reading failed: {str(e)}")
+            print("DEBUG: Attempting to read as BytesIO CSV with tab delimiter...")
             df = pd.read_csv(io.BytesIO(decoded), sep='\t')
-        
+            print(f"DEBUG: Successfully read as BytesIO CSV")
+
+        print(f"\nDEBUG: DataFrame shape: {df.shape}")
+        print(f"DEBUG: Number of columns: {len(df.columns)}")
+        print(f"DEBUG: Number of rows: {len(df)}")
+        print(f"\nDEBUG: Column names (first 10):")
+        for idx, col in enumerate(df.columns[:10]):
+            print(f"  [{idx}]: '{col}'")
+        if len(df.columns) > 10:
+            print(f"  ... and {len(df.columns) - 10} more columns")
+
+        print(f"\nDEBUG: First 5 rows of data:")
+        print(df.head())
+
         # Process the data - columns are in pairs (time, response)
         sensors_data = {}
+        print(f"\nDEBUG: Processing sensor columns (expecting pairs)...")
+
         for i in range(0, len(df.columns)-1, 2):
             sensor_name = df.columns[i]
+            next_col_name = df.columns[i+1] if i+1 < len(df.columns) else "N/A"
+
+            print(f"\nDEBUG: Processing column pair [{i}, {i+1}]:")
+            print(f"  Column {i} name: '{sensor_name}'")
+            print(f"  Column {i+1} name: '{next_col_name}'")
+
             if 'Unnamed' not in sensor_name:
+                print(f"  -> Processing sensor: {sensor_name}")
                 time_col = df.iloc[:, i]
                 response_col = df.iloc[:, i+1]
-                
+
                 # Clean data - remove NaN values
                 valid_mask = ~(time_col.isna() | response_col.isna())
+                valid_count = valid_mask.sum()
+                total_count = len(valid_mask)
+
+                print(f"  -> Valid data points: {valid_count}/{total_count}")
+                print(f"  -> Time range: {time_col[valid_mask].min():.2f} to {time_col[valid_mask].max():.2f}")
+                print(f"  -> Response range: {response_col[valid_mask].min():.4f} to {response_col[valid_mask].max():.4f}")
+
                 sensors_data[sensor_name] = pd.DataFrame({
                     'Time': time_col[valid_mask].values,
                     'Response': response_col[valid_mask].values
                 })
-        
+            else:
+                print(f"  -> Skipping unnamed column")
+
+        print(f"\n{'='*80}")
+        print(f"DEBUG: Parsing complete!")
+        print(f"DEBUG: Total sensors extracted: {len(sensors_data)}")
+        print(f"DEBUG: Sensor names: {list(sensors_data.keys())}")
+        print(f"{'='*80}\n")
+
         return sensors_data
     except Exception as e:
+        print(f"\n{'!'*80}")
+        print(f"ERROR: Exception in parse_raw_octet_data for {filename}")
+        print(f"ERROR: {str(e)}")
+        print(f"ERROR: Exception type: {type(e).__name__}")
+        import traceback
+        print(f"ERROR: Traceback:")
+        traceback.print_exc()
+        print(f"{'!'*80}\n")
         logging.error(f"Error parsing raw data {filename}: {str(e)}")
         return None
 
@@ -331,49 +411,94 @@ def parse_raw_octet_data(contents, filename):
 def parse_metadata_file(contents, filename):
     """Parse Octet metadata/ExcelReport file"""
     try:
+        print(f"\n{'='*80}")
+        print(f"DEBUG: Starting parse_metadata_file for file: {filename}")
+        print(f"{'='*80}")
+
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
-        
+        print(f"DEBUG: Decoded file size: {len(decoded)} bytes")
+
         # Try different parsing methods
         metadata = {}
-        
+
         # Try reading as Excel
         try:
+            print("\nDEBUG: Attempting to read as Excel file...")
             excel_file = pd.ExcelFile(io.BytesIO(decoded))
             metadata['sheets'] = excel_file.sheet_names
-            
+            print(f"DEBUG: Successfully read as Excel file")
+            print(f"DEBUG: Sheet names: {excel_file.sheet_names}")
+
             # Read all sheets to extract metadata
-            for sheet in excel_file.sheet_names:
+            for sheet_idx, sheet in enumerate(excel_file.sheet_names):
+                print(f"\n  DEBUG: Processing sheet [{sheet_idx}]: '{sheet}'")
                 df = pd.read_excel(io.BytesIO(decoded), sheet_name=sheet)
+                print(f"  DEBUG: Sheet shape: {df.shape}")
+                print(f"  DEBUG: Columns: {list(df.columns)}")
+                print(f"  DEBUG: First 3 rows:")
+                print(df.head(3))
+
                 metadata[sheet] = df.to_dict('records')
-                
+
                 # Look for specific metadata tables
-                if 'Sensor' in str(df.columns) and 'Sample ID' in str(df.columns):
+                columns_str = str(df.columns)
+                print(f"  DEBUG: Checking for 'Sensor' in columns: {'Sensor' in columns_str}")
+                print(f"  DEBUG: Checking for 'Sample ID' in columns: {'Sample ID' in columns_str}")
+
+                if 'Sensor' in columns_str and 'Sample ID' in columns_str:
                     # This is likely the sensor/sample mapping table
+                    print(f"  -> Found sensor/sample mapping table!")
                     metadata['sensor_info'] = df.to_dict('records')
-                    metadata['sensor_mapping'] = {
-                        row['Sensor Location']: {
-                            'sample_id': row['Sample ID'],
-                            'sensor_type': row.get('Sensor Type', ''),
-                            'color': row.get('Color', None),
-                            'replicate': row.get('Replicate Group', 'N/A')
-                        } for row in df.to_dict('records') if 'Sensor Location' in row
-                    }
-                
-                if 'Step Data Name' in str(df.columns) and 'Assay Time' in str(df.columns):
+
+                    # Check if 'Sensor Location' column exists
+                    if 'Sensor Location' in df.columns:
+                        print(f"  -> Creating sensor_mapping with {len(df)} entries")
+                        metadata['sensor_mapping'] = {
+                            row['Sensor Location']: {
+                                'sample_id': row['Sample ID'],
+                                'sensor_type': row.get('Sensor Type', ''),
+                                'color': row.get('Color', None),
+                                'replicate': row.get('Replicate Group', 'N/A')
+                            } for row in df.to_dict('records') if 'Sensor Location' in row
+                        }
+                        print(f"  -> Sensor locations: {list(metadata['sensor_mapping'].keys())}")
+                    else:
+                        print(f"  WARNING: 'Sensor Location' column not found in sensor mapping table")
+                        print(f"  Available columns: {list(df.columns)}")
+
+                print(f"  DEBUG: Checking for 'Step Data Name' in columns: {'Step Data Name' in columns_str}")
+                print(f"  DEBUG: Checking for 'Assay Time' in columns: {'Assay Time' in columns_str}")
+
+                if 'Step Data Name' in columns_str and 'Assay Time' in columns_str:
                     # This is the assay steps table
+                    print(f"  -> Found assay steps table with {len(df)} steps")
                     metadata['assay_steps'] = df.to_dict('records')
-        except:
+
+        except Exception as excel_error:
             # Try reading as HTML tables
+            print(f"\nDEBUG: Excel parsing failed: {str(excel_error)}")
+            print(f"DEBUG: Exception type: {type(excel_error).__name__}")
+            print("\nDEBUG: Attempting to read as HTML file...")
+
             try:
                 dfs = pd.read_html(io.BytesIO(decoded))
+                print(f"DEBUG: Successfully read as HTML")
+                print(f"DEBUG: Found {len(dfs)} tables")
                 metadata['tables'] = []
-                
+
                 for i, df in enumerate(dfs):
+                    print(f"\n  DEBUG: Processing HTML table [{i}]:")
+                    print(f"  DEBUG: Table shape: {df.shape}")
+                    print(f"  DEBUG: Columns: {list(df.columns)}")
+                    print(f"  DEBUG: First 3 rows:")
+                    print(df.head(3))
+
                     metadata['tables'].append(df.to_dict('records'))
-                    
+
                     # Check for sensor info table
                     if 'Sensor Location' in df.columns and 'Sample ID' in df.columns:
+                        print(f"  -> Found sensor info table!")
                         metadata['sensor_info'] = df.to_dict('records')
                         metadata['sensor_mapping'] = {
                             row['Sensor Location']: {
@@ -383,15 +508,39 @@ def parse_metadata_file(contents, filename):
                                 'replicate': row.get('Replicate Group', 'N/A')
                             } for row in df.to_dict('records')
                         }
-                    
+                        print(f"  -> Sensor locations: {list(metadata['sensor_mapping'].keys())}")
+
                     # Check for assay steps table
                     if 'Step Data Name' in df.columns and 'Assay Time' in df.columns:
+                        print(f"  -> Found assay steps table with {len(df)} steps")
                         metadata['assay_steps'] = df.to_dict('records')
-            except:
+
+            except Exception as html_error:
+                print(f"\nDEBUG: HTML parsing also failed: {str(html_error)}")
+                print(f"DEBUG: Exception type: {type(html_error).__name__}")
                 metadata['error'] = "Could not parse metadata file"
-        
+
+        print(f"\n{'='*80}")
+        print(f"DEBUG: Metadata parsing complete!")
+        print(f"DEBUG: Metadata keys: {list(metadata.keys())}")
+        if 'sensor_mapping' in metadata:
+            print(f"DEBUG: Found sensor_mapping with {len(metadata['sensor_mapping'])} entries")
+        if 'assay_steps' in metadata:
+            print(f"DEBUG: Found assay_steps with {len(metadata['assay_steps'])} steps")
+        if 'error' in metadata:
+            print(f"ERROR: Parsing failed with error: {metadata['error']}")
+        print(f"{'='*80}\n")
+
         return metadata
     except Exception as e:
+        print(f"\n{'!'*80}")
+        print(f"ERROR: Exception in parse_metadata_file for {filename}")
+        print(f"ERROR: {str(e)}")
+        print(f"ERROR: Exception type: {type(e).__name__}")
+        import traceback
+        print(f"ERROR: Traceback:")
+        traceback.print_exc()
+        print(f"{'!'*80}\n")
         logging.error(f"Error parsing metadata {filename}: {str(e)}")
         return None
 
@@ -601,32 +750,54 @@ def calculate_initial_response_slope(time_data, response_data, start_time, end_t
 
 
 def extract_standard_concentrations(metadata):
-    """Extract standard concentrations from metadata"""
+    """Extract standard concentrations from metadata by parsing 'Std' or 'STD' followed by a number"""
+    import re
+
+    print(f"\n{'='*80}")
+    print(f"DEBUG: extract_standard_concentrations called")
+    print(f"{'='*80}")
+
     standards = {}
-    
+
     # Look for standards in sensor mapping
     sensor_mapping = metadata.get('sensor_mapping', {})
-    
-    # Standard concentration mapping (you provided this)
-    std_concentrations = {
-        'Std 7': 7.0,
-        'Std 5': 5.0, 
-        'Std 2.5': 2.5,
-        'Std 1.25': 1.25,
-        'Std 0.625': 0.625
-    }
-    
+    print(f"DEBUG: sensor_mapping has {len(sensor_mapping)} entries")
+    print(f"DEBUG: Sensor mapping keys: {list(sensor_mapping.keys())}")
+
+    # Regex pattern to match "Std" or "STD" followed by a number (int or float)
+    # Examples: "Std 7", "STD 0.5", "Std 2.5", "std 0.125"
+    std_pattern = re.compile(r'\b(?:std|STD)\s*(\d+\.?\d*)\b', re.IGNORECASE)
+
+    print(f"\nDEBUG: Using dynamic pattern matching for standards...")
+
     for sensor, info in sensor_mapping.items():
-        sample_id = info.get('sample_id', '')
-        for std_name, concentration in std_concentrations.items():
-            if std_name in str(sample_id):
+        sample_id = str(info.get('sample_id', ''))
+        print(f"\nDEBUG: Checking sensor '{sensor}' with sample_id '{sample_id}'")
+
+        # Try to find "Std" or "STD" followed by a concentration value
+        match = std_pattern.search(sample_id)
+
+        if match:
+            try:
+                concentration = float(match.group(1))
                 standards[sensor] = {
                     'concentration': concentration,
                     'sample_id': sample_id,
                     'units': 'µg/mL'  # Assuming concentration units
                 }
-                break
-    
+                print(f"  -> MATCHED! Standard detected: '{sample_id}', concentration: {concentration} µg/mL")
+            except ValueError as e:
+                print(f"  -> ERROR: Could not parse concentration from '{match.group(1)}': {e}")
+        else:
+            print(f"  -> No standard pattern found in '{sample_id}'")
+
+    print(f"\n{'='*80}")
+    print(f"DEBUG: extract_standard_concentrations complete")
+    print(f"DEBUG: Found {len(standards)} standards: {list(standards.keys())}")
+    for sensor, std_info in standards.items():
+        print(f"  {sensor}: {std_info['sample_id']} = {std_info['concentration']} {std_info['units']}")
+    print(f"{'='*80}\n")
+
     return standards
 
 
@@ -659,28 +830,51 @@ def calculate_bb_percentage(time_data, response_data, time1, time2, buffer_time=
 
 def create_standard_curve(standard_data):
     """Create standard curve from concentration vs initial response data"""
+    print(f"\n{'='*80}")
+    print(f"STD CURVE: create_standard_curve called")
+    print(f"STD CURVE: Number of standards: {len(standard_data)}")
+    print(f"{'='*80}")
+
     if len(standard_data) < 3:
+        print(f"STD CURVE: INSUFFICIENT data points ({len(standard_data)} < 3), returning None")
         return None, None, None, None
-    
+
     concentrations = []
     responses = []
-    
-    for std_info in standard_data:
-        concentrations.append(std_info['concentration'])
-        responses.append(std_info['slope'])
-    
+
+    print(f"\nSTD CURVE: Processing standard data points:")
+    for idx, std_info in enumerate(standard_data):
+        conc = std_info['concentration']
+        slope = std_info['slope']
+        sensor = std_info.get('sensor', 'Unknown')
+        concentrations.append(conc)
+        responses.append(slope)
+        print(f"  [{idx}] {sensor}: conc={conc}, response={slope:.6f}")
+
     concentrations = np.array(concentrations)
     responses = np.array(responses)
-    
+
+    print(f"\nSTD CURVE: Fitting linear curve...")
+    print(f"STD CURVE: X (concentrations): {concentrations}")
+    print(f"STD CURVE: Y (responses): {responses}")
+
     # Fit linear standard curve
     coeffs = np.polyfit(concentrations, responses, 1)
     slope = coeffs[0]  # response per unit concentration
     intercept = coeffs[1]
-    
+
+    print(f"\nSTD CURVE: Linear fit results:")
+    print(f"  Slope: {slope:.6f}")
+    print(f"  Intercept: {intercept:.6f}")
+    print(f"  Equation: y = {slope:.6f}x + {intercept:.6f}")
+
     # Calculate R-squared
     fitted_responses = np.polyval(coeffs, concentrations)
     r_squared = calculate_r_squared(responses, fitted_responses)
-    
+
+    print(f"  R²: {r_squared:.4f}")
+    print(f"{'='*80}\n")
+
     return slope, intercept, r_squared, (concentrations, responses, fitted_responses)
 
 
@@ -758,29 +952,45 @@ def show_content_tabs(processed_data):
     [State('upload-raw-data', 'filename')]
 )
 def handle_raw_data_upload(contents, filename):
+    print(f"\n{'*'*80}")
+    print(f"CALLBACK: handle_raw_data_upload triggered")
+    print(f"CALLBACK: Filename: {filename}")
+    print(f"CALLBACK: Contents provided: {contents is not None}")
+    print(f"{'*'*80}\n")
+
     if not contents:
+        print("CALLBACK: No contents provided, returning empty status")
         return "", None
-    
+
+    print(f"CALLBACK: Calling parse_raw_octet_data...")
     sensors_data = parse_raw_octet_data(contents, filename)
-    
+
     if sensors_data:
+        print(f"\nCALLBACK: parse_raw_octet_data returned {len(sensors_data)} sensors")
+        print(f"CALLBACK: Sensor names: {list(sensors_data.keys())}")
+
         status = html.Div([
             html.I(className="fas fa-check-circle me-2", style={"color": "green"}),
             f"Loaded {filename}: {len(sensors_data)} sensors found"
         ], className="alert alert-success")
-        
+
         # Convert to storable format
         store_data = {
             'filename': filename,
             'sensors': {name: df.to_dict('records') for name, df in sensors_data.items()},
             'sensor_names': list(sensors_data.keys())
         }
+
+        print(f"CALLBACK: Successfully created store_data with {len(store_data['sensor_names'])} sensors")
+        print(f"{'*'*80}\n")
         return status, store_data
     else:
+        print(f"\nCALLBACK: parse_raw_octet_data returned None (FAILED)")
         status = html.Div([
             html.I(className="fas fa-exclamation-circle me-2", style={"color": "red"}),
             f"Failed to load {filename}"
         ], className="alert alert-danger")
+        print(f"{'*'*80}\n")
         return status, None
 
 
@@ -791,22 +1001,45 @@ def handle_raw_data_upload(contents, filename):
     [State('upload-metadata', 'filename')]
 )
 def handle_metadata_upload(contents, filename):
+    print(f"\n{'*'*80}")
+    print(f"CALLBACK: handle_metadata_upload triggered")
+    print(f"CALLBACK: Filename: {filename}")
+    print(f"CALLBACK: Contents provided: {contents is not None}")
+    print(f"{'*'*80}\n")
+
     if not contents:
+        print("CALLBACK: No contents provided, returning empty status")
         return "", None
-    
+
+    print(f"CALLBACK: Calling parse_metadata_file...")
     metadata = parse_metadata_file(contents, filename)
-    
+
     if metadata and 'error' not in metadata:
+        print(f"\nCALLBACK: parse_metadata_file succeeded")
+        print(f"CALLBACK: Metadata keys: {list(metadata.keys())}")
+        if 'sensor_mapping' in metadata:
+            print(f"CALLBACK: Found sensor_mapping with {len(metadata['sensor_mapping'])} entries")
+
         status = html.Div([
             html.I(className="fas fa-check-circle me-2", style={"color": "green"}),
             f"Loaded {filename}: metadata extracted"
         ], className="alert alert-success")
+
+        print(f"CALLBACK: Returning success status")
+        print(f"{'*'*80}\n")
         return status, metadata
     else:
+        print(f"\nCALLBACK: parse_metadata_file FAILED")
+        if metadata:
+            print(f"CALLBACK: Error: {metadata.get('error', 'Unknown error')}")
+
         status = html.Div([
             html.I(className="fas fa-exclamation-circle me-2", style={"color": "red"}),
             f"Failed to load metadata from {filename}"
         ], className="alert alert-danger")
+
+        print(f"CALLBACK: Returning error status")
+        print(f"{'*'*80}\n")
         return status, None
 
 
@@ -819,9 +1052,26 @@ def handle_metadata_upload(contents, filename):
      Input('metadata-store', 'data')]
 )
 def process_paired_data(raw_data, metadata):
+    print(f"\n{'*'*80}")
+    print(f"CALLBACK: process_paired_data triggered")
+    print(f"CALLBACK: raw_data provided: {raw_data is not None}")
+    print(f"CALLBACK: metadata provided: {metadata is not None}")
+
+    if raw_data:
+        print(f"CALLBACK: Raw data contains {len(raw_data['sensor_names'])} sensors")
+        print(f"CALLBACK: Sensor names: {raw_data['sensor_names']}")
+
+    if metadata:
+        print(f"CALLBACK: Metadata keys: {list(metadata.keys())}")
+        if 'sensor_mapping' in metadata:
+            print(f"CALLBACK: Metadata contains sensor_mapping with {len(metadata['sensor_mapping'])} entries")
+            print(f"CALLBACK: Mapped sensors: {list(metadata['sensor_mapping'].keys())}")
+    print(f"{'*'*80}\n")
+
     if not raw_data:
+        print("CALLBACK: No raw data, returning empty")
         return "", {'display': 'none'}, "", None
-    
+
     # Create status message
     status_parts = []
     if raw_data:
@@ -997,45 +1247,121 @@ def process_paired_data(raw_data, metadata):
 @app.callback(
     [Output('sample-selector', 'options'),
      Output('sample-selector', 'value')],
-    [Input('processed-data-store', 'data')]
+    [Input('processed-data-store', 'data'),
+     Input('include-standards-option', 'value')]
 )
-def update_sample_selector(processed_data):
+def update_sample_selector(processed_data, include_standards_option):
+    print(f"\n{'*'*80}")
+    print(f"CALLBACK: update_sample_selector triggered")
+    print(f"CALLBACK: include_standards_option = {include_standards_option}")
+    print(f"{'*'*80}\n")
+
     if not processed_data:
         return [], []
-    
+
     # Extract sensor names and metadata
     options = []
     metadata = processed_data.get('metadata', {})
     sensor_mapping = metadata.get('sensor_mapping', {})
-    
+
     # Track which sensors are actual samples (not standards or buffers)
     sample_sensors = []
-    
+    standard_sensors = []
+
+    include_standards = 'include_standards' in (include_standards_option or [])
+
+    print(f"SELECTOR: Processing {len(processed_data['sensor_names'])} sensors...")
+    print(f"SELECTOR: Include standards = {include_standards}")
+
     for sensor_name in processed_data['sensor_names']:
         # Get sample ID and info from metadata if available
         if sensor_mapping and sensor_name in sensor_mapping:
             sample_info = sensor_mapping[sensor_name]
             sample_id = sample_info.get('sample_id', sensor_name)
             label = f"{sensor_name} - {sample_id}"
-            
+
             # Check if this is an actual sample (not standard or buffer)
             sample_id_upper = str(sample_id).upper()
-            if not ('STD' in sample_id_upper or 'BUFFER' in sample_id_upper):
+            is_standard = 'STD' in sample_id_upper
+            is_buffer = 'BUFFER' in sample_id_upper
+
+            print(f"  {sensor_name} ({sample_id}): standard={is_standard}, buffer={is_buffer}")
+
+            if is_standard:
+                standard_sensors.append(sensor_name)
+            elif not is_buffer:
                 sample_sensors.append(sensor_name)
         else:
             label = sensor_name
             # If no metadata, include by default
             sample_sensors.append(sensor_name)
-        
+
         options.append({
             'label': label,
             'value': sensor_name
         })
-    
-    # Select only actual samples by default (exclude Standards and Buffers)
-    default_selection = sample_sensors
+
+    # Select samples by default, optionally include standards
+    if include_standards:
+        default_selection = sample_sensors + standard_sensors
+        print(f"SELECTOR: Selecting {len(sample_sensors)} samples + {len(standard_sensors)} standards")
+    else:
+        default_selection = sample_sensors
+        print(f"SELECTOR: Selecting {len(sample_sensors)} samples only")
+
+    print(f"{'*'*80}\n")
     
     return options, default_selection
+
+
+@app.callback(
+    [Output('standards-selector', 'options'),
+     Output('standards-selector', 'value'),
+     Output('standards-selection-row', 'style')],
+    [Input('processed-data-store', 'data')]
+)
+def update_standards_selector(processed_data):
+    """Populate standards selector with detected standards"""
+    print(f"\n{'*'*80}")
+    print(f"CALLBACK: update_standards_selector triggered")
+    print(f"{'*'*80}\n")
+
+    if not processed_data:
+        return [], [], {'display': 'none'}
+
+    metadata = processed_data.get('metadata', {})
+    sensor_mapping = metadata.get('sensor_mapping', {})
+
+    # Extract standards
+    standards_options = []
+    standards_list = []
+
+    print(f"STANDARDS SELECTOR: Searching for standards...")
+
+    for sensor_name in processed_data['sensor_names']:
+        if sensor_mapping and sensor_name in sensor_mapping:
+            sample_info = sensor_mapping[sensor_name]
+            sample_id = sample_info.get('sample_id', sensor_name)
+            sample_id_upper = str(sample_id).upper()
+
+            # Check if this is a standard
+            if 'STD' in sample_id_upper:
+                label = f"{sensor_name} - {sample_id}"
+                standards_options.append({
+                    'label': label,
+                    'value': sensor_name
+                })
+                standards_list.append(sensor_name)
+                print(f"  -> Found standard: {sensor_name} ({sample_id})")
+
+    if standards_list:
+        print(f"\nSTANDARDS SELECTOR: Found {len(standards_list)} standards")
+        print(f"STANDARDS SELECTOR: Showing standards selection row")
+        # Select all standards by default
+        return standards_options, standards_list, {'display': 'block'}
+    else:
+        print(f"\nSTANDARDS SELECTOR: No standards found, hiding selection row")
+        return [], [], {'display': 'none'}
 
 
 @app.callback(
@@ -1101,7 +1427,11 @@ def update_integrated_visualization(selected_samples, plot_options, baseline_opt
                 sample_info = sensor_mapping[sensor_name]
                 sample_id = sample_info.get('sample_id', sensor_name)
                 trace_name = f"{sensor_name} - {sample_id}"
-                
+
+                # Check if this is a standard
+                sample_id_upper = str(sample_id).upper()
+                is_standard = 'STD' in sample_id_upper
+
                 # Use color from metadata if available
                 if sample_info.get('color'):
                     # Convert color integer to hex if needed
@@ -1111,7 +1441,13 @@ def update_integrated_visualization(selected_samples, plot_options, baseline_opt
                         color_int = int(color_val) & 0xFFFFFF
                         trace_color = f'#{color_int:06x}'
                         line_style['color'] = trace_color
-                
+
+                # Style standards differently - dotted line and thinner
+                if is_standard:
+                    trace_name += " (Standard)"
+                    line_style['dash'] = 'dot'  # Dotted line for standards
+                    line_style['width'] = 1.5
+
                 # Style buffer samples differently
                 if sensor_name in buffer_sensors:
                     trace_name += " (Buffer)"
@@ -1323,7 +1659,7 @@ def update_integrated_visualization(selected_samples, plot_options, baseline_opt
     [Output('integrated-results-container', 'children'),
      Output('standard-curves-section', 'style'),
      Output('proa-std-curve-section', 'style'),
-     Output('bb-std-curve-section', 'style'), 
+     Output('bb-std-curve-section', 'style'),
      Output('kappa-std-curve-section', 'style')],
     [Input('run-all-analysis-btn', 'n_clicks')],
     [State('sample-selector', 'value'),
@@ -1333,18 +1669,36 @@ def update_integrated_visualization(selected_samples, plot_options, baseline_opt
      State('bb-time2', 'value'),
      State('kappa-start', 'value'),
      State('kappa-end', 'value'),
+     State('standards-selector', 'value'),
      State('processed-data-store', 'data')]
 )
-def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end, 
-                           bb_time1, bb_time2, kappa_start, kappa_end, processed_data):
+def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
+                           bb_time1, bb_time2, kappa_start, kappa_end, selected_standards, processed_data):
+    print(f"\n{'#'*80}")
+    print(f"ANALYSIS: run_integrated_analysis called")
+    print(f"ANALYSIS: n_clicks={n_clicks}")
+    print(f"ANALYSIS: selected_samples={selected_samples}")
+    print(f"ANALYSIS: selected_standards={selected_standards}")
+    print(f"ANALYSIS: ProA range: {proa_start}-{proa_end}s")
+    print(f"ANALYSIS: Kappa range: {kappa_start}-{kappa_end}s")
+    print(f"ANALYSIS: BB times: {bb_time1}s, {bb_time2}s")
+    print(f"{'#'*80}\n")
+
     if not n_clicks or not processed_data:
+        print("ANALYSIS: No clicks or no processed data, returning empty")
         return "", {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}
-    
+
     # Get metadata and buffer baseline
     metadata = processed_data.get('metadata', {})
     sensor_mapping = metadata.get('sensor_mapping', {})
+
+    print(f"ANALYSIS: Extracting standard concentrations...")
     standards_info = extract_standard_concentrations(metadata)
+    print(f"ANALYSIS: Standards extracted: {len(standards_info)} standards found")
+
+    print(f"\nANALYSIS: Calculating buffer baseline...")
     buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
+    print(f"ANALYSIS: Buffer baseline calculated: {len(buffer_time) if buffer_time is not None else 0} points")
     
     # Results storage
     all_results = []
@@ -1384,14 +1738,21 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
             if proa_slope is not None:
                 result_row['ProA Slope (nm/s)'] = f"{proa_slope:.6f}"
                 result_row['ProA R²'] = f"{proa_r2:.4f}" if proa_r2 else "N/A"
-                
-                # Store for standard curve if it's a standard
+
+                # Store for standard curve if it's a standard AND selected by user
                 if sensor_name in standards_info:
-                    proa_standards.append({
-                        'concentration': standards_info[sensor_name]['concentration'],
-                        'slope': proa_slope,
-                        'sensor': sensor_name
-                    })
+                    # Check if this standard is selected (if no selection, use all)
+                    if not selected_standards or sensor_name in selected_standards:
+                        print(f"  ANALYSIS: {sensor_name} is a SELECTED STANDARD - adding to ProA standards")
+                        print(f"    Concentration: {standards_info[sensor_name]['concentration']}")
+                        print(f"    Slope: {proa_slope:.6f}")
+                        proa_standards.append({
+                            'concentration': standards_info[sensor_name]['concentration'],
+                            'slope': proa_slope,
+                            'sensor': sensor_name
+                        })
+                    else:
+                        print(f"  ANALYSIS: {sensor_name} is a standard but NOT SELECTED - skipping")
             
             # 2. %BB Analysis  
             bb_percentage, bb_resp1, bb_resp2 = calculate_bb_percentage(
@@ -1409,14 +1770,21 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
             if kappa_slope is not None:
                 result_row['Kappa Slope (nm/s)'] = f"{kappa_slope:.6f}"
                 result_row['Kappa R²'] = f"{kappa_r2:.4f}" if kappa_r2 else "N/A"
-                
-                # Store for standard curve if it's a standard
+
+                # Store for standard curve if it's a standard AND selected by user
                 if sensor_name in standards_info:
-                    kappa_standards.append({
-                        'concentration': standards_info[sensor_name]['concentration'],
-                        'slope': kappa_slope,
-                        'sensor': sensor_name
-                    })
+                    # Check if this standard is selected (if no selection, use all)
+                    if not selected_standards or sensor_name in selected_standards:
+                        print(f"  ANALYSIS: {sensor_name} is a SELECTED STANDARD - adding to Kappa standards")
+                        print(f"    Concentration: {standards_info[sensor_name]['concentration']}")
+                        print(f"    Slope: {kappa_slope:.6f}")
+                        kappa_standards.append({
+                            'concentration': standards_info[sensor_name]['concentration'],
+                            'slope': kappa_slope,
+                            'sensor': sensor_name
+                        })
+                    else:
+                        print(f"  ANALYSIS: {sensor_name} is a standard but NOT SELECTED - skipping")
             
             all_results.append(result_row)
             
@@ -1425,16 +1793,33 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
             continue
     
     if not all_results:
+        print("ANALYSIS: No results generated, returning empty")
         return "No analysis results available", {'display': 'none'}, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}
-    
+
+    print(f"\n{'='*80}")
+    print(f"ANALYSIS: Sample processing complete")
+    print(f"ANALYSIS: Total results: {len(all_results)}")
+    print(f"ANALYSIS: ProA standards collected: {len(proa_standards)}")
+    print(f"ANALYSIS: Kappa standards collected: {len(kappa_standards)}")
+    print(f"{'='*80}\n")
+
     # Create standard curves and calculate concentrations
     proa_concentrations = {}
     kappa_concentrations = {}
-    
+
     # ProA standard curve
+    print(f"ANALYSIS: Checking ProA standard curve generation...")
+    print(f"ANALYSIS: ProA standards count: {len(proa_standards)} (need >= 3)")
     if len(proa_standards) >= 3:
+        print(f"ANALYSIS: Creating ProA standard curve with {len(proa_standards)} points...")
+        for std in proa_standards:
+            print(f"  - {std['sensor']}: conc={std['concentration']}, slope={std['slope']:.6f}")
+
         proa_curve_slope, proa_curve_intercept, proa_curve_r2, _ = create_standard_curve(proa_standards)
+        print(f"ANALYSIS: ProA curve created: slope={proa_curve_slope}, intercept={proa_curve_intercept}, R²={proa_curve_r2}")
+
         if proa_curve_slope is not None:
+            print(f"ANALYSIS: ProA curve is VALID, calculating concentrations for samples...")
             for row in all_results:
                 if 'ProA Slope (nm/s)' in row:
                     slope_val = float(row['ProA Slope (nm/s)'])
@@ -1445,10 +1830,22 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
                     else:
                         row['ProA Conc. (µg/mL)'] = "Below LOD"
     
-    # Kappa standard curve  
+    else:
+        print(f"ANALYSIS: NOT enough ProA standards ({len(proa_standards)} < 3), skipping ProA curve")
+
+    # Kappa standard curve
+    print(f"\nANALYSIS: Checking Kappa standard curve generation...")
+    print(f"ANALYSIS: Kappa standards count: {len(kappa_standards)} (need >= 3)")
     if len(kappa_standards) >= 3:
+        print(f"ANALYSIS: Creating Kappa standard curve with {len(kappa_standards)} points...")
+        for std in kappa_standards:
+            print(f"  - {std['sensor']}: conc={std['concentration']}, slope={std['slope']:.6f}")
+
         kappa_curve_slope, kappa_curve_intercept, kappa_curve_r2, _ = create_standard_curve(kappa_standards)
+        print(f"ANALYSIS: Kappa curve created: slope={kappa_curve_slope}, intercept={kappa_curve_intercept}, R²={kappa_curve_r2}")
+
         if kappa_curve_slope is not None:
+            print(f"ANALYSIS: Kappa curve is VALID, calculating concentrations for samples...")
             for row in all_results:
                 if 'Kappa Slope (nm/s)' in row:
                     slope_val = float(row['Kappa Slope (nm/s)'])
@@ -1458,6 +1855,14 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
                         kappa_concentrations[row['Sample ID']] = conc
                     else:
                         row['Kappa Conc. (µg/mL)'] = "Below LOD"
+    else:
+        print(f"ANALYSIS: NOT enough Kappa standards ({len(kappa_standards)} < 3), skipping Kappa curve")
+
+    print(f"\n{'='*80}")
+    print(f"ANALYSIS: Standard curve generation complete")
+    print(f"ANALYSIS: ProA concentrations calculated: {len(proa_concentrations)}")
+    print(f"ANALYSIS: Kappa concentrations calculated: {len(kappa_concentrations)}")
+    print(f"{'='*80}\n")
     
     # Create simplified results table with only essential columns
     simplified_results = []
@@ -1512,36 +1917,39 @@ def run_integrated_analysis(n_clicks, selected_samples, proa_start, proa_end,
     [Input('run-all-analysis-btn', 'n_clicks')],
     [State('proa-start', 'value'),
      State('proa-end', 'value'),
+     State('standards-selector', 'value'),
      State('processed-data-store', 'data')]
 )
-def update_proa_std_curve(n_clicks, proa_start, proa_end, processed_data):
+def update_proa_std_curve(n_clicks, proa_start, proa_end, selected_standards, processed_data):
     if not n_clicks or not processed_data:
         return go.Figure()
-    
+
     # Get metadata and standards
     metadata = processed_data.get('metadata', {})
     standards_info = extract_standard_concentrations(metadata)
     buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
-    
-    # Calculate ProA slopes for standards
+
+    # Calculate ProA slopes for standards (only selected ones)
     proa_standards = []
     for sensor_name in processed_data['sensor_names']:
         if sensor_name in standards_info:
-            try:
-                sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
-                time_data = sensor_df['Time'].values
-                response_data = sensor_df['Response'].values
-                corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
-                
-                proa_slope, _, proa_r2 = calculate_initial_response_slope(time_data, corrected_response, proa_start, proa_end)
-                if proa_slope is not None:
-                    proa_standards.append({
-                        'concentration': standards_info[sensor_name]['concentration'],
-                        'slope': proa_slope,
-                        'sensor': sensor_name
-                    })
-            except:
-                continue
+            # Only include if selected (or if no selection, use all)
+            if not selected_standards or sensor_name in selected_standards:
+                try:
+                    sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
+                    time_data = sensor_df['Time'].values
+                    response_data = sensor_df['Response'].values
+                    corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+
+                    proa_slope, _, proa_r2 = calculate_initial_response_slope(time_data, corrected_response, proa_start, proa_end)
+                    if proa_slope is not None:
+                        proa_standards.append({
+                            'concentration': standards_info[sensor_name]['concentration'],
+                            'slope': proa_slope,
+                            'sensor': sensor_name
+                        })
+                except:
+                    continue
     
     if len(proa_standards) < 3:
         fig = go.Figure()
@@ -1595,36 +2003,39 @@ def update_proa_std_curve(n_clicks, proa_start, proa_end, processed_data):
     [Input('run-all-analysis-btn', 'n_clicks')],
     [State('kappa-start', 'value'),
      State('kappa-end', 'value'),
+     State('standards-selector', 'value'),
      State('processed-data-store', 'data')]
 )
-def update_kappa_std_curve(n_clicks, kappa_start, kappa_end, processed_data):
+def update_kappa_std_curve(n_clicks, kappa_start, kappa_end, selected_standards, processed_data):
     if not n_clicks or not processed_data:
         return go.Figure()
-    
+
     # Get metadata and standards
     metadata = processed_data.get('metadata', {})
     standards_info = extract_standard_concentrations(metadata)
     buffer_time, buffer_response = calculate_buffer_baseline(processed_data)
-    
-    # Calculate Kappa slopes for standards
+
+    # Calculate Kappa slopes for standards (only selected ones)
     kappa_standards = []
     for sensor_name in processed_data['sensor_names']:
         if sensor_name in standards_info:
-            try:
-                sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
-                time_data = sensor_df['Time'].values
-                response_data = sensor_df['Response'].values
-                corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
-                
-                kappa_slope, _, kappa_r2 = calculate_initial_response_slope(time_data, corrected_response, kappa_start, kappa_end)
-                if kappa_slope is not None:
-                    kappa_standards.append({
-                        'concentration': standards_info[sensor_name]['concentration'],
-                        'slope': kappa_slope,
-                        'sensor': sensor_name
-                    })
-            except:
-                continue
+            # Only include if selected (or if no selection, use all)
+            if not selected_standards or sensor_name in selected_standards:
+                try:
+                    sensor_df = pd.DataFrame(processed_data['sensors'][sensor_name])
+                    time_data = sensor_df['Time'].values
+                    response_data = sensor_df['Response'].values
+                    corrected_response = apply_buffer_baseline_correction(time_data, response_data, buffer_time, buffer_response)
+
+                    kappa_slope, _, kappa_r2 = calculate_initial_response_slope(time_data, corrected_response, kappa_start, kappa_end)
+                    if kappa_slope is not None:
+                        kappa_standards.append({
+                            'concentration': standards_info[sensor_name]['concentration'],
+                            'slope': kappa_slope,
+                            'sensor': sensor_name
+                        })
+                except:
+                    continue
     
     if len(kappa_standards) < 3:
         fig = go.Figure()

@@ -14,7 +14,7 @@ class SampleMetadata(models.Model):
     sample_suffix = models.CharField(max_length=255, null=True, blank=True)
     sample_type = models.CharField(max_length=255, null=True, blank=True)
     analysis_type = models.IntegerField(null=True, blank=True)  # 1:SEC,2:PROA, 3:CESDS,4:CIEF
-    sample_name = models.CharField(max_length=255, null=True, blank=True)  # ✅ Fixed
+    sample_name = models.CharField(max_length=255, null=True, blank=True)
     sample_set_id = models.IntegerField(null=True, blank=True)
     sample_set_name = models.CharField(max_length=255, null=True, blank=True)
     date_acquired = models.DateTimeField(null=True, blank=True)  # ✅ Changed from DateTimeField
@@ -554,6 +554,7 @@ class NovaFlex2(models.Model):
     reactor_type = models.CharField(max_length=10, null=True, blank=True)
     reactor_number = models.IntegerField(null=True, blank=True)
     special = models.CharField(max_length=50, null=True, blank=True)
+    dilution_factor = models.FloatField(null=True, blank=True, default=1.0)
 
     class Meta:
         db_table = 'nova_flex_2'
@@ -1945,10 +1946,23 @@ class USPExperiment(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
 
+    EXPERIMENT_TYPE_CHOICES = [
+        ('Conformance', 'Conformance'),
+        ('pH_Test', 'pH Test'),
+        ('Temperature_Test', 'Temperature Test'),
+        ('Media_Optimization', 'Media Optimization'),
+        ('Feed_Optimization', 'Feed Optimization'),
+        ('Scale_Up', 'Scale Up'),
+        ('Process_Characterization', 'Process Characterization'),
+        ('Other', 'Other'),
+    ]
+
     id = models.AutoField(primary_key=True)
     experiment_id = models.CharField(max_length=100, unique=True)
     experiment_name = models.CharField(max_length=255)
+    project_id = models.CharField(max_length=100, blank=True, null=True, help_text="Project identifier")
     description = models.TextField(blank=True, null=True)
+    experiment_type = models.CharField(max_length=50, choices=EXPERIMENT_TYPE_CHOICES, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Planning')
     start_date = models.DateField()
     target_end_date = models.DateField(null=True, blank=True)
@@ -2040,19 +2054,41 @@ class USPSeedTrain(models.Model):
         ('500mL_SF', '500mL Shake Flask'),
     ]
 
+    POOL_OR_CLONE_CHOICES = [
+        ('Pool', 'Pool'),
+        ('Clone', 'Clone'),
+    ]
+
     id = models.AutoField(primary_key=True)
     process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='seed_trains')
     seed_train_id = models.CharField(max_length=100, unique=True)  # UPST####
     vessel_type = models.CharField(max_length=20, choices=SEED_VESSEL_TYPE_CHOICES)
     thaw_date = models.DateField()
-    culture_volume = models.FloatField(help_text="mL")
+    start_volume = models.FloatField(help_text="mL")  # Renamed from culture_volume
     cell_line = models.CharField(max_length=100)
     media_type = models.CharField(max_length=100)
+    media_prep = models.ForeignKey('USPMediaPrep', on_delete=models.SET_NULL, null=True, blank=True, related_name='seed_trains_used')
     passage_number = models.IntegerField(null=True, blank=True)
     vial_id = models.CharField(max_length=100, blank=True, null=True)
     viability_at_thaw = models.FloatField(null=True, blank=True, help_text="percentage")
     cell_density_at_thaw = models.FloatField(null=True, blank=True, help_text="cells/mL")
     notes = models.TextField(blank=True, null=True)
+
+    # Excel template fields
+    bank_age = models.CharField(max_length=50, blank=True, null=True, help_text='e.g., P4, P5')
+    pool_or_clone = models.CharField(max_length=50, blank=True, null=True, choices=POOL_OR_CLONE_CHOICES)
+    program = models.CharField(max_length=100, blank=True, null=True, help_text='e.g., SI-49T5, 205X1')
+    clone = models.CharField(max_length=100, blank=True, null=True, help_text='e.g., 1B2, 25H8')
+    media_lot = models.CharField(max_length=100, blank=True, null=True, help_text='Media lot number')
+
+    # Archive/Discard status fields
+    is_archived = models.BooleanField(default=False, help_text="Sample created in error")
+    archive_reason = models.CharField(max_length=255, blank=True, null=True)
+    archive_date = models.DateTimeField(null=True, blank=True)
+    is_discarded = models.BooleanField(default=False, help_text="Experiment ended/sample discarded")
+    discard_reason = models.CharField(max_length=255, blank=True, null=True)
+    discard_date = models.DateTimeField(null=True, blank=True)
+
     created_date = models.DateTimeField(auto_now_add=True)
     modified_date = models.DateTimeField(auto_now=True)
 
@@ -2077,13 +2113,33 @@ class USPVessel(models.Model):
         ('2L_SF', '2L Shake Flask'),
     ]
 
+    FEEDING_STRATEGY_CHOICES = [
+        ('Platform', 'Platform'),
+        ('Standard', 'Standard'),
+        ('Other', 'Other'),
+    ]
+
+    POOL_OR_CLONE_CHOICES = [
+        ('Pool', 'Pool'),
+        ('Clone', 'Clone'),
+    ]
+
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Archived', 'Archived'),
+        ('Complete', 'Complete'),
+    ]
+
     id = models.AutoField(primary_key=True)
     process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='vessels')
     seed_train = models.ForeignKey(USPSeedTrain, on_delete=models.SET_NULL, null=True, blank=True, related_name='downstream_vessels')
     vessel_id = models.CharField(max_length=100)  # UPFB####
     vessel_type = models.CharField(max_length=20, choices=VESSEL_TYPE_CHOICES)
+    start_volume = models.FloatField(null=True, blank=True, help_text="mL")
     cell_line = models.CharField(max_length=100, blank=True, null=True)
     media_type = models.CharField(max_length=100, blank=True, null=True)
+    media_prep = models.ForeignKey('USPMediaPrep', on_delete=models.SET_NULL, null=True, blank=True, related_name='vessels_used')
+    feeding_strategy = models.CharField(max_length=50, choices=FEEDING_STRATEGY_CHOICES, null=True, blank=True)
     inoculation_date = models.DateField(null=True, blank=True)
     inoculation_density = models.FloatField(null=True, blank=True, help_text="cells/mL")
     harvest_date = models.DateField(null=True, blank=True)
@@ -2095,6 +2151,23 @@ class USPVessel(models.Model):
     do_setpoint = models.FloatField(null=True, blank=True, default=40.0, help_text="% air saturation")
     agitation_rpm = models.IntegerField(null=True, blank=True)
     notes = models.TextField(blank=True, null=True)
+    serial_numbers = models.JSONField(null=True, blank=True, help_text="JSON field for storing vessel serial numbers (DO probes, pH probes, etc.)")
+
+    # Excel template fields
+    vessel_size = models.CharField(max_length=50, blank=True, null=True, help_text='e.g., 125 mL, 1L, 2L')
+    pool_or_clone = models.CharField(max_length=50, blank=True, null=True, choices=POOL_OR_CLONE_CHOICES)
+    program = models.CharField(max_length=100, blank=True, null=True, help_text='e.g., SI-49T5, 205X1')
+    clone = models.CharField(max_length=100, blank=True, null=True, help_text='e.g., 1B2, 25H8')
+    status = models.CharField(max_length=50, blank=True, null=True, choices=STATUS_CHOICES)
+
+    # Archive/Discard status fields
+    is_archived = models.BooleanField(default=False, help_text="Vessel created in error")
+    archive_reason = models.CharField(max_length=255, blank=True, null=True)
+    archive_date = models.DateTimeField(null=True, blank=True)
+    is_discarded = models.BooleanField(default=False, help_text="Experiment ended/vessel discarded")
+    discard_reason = models.CharField(max_length=255, blank=True, null=True)
+    discard_date = models.DateTimeField(null=True, blank=True)
+
     created_date = models.DateTimeField(auto_now_add=True)
     modified_date = models.DateTimeField(auto_now=True)
 
@@ -2107,8 +2180,51 @@ class USPVessel(models.Model):
         return f"{self.vessel_id} ({self.vessel_type})"
 
 
+class USPMediaComponentLibrary(models.Model):
+    """Component library for media preparation"""
+    COMPONENT_TYPE_CHOICES = [
+        ('base_powder', 'Base Powder'),
+        ('glucose', 'Glucose'),
+        ('glutamine', 'Glutamine'),
+        ('amino_acid', 'Amino Acid'),
+        ('vitamin', 'Vitamin'),
+        ('salt', 'Salt'),
+        ('growth_factor', 'Growth Factor'),
+        ('antibiotic', 'Antibiotic'),
+        ('buffer', 'Buffer'),
+        ('serum', 'Serum'),
+        ('supplement', 'Supplement'),
+        ('acid', 'Acid (pH adjustment)'),
+        ('base', 'Base (pH adjustment)'),
+        ('water', 'Water'),
+        ('other', 'Other'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    component_type = models.CharField(max_length=50, choices=COMPONENT_TYPE_CHOICES)
+    component_name = models.CharField(max_length=200)
+    catalog_number = models.CharField(max_length=100, blank=True, null=True)
+    vendor = models.CharField(max_length=100, blank=True, null=True)
+    typical_units = models.CharField(max_length=50, help_text="Typical units used (e.g., g, mL, L)")
+    molecular_weight = models.FloatField(null=True, blank=True, help_text="g/mol")
+    stock_concentration = models.FloatField(null=True, blank=True)
+    stock_concentration_unit = models.CharField(max_length=20, blank=True, null=True)
+    storage_conditions = models.CharField(max_length=200, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    active = models.BooleanField(default=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'usp_media_component_library'
+        ordering = ['component_type', 'component_name']
+        unique_together = ['component_name', 'catalog_number']
+
+    def __str__(self):
+        return f"{self.component_name} ({self.catalog_number})" if self.catalog_number else self.component_name
+
+
 class USPMediaRecipe(models.Model):
-    """Model for storing media recipe templates"""
+    """Model for storing media recipe templates with process steps"""
     id = models.AutoField(primary_key=True)
     recipe_id = models.CharField(max_length=100, unique=True)  # e.g., RCP001
     recipe_name = models.CharField(max_length=200)
@@ -2133,50 +2249,210 @@ class USPMediaRecipe(models.Model):
         return f"{self.recipe_name} v{self.version}"
 
 
-class USPMediaRecipeComponent(models.Model):
-    """Model for storing components in media recipes"""
-    COMPONENT_TYPE_CHOICES = [
-        ('base_powder', 'Base Powder'),
-        ('glucose', 'Glucose'),
-        ('glutamine', 'Glutamine'),
-        ('amino_acid', 'Amino Acid'),
-        ('vitamin', 'Vitamin'),
-        ('salt', 'Salt'),
-        ('growth_factor', 'Growth Factor'),
-        ('antibiotic', 'Antibiotic'),
-        ('buffer', 'Buffer'),
-        ('serum', 'Serum'),
-        ('supplement', 'Supplement'),
-        ('other', 'Other'),
-    ]
-
-    UNIT_CHOICES = [
-        ('g/L', 'g/L'),
-        ('mg/L', 'mg/L'),
-        ('mL/L', 'mL/L'),
-        ('µL/L', 'µL/L'),
-        ('mM', 'mM'),
-        ('µM', 'µM'),
-        ('%', '%'),
+class USPMediaRecipeStep(models.Model):
+    """Process steps for media recipe preparation - Long format base"""
+    STEP_TYPE_CHOICES = [
+        ('add_component', 'Add Component'),
+        ('initial_water_fill', 'Initial MilliQ Water Fill (80%)'),
+        ('add_water', 'Add Water (MilliQ)'),
+        ('final_water_fill', 'Final Water Fill (to 100%)'),
+        ('stir', 'Stir'),
+        ('heat', 'Heat'),
+        ('cool', 'Cool'),
+        ('measure_ph', 'Measure pH'),
+        ('adjust_ph', 'Adjust pH'),
+        ('measure_osmolality', 'Measure Osmolality'),
+        ('adjust_osmolality', 'Adjust Osmolality'),
+        ('filter_sterilize', 'Filter Sterilize'),
+        ('autoclave', 'Autoclave'),
+        ('aliquot', 'Aliquot'),
+        ('note', 'General Note/Instruction'),
     ]
 
     id = models.AutoField(primary_key=True)
-    recipe = models.ForeignKey(USPMediaRecipe, on_delete=models.CASCADE, related_name='recipe_components')
-    component_type = models.CharField(max_length=50, choices=COMPONENT_TYPE_CHOICES)
-    component_name = models.CharField(max_length=200)
-    catalog_number = models.CharField(max_length=100, blank=True, null=True)
-    concentration_per_liter = models.FloatField(help_text="Amount per liter of final media")
-    unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
-    vendor = models.CharField(max_length=100, blank=True, null=True)
-    preparation_notes = models.TextField(blank=True, null=True)
-    order_index = models.IntegerField(default=0, help_text="Order for adding components")
+    recipe = models.ForeignKey(USPMediaRecipe, on_delete=models.CASCADE, related_name='process_steps')
+    step_number = models.IntegerField(help_text="Order of step in recipe")
+    step_type = models.CharField(max_length=50, choices=STEP_TYPE_CHOICES)
+    instructions = models.TextField(blank=True, null=True, help_text="General instructions or notes")
+    created_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
-        db_table = 'usp_media_recipe_component'
-        ordering = ['recipe', 'order_index', 'component_name']
+        db_table = 'usp_media_recipe_step'
+        ordering = ['recipe', 'step_number']
+        unique_together = ['recipe', 'step_number']
+        indexes = [
+            models.Index(fields=['recipe', 'step_type']),
+            models.Index(fields=['step_type', 'step_number']),
+        ]
 
     def __str__(self):
-        return f"{self.component_name} ({self.concentration_per_liter} {self.unit})"
+        return f"Recipe {self.recipe.recipe_id} - Step {self.step_number}: {self.get_step_type_display()}"
+
+    def clean(self):
+        """Validate that required parameters exist for this step type"""
+        from django.core.exceptions import ValidationError
+
+        # Only validate if step has been saved and has parameters
+        if self.pk:
+            params = {p.parameter_key: p for p in self.parameters.all()}
+
+            if self.step_type == 'add_component':
+                required = ['component_id', 'amount_per_liter', 'amount_unit']
+                missing = [k for k in required if k not in params or not params[k].value_text]
+                if missing:
+                    raise ValidationError(f"Component step missing required parameters: {', '.join(missing)}")
+
+            elif self.step_type in ['stir', 'heat', 'cool']:
+                if 'duration_minutes' not in params:
+                    raise ValidationError(f"{self.get_step_type_display()} step requires 'duration_minutes' parameter")
+                if self.step_type in ['heat', 'cool'] and 'temperature' not in params:
+                    raise ValidationError(f"{self.get_step_type_display()} step requires 'temperature' parameter")
+
+            elif self.step_type in ['measure_ph', 'adjust_ph']:
+                if 'target_ph' not in params:
+                    raise ValidationError(f"pH step requires 'target_ph' parameter")
+
+            elif self.step_type == 'add_water':
+                if 'target_volume' not in params:
+                    raise ValidationError(f"Add water step requires 'target_volume' parameter")
+
+    @property
+    def is_complete(self):
+        """Check if step has all required parameters"""
+        try:
+            self.clean()
+            return True
+        except:
+            return False
+
+    def get_params(self):
+        """Get parameter helper for easier access"""
+        return StepParameterHelper(self)
+
+
+class USPMediaRecipeStepParameter(models.Model):
+    """Flexible parameters for recipe steps - long format"""
+
+    PARAMETER_TYPE_CHOICES = [
+        ('integer', 'Integer'),
+        ('float', 'Float'),
+        ('string', 'String'),
+        ('boolean', 'Boolean'),
+        ('fk_component', 'Foreign Key: Component'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    step = models.ForeignKey(USPMediaRecipeStep, on_delete=models.CASCADE, related_name='parameters')
+    parameter_key = models.CharField(max_length=50, help_text="Parameter name (e.g., 'component_id', 'amount_per_liter')")
+    parameter_type = models.CharField(max_length=20, choices=PARAMETER_TYPE_CHOICES, help_text="Data type for validation")
+
+    # Store values as text, cast based on parameter_type
+    value_text = models.TextField(help_text="String representation of value")
+
+    # Optional: denormalized typed values for efficient queries
+    value_int = models.IntegerField(null=True, blank=True, db_index=True)
+    value_float = models.FloatField(null=True, blank=True, db_index=True)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_media_recipe_step_parameter'
+        unique_together = ['step', 'parameter_key']
+        indexes = [
+            models.Index(fields=['step', 'parameter_key']),
+        ]
+
+    def clean(self):
+        """Validate value matches parameter_type"""
+        from django.core.exceptions import ValidationError
+
+        if not self.value_text:
+            raise ValidationError("value_text is required")
+
+        try:
+            if self.parameter_type == 'integer':
+                val = int(self.value_text)
+                self.value_int = val
+            elif self.parameter_type == 'float':
+                val = float(self.value_text)
+                self.value_float = val
+            elif self.parameter_type == 'boolean':
+                if self.value_text.lower() not in ['true', 'false', '1', '0']:
+                    raise ValueError()
+            elif self.parameter_type == 'fk_component':
+                val = int(self.value_text)
+                self.value_int = val
+                # Verify component exists
+                if not USPMediaComponentLibrary.objects.filter(id=val).exists():
+                    raise ValidationError(f"Component with id {val} does not exist")
+        except (ValueError, TypeError):
+            raise ValidationError(f"Invalid value '{self.value_text}' for type '{self.parameter_type}'")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def get_value(self):
+        """Get typed value based on parameter_type"""
+        if self.parameter_type == 'integer':
+            return int(self.value_text)
+        elif self.parameter_type == 'float':
+            return float(self.value_text)
+        elif self.parameter_type == 'boolean':
+            return self.value_text.lower() in ['true', '1']
+        elif self.parameter_type == 'fk_component':
+            return USPMediaComponentLibrary.objects.get(id=int(self.value_text))
+        else:
+            return self.value_text
+
+    def __str__(self):
+        return f"{self.parameter_key}={self.value_text} ({self.parameter_type})"
+
+
+# Helper class for easier parameter access
+class StepParameterHelper:
+    """Helper to make accessing step parameters easier"""
+
+    def __init__(self, step):
+        self.step = step
+        self._params = None
+
+    @property
+    def params(self):
+        """Lazy load parameters"""
+        if self._params is None:
+            self._params = {
+                p.parameter_key: p for p in self.step.parameters.all()
+            }
+        return self._params
+
+    def get(self, key, default=None):
+        """Get parameter value"""
+        if key in self.params:
+            return self.params[key].get_value()
+        return default
+
+    def get_component(self):
+        """Get component for add_component steps"""
+        comp_id = self.get('component_id')
+        if comp_id:
+            return USPMediaComponentLibrary.objects.get(id=comp_id)
+        return None
+
+    def set(self, key, value, param_type):
+        """Set parameter value"""
+        param, created = USPMediaRecipeStepParameter.objects.update_or_create(
+            step=self.step,
+            parameter_key=key,
+            defaults={
+                'value_text': str(value),
+                'parameter_type': param_type
+            }
+        )
+        # Invalidate cache
+        self._params = None
+        return param
 
 
 class USPMediaPrep(models.Model):
@@ -2195,6 +2471,11 @@ class USPMediaPrep(models.Model):
     sterility_check = models.BooleanField(default=False)
     storage_location = models.CharField(max_length=200, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+
+    # Status tracking
+    is_used_up = models.BooleanField(default=False, help_text="Has this media been completely used or discarded?")
+    date_used_up = models.DateField(null=True, blank=True, help_text="Date when media was used up or discarded")
+
     created_date = models.DateTimeField(auto_now_add=True)
     modified_date = models.DateTimeField(auto_now=True)
 
@@ -2255,3 +2536,1075 @@ class USPMediaComponent(models.Model):
 
     def __str__(self):
         return f"{self.component_name} ({self.actual_amount} {self.unit})"
+
+
+class USPCellBank(models.Model):
+    """Model for tracking cell banks derived from seed trains"""
+    id = models.AutoField(primary_key=True)
+    cell_bank_id = models.CharField(max_length=100, unique=True)  # UPCB####
+    seed_train_source = models.ForeignKey(
+        USPSeedTrain,
+        on_delete=models.CASCADE,
+        related_name='cell_banks',
+        help_text="Seed train from which this cell bank was created"
+    )
+    density = models.FloatField(help_text="Viable cells/mL")
+    number_of_vials = models.IntegerField()
+    media = models.CharField(max_length=200, help_text="e.g., CHO MaxX + 10% DMSO")
+    banking_date = models.DateField()
+    bank_age_days = models.IntegerField(null=True, blank=True, help_text="Age in days")
+    bank_age_notes = models.TextField(blank=True, null=True)
+    ln2_location = models.CharField(max_length=200, blank=True, null=True, help_text="Liquid nitrogen storage location")
+    notes = models.TextField(blank=True, null=True)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'usp_cell_bank'
+        ordering = ['-banking_date', 'cell_bank_id']
+
+    def __str__(self):
+        return f"{self.cell_bank_id} - {self.seed_train_source.seed_train_id} ({self.banking_date})"
+
+
+# ============================================================================
+# OCTET BIOLAYER INTERFEROMETRY MODELS
+# ============================================================================
+
+class OctetExperiment(models.Model):
+    """
+    Main experiment table - imported from 'Experiment Metadata' sheet
+    One row per experiment (one per consolidated Excel file)
+    """
+    # Primary identifiers
+    run_id = models.CharField(max_length=100, unique=True, help_text="UUID from manifest")
+    experiment_name = models.CharField(max_length=255, db_index=True)
+
+    # Experiment classification (from ExpMethod.fmf)
+    experiment_type = models.CharField(
+        max_length=50,
+        db_index=True,
+        help_text="KINETICS, QUANTITATION, SCREENING, EPITOPE"
+    )
+    experiment_subtype = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="KBASIC, EPITOPE, etc."
+    )
+    description = models.TextField(blank=True)
+
+    # Timing
+    experiment_datetime = models.CharField(max_length=50, blank=True, help_text="From ExpMethod")
+    start_datetime = models.DateTimeField(null=True, blank=True, help_text="From FRD files")
+
+    # Instrument metadata
+    machine_name = models.CharField(max_length=100, blank=True)
+    instrument_type = models.CharField(max_length=50, blank=True)
+    instrument_serial = models.CharField(max_length=50, blank=True)
+    sensor_type = models.CharField(max_length=100, blank=True)
+
+    # Experimental parameters
+    temperature = models.FloatField(null=True, blank=True, help_text="°C")
+    cycle_time_ms = models.IntegerField(null=True, blank=True)
+    flow_rate_units = models.CharField(max_length=20, default='RPM')
+    concentration_units = models.CharField(max_length=20, default='µg/ml')
+    molar_conc_units = models.CharField(max_length=20, default='nM')
+
+    # User & method info
+    user_name = models.CharField(max_length=100, blank=True, db_index=True)
+    method_template = models.CharField(max_length=500, blank=True)
+
+    # File tracking
+    consolidated_file_path = models.CharField(max_length=500, help_text="Path to consolidated Excel")
+    original_folder_path = models.CharField(max_length=500, blank=True, help_text="Original data folder")
+
+    # Import tracking
+    date_imported = models.DateTimeField(auto_now_add=True)
+    imported_by = models.CharField(max_length=100, blank=True)
+
+    # Group and organizational fields
+    group = models.CharField(
+        max_length=10,
+        choices=[
+            ('PD', 'Process Development'),
+            ('PE', 'Protein Engineering'),
+            ('CLD', 'Cell Science'),
+            ('IO', 'IO')
+        ],
+        db_index=True,
+        blank=True,
+        null=True,
+        help_text="Department/group that generated the data"
+    )
+
+    assay_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('Asymmetric', 'Asymmetric'),
+            ('Binding Kinetics', 'Binding Kinetics'),
+            ('HCP', 'HCP'),
+            ('Octet Titer', 'Octet Titer')
+        ],
+        db_index=True,
+        blank=True,
+        null=True,
+        help_text="Specific assay type"
+    )
+
+    import_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending Import'),
+            ('imported', 'Imported'),
+            ('archived', 'Archived')
+        ],
+        default='imported',
+        db_index=True,
+        help_text="Import workflow status"
+    )
+
+    source_folder = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Original folder path in Imports directory"
+    )
+
+    imported_folder = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Folder path in Imported directory (after import)"
+    )
+
+    # Vendor software settings (from HTSettings.efrd)
+    vendor_analysis_settings = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Vendor software analysis settings from HTSettings.efrd (preprocessing, reference wells, etc.)"
+    )
+
+    class Meta:
+        db_table = 'octet_experiment'
+        ordering = ['-start_datetime']
+        indexes = [
+            models.Index(fields=['run_id']),
+            models.Index(fields=['experiment_name']),
+            models.Index(fields=['experiment_type', 'experiment_subtype']),
+            models.Index(fields=['start_datetime']),
+            models.Index(fields=['user_name']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment_name} ({self.experiment_type})"
+
+
+class OctetSensorData(models.Model):
+    """
+    Results for each sensor - imported from 'Results Table' sheet
+    One row per sensor (typically 8-96 per experiment)
+    """
+    # Foreign key to experiment
+    experiment = models.ForeignKey(
+        OctetExperiment,
+        on_delete=models.CASCADE,
+        related_name='sensors'
+    )
+
+    # Sensor identification
+    sensor_location = models.CharField(max_length=10, help_text="A1, B1, etc.")
+    sensor_type = models.CharField(max_length=100, blank=True)
+
+    # Sample information
+    sample_id = models.CharField(max_length=255, blank=True, db_index=True)
+    loading_sample_id = models.CharField(max_length=255, blank=True)
+
+    # Well locations (from Results Table)
+    baseline_location = models.CharField(max_length=10, blank=True)
+    loading_location = models.CharField(max_length=10, blank=True)
+    association_location = models.CharField(max_length=10, blank=True)
+
+    # Concentration
+    concentration = models.FloatField(null=True, blank=True)
+    concentration_units = models.CharField(max_length=20, blank=True)
+
+    # Response (calculated binding)
+    response = models.FloatField(null=True, blank=True, help_text="Binding response (nm)")
+
+    # Quality flags (from Results Table)
+    selected = models.CharField(max_length=5, default='x')
+    include = models.CharField(max_length=5, default='x')
+    cycle = models.IntegerField(default=1)
+
+    class Meta:
+        db_table = 'octet_sensor_data'
+        ordering = ['sensor_location']
+        unique_together = [['experiment', 'sensor_location', 'cycle']]
+        indexes = [
+            models.Index(fields=['experiment', 'sensor_location']),
+            models.Index(fields=['sample_id']),
+            models.Index(fields=['loading_sample_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment.experiment_name} - {self.sensor_location}: {self.sample_id}"
+
+
+class OctetStepData(models.Model):
+    """
+    Step-level data for each sensor - imported from 'Step Summary' sheet
+    Multiple rows per sensor (one per experimental step)
+    """
+    # Foreign key to sensor
+    sensor = models.ForeignKey(
+        OctetSensorData,
+        on_delete=models.CASCADE,
+        related_name='steps'
+    )
+
+    # Step identification
+    step_number = models.IntegerField()
+    step_name = models.CharField(max_length=100, db_index=True)
+    step_type = models.CharField(max_length=50)
+    step_status = models.CharField(max_length=20, default='OK')
+
+    # Sample info for this step
+    sample_location = models.CharField(max_length=10)
+    sample_id = models.CharField(max_length=255, blank=True)
+    sample_group = models.CharField(max_length=100, blank=True)
+    sample_row = models.CharField(max_length=5, blank=True)
+    well_type = models.CharField(max_length=50, blank=True)
+
+    # Concentration for this step
+    concentration = models.CharField(max_length=50, blank=True)
+    concentration_units = models.CharField(max_length=20, blank=True)
+
+    # Timing
+    start_time = models.FloatField(null=True, blank=True, help_text="Start time (s)")
+    assay_time = models.FloatField(null=True, blank=True, help_text="Duration (s)")
+    actual_time = models.FloatField(null=True, blank=True, help_text="Actual duration (s)")
+
+    # Environmental
+    temperature = models.FloatField(null=True, blank=True, help_text="°C")
+    flow_rate = models.IntegerField(null=True, blank=True, help_text="RPM")
+
+    # Statistics (calculated from time series)
+    data_points = models.IntegerField(null=True, blank=True)
+    mean_response = models.FloatField(null=True, blank=True, help_text="nm")
+    final_response = models.FloatField(null=True, blank=True, help_text="nm")
+
+    class Meta:
+        db_table = 'octet_step_data'
+        ordering = ['sensor', 'step_number']
+        unique_together = [['sensor', 'step_number']]
+        indexes = [
+            models.Index(fields=['sensor', 'step_number']),
+            models.Index(fields=['step_name']),
+            models.Index(fields=['step_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.sensor.sensor_location} - Step {self.step_number}: {self.step_name}"
+
+
+class OctetTimeSeriesData(models.Model):
+    """
+    Time series data points - imported from 'Time Series Data' sheet
+    Individual rows approach for maximum database compatibility
+
+    Includes denormalized fields (run_id, sensor_location, step_number) for efficient querying
+    without JOINs. These match the consolidated Excel structure.
+    """
+    # Foreign key to step
+    step = models.ForeignKey(
+        OctetStepData,
+        on_delete=models.CASCADE,
+        related_name='time_series'
+    )
+
+    # Denormalized fields for efficient querying (match Excel structure)
+    run_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Experiment run ID for easy querying (denormalized)"
+    )
+    sensor_location = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Sensor location (A1, B2, etc.) for easy querying (denormalized)"
+    )
+    step_number = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Step number (1-8) for easy filtering (denormalized)"
+    )
+
+    # Time series point
+    time = models.FloatField(help_text="Time in seconds")
+    response = models.FloatField(help_text="Response in nm")
+
+    class Meta:
+        db_table = 'octet_time_series_data'
+        ordering = ['step', 'time']
+        indexes = [
+            models.Index(fields=['step', 'time']),
+            models.Index(fields=['run_id', 'sensor_location', 'step_number', 'time'], name='octet_time_query_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.step} - t={self.time:.2f}s"
+
+
+class OctetSensorLayout(models.Model):
+    """
+    Sensor plate layout - imported from 'Sensor Layout' sheet
+    Defines which sensors are used and their types
+    """
+    experiment = models.ForeignKey(
+        OctetExperiment,
+        on_delete=models.CASCADE,
+        related_name='sensor_layout'
+    )
+
+    sensor_location = models.CharField(max_length=10)
+    sensor_state = models.IntegerField(help_text="0=unused, 1=active")
+    sensor_type = models.CharField(max_length=100, blank=True)
+    sensor_lot = models.CharField(max_length=100, blank=True)
+    sensor_info = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'octet_sensor_layout'
+        unique_together = [['experiment', 'sensor_location']]
+        indexes = [
+            models.Index(fields=['experiment', 'sensor_location']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment.experiment_name} - {self.sensor_location}: {self.sensor_type}"
+
+
+class OctetSampleLayout(models.Model):
+    """
+    Sample plate layout - imported from 'Sample Layout' sheet
+    Defines what's in each well of the sample plate
+    """
+    experiment = models.ForeignKey(
+        OctetExperiment,
+        on_delete=models.CASCADE,
+        related_name='sample_layout'
+    )
+
+    sample_location = models.CharField(max_length=10)
+    sample_type = models.CharField(max_length=50, help_text="BUFFER, SAMPLE, KLOAD, etc.")
+    sample_state = models.IntegerField(help_text="0=unused, 2=active")
+    sample_id = models.CharField(max_length=255, blank=True)
+    sample_group = models.CharField(max_length=100, blank=True)
+    sample_conc = models.FloatField(null=True, blank=True)
+    sample_info = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'octet_sample_layout'
+        unique_together = [['experiment', 'sample_location']]
+        indexes = [
+            models.Index(fields=['experiment', 'sample_location']),
+            models.Index(fields=['sample_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment.experiment_name} - {self.sample_location}: {self.sample_id}"
+
+
+class OctetStepSequence(models.Model):
+    """
+    Experimental step sequence - imported from 'Step Sequence' sheet
+    Defines the method protocol (order of steps)
+    """
+    experiment = models.ForeignKey(
+        OctetExperiment,
+        on_delete=models.CASCADE,
+        related_name='step_sequence'
+    )
+
+    step_name = models.CharField(max_length=100)
+    step_order = models.IntegerField(help_text="Order in sequence")
+    assay_time = models.FloatField(help_text="Duration in seconds")
+    flow_rate = models.IntegerField(help_text="RPM")
+    step_type = models.IntegerField(help_text="Numeric step type code")
+
+    class Meta:
+        db_table = 'octet_step_sequence'
+        ordering = ['experiment', 'step_order']
+        unique_together = [['experiment', 'step_order']]
+        indexes = [
+            models.Index(fields=['experiment', 'step_order']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment.experiment_name} - {self.step_order}: {self.step_name}"
+
+
+class OctetKineticAnalysis(models.Model):
+    """
+    Kinetic analysis results (curve fitting)
+    Created by analysis dashboard, not from Excel import
+    """
+    sensor = models.ForeignKey(
+        OctetSensorData,
+        on_delete=models.CASCADE,
+        related_name='kinetic_analyses'
+    )
+
+    # Analysis metadata
+    analysis_method = models.CharField(
+        max_length=100,
+        choices=[
+            ('1_TO_1_BINDING', '1:1 Binding'),
+            ('2_TO_1_BINDING', '2:1 Heterogeneous Ligand'),
+            ('STEADY_STATE', 'Steady-State Analysis'),
+            ('MASS_TRANSPORT', 'Mass Transport Limitation'),
+            ('CUSTOM', 'Custom Model'),
+        ],
+        default='1_TO_1_BINDING'
+    )
+    analysis_date = models.DateTimeField(auto_now_add=True)
+    analyzed_by = models.CharField(max_length=100, blank=True)
+
+    # Kinetic parameters
+    KD = models.FloatField(null=True, blank=True, help_text="Dissociation constant (M)")
+    kon = models.FloatField(null=True, blank=True, help_text="Association rate (1/Ms)")
+    koff = models.FloatField(null=True, blank=True, help_text="Dissociation rate (1/s)")
+    Rmax = models.FloatField(null=True, blank=True, help_text="Maximum response (nm)")
+
+    # Intermediate parameters
+    kobs = models.FloatField(null=True, blank=True, help_text="Observed rate (1/s)")
+    Req = models.FloatField(null=True, blank=True, help_text="Equilibrium response (nm)")
+
+    # Goodness of fit
+    chi_squared = models.FloatField(null=True, blank=True)
+    R_squared_assoc = models.FloatField(null=True, blank=True)
+    R_squared_dissoc = models.FloatField(null=True, blank=True)
+
+    # Steady-state specific
+    SSG_KD = models.FloatField(null=True, blank=True)
+    SSG_Rmax = models.FloatField(null=True, blank=True)
+    SSG_R_squared = models.FloatField(null=True, blank=True)
+
+    # Fit status
+    fit_converged = models.BooleanField(default=False)
+    fit_error_message = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'octet_kinetic_analysis'
+        ordering = ['-analysis_date']
+        indexes = [
+            models.Index(fields=['sensor']),
+            models.Index(fields=['analysis_method']),
+        ]
+
+    def __str__(self):
+        kd_str = f"KD={self.KD:.2e}" if self.KD else "KD=N/A"
+        return f"{self.sensor} - {self.analysis_method} ({kd_str})"
+
+
+class OctetAnalysisTemplate(models.Model):
+    """
+    Reusable analysis configuration templates
+
+    Stores saved analysis configurations that can be reused across experiments.
+    Users can create custom templates for different assay types (asymmetric,
+    kinetics, titer, HCP, etc.) with their preferred parameters.
+
+    Example:
+        template = OctetAnalysisTemplate.objects.create(
+            template_name="Standard Asymmetric v1",
+            analysis_type="ASYMMETRIC",
+            parameters={
+                'proa_start': 420,
+                'proa_end': 430,
+                'kappa_start': 520,
+                'kappa_end': 530,
+                'buffer_baseline_correction': True
+            },
+            created_by="user@example.com"
+        )
+    """
+    # Template Metadata
+    template_name = models.CharField(
+        max_length=200,
+        unique=True,
+        help_text="Unique name for this template"
+    )
+    analysis_type = models.CharField(
+        max_length=50,
+        db_index=True,
+        choices=[
+            ('ASYMMETRIC', 'Asymmetric Analysis'),
+            ('KINETICS_1TO1', '1:1 Binding Kinetics'),
+            ('KINETICS_2TO1', '2:1 Binding Kinetics'),
+            ('STEADY_STATE', 'Steady-State Analysis'),
+            ('TITER', 'Titer Quantification'),
+            ('HCP', 'HCP Quantification'),
+        ],
+        help_text="Type of analysis this template is for"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional description of what this template does"
+    )
+
+    # Template Authorship
+    created_by = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Username of template creator"
+    )
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+
+    # Default Flag
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Whether this is the default template for this analysis type"
+    )
+
+    # Analysis Parameters (stored as JSON)
+    parameters = models.JSONField(
+        help_text="Analysis-specific parameters stored as JSON dictionary"
+    )
+    # Example parameters for ASYMMETRIC:
+    # {
+    #     "proa_start": 420,
+    #     "proa_end": 430,
+    #     "proa_enabled": True,
+    #     "bb_time1": 440,
+    #     "bb_time2": 450,
+    #     "bb_enabled": True,
+    #     "kappa_start": 520,
+    #     "kappa_end": 530,
+    #     "kappa_enabled": True,
+    #     "buffer_baseline_correction": True,
+    #     "smoothing_enabled": False,
+    #     "use_all_standards": True
+    # }
+
+    class Meta:
+        db_table = 'octet_analysis_template'
+        ordering = ['analysis_type', '-is_default', 'template_name']
+        indexes = [
+            models.Index(fields=['analysis_type']),
+            models.Index(fields=['analysis_type', 'is_default']),
+            models.Index(fields=['template_name']),
+        ]
+        constraints = [
+            # Ensure only one default template per analysis type
+            models.UniqueConstraint(
+                fields=['analysis_type'],
+                condition=models.Q(is_default=True),
+                name='unique_default_per_type'
+            )
+        ]
+
+    def __str__(self):
+        default_str = " (Default)" if self.is_default else ""
+        return f"{self.template_name} - {self.analysis_type}{default_str}"
+
+    def get_parameter(self, key, default=None):
+        """Get a specific parameter value"""
+        return self.parameters.get(key, default)
+
+    def set_parameter(self, key, value):
+        """Set a specific parameter value"""
+        self.parameters[key] = value
+        self.save()
+
+    def clone(self, new_name, created_by=""):
+        """Create a copy of this template with a new name"""
+        return OctetAnalysisTemplate.objects.create(
+            template_name=new_name,
+            analysis_type=self.analysis_type,
+            description=f"Copy of {self.template_name}",
+            created_by=created_by,
+            parameters=self.parameters.copy(),
+            is_default=False
+        )
+
+# ============================================================================
+
+# ============================================================================
+# OCTET KINETICS MODELS (NEW OPTIMIZED ARCHITECTURE)
+# ============================================================================
+# These are the new optimized models for kinetics data
+# Prefix: OctetKinetics (to distinguish from old Octet models)
+# Architecture: 2 tables instead of 4
+#   - OctetKineticsExperiment: One per experiment
+#   - OctetKineticsSensor: One per antibody×concentration (stores time series as JSON)
+# ============================================================================
+
+class OctetKineticsExperiment(models.Model):
+    """
+    Kinetics experiment metadata
+    One row per experiment
+    """
+    # Primary identifiers
+    run_id = models.CharField(
+        max_length=100,
+        unique=True,
+        db_index=True,
+        help_text="UUID from manifest/FRD files"
+    )
+    experiment_name = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="User-friendly experiment name (e.g., OE292)"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Experiment description"
+    )
+
+    # Experiment classification
+    experiment_type = models.CharField(
+        max_length=50,
+        default='KINETICS',
+        db_index=True
+    )
+    experiment_subtype = models.CharField(
+        max_length=50,
+        default='KBASIC',
+        blank=True
+    )
+
+    # Timing
+    experiment_datetime = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Datetime from FRD files"
+    )
+    start_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True
+    )
+
+    # Instrument metadata
+    machine_name = models.CharField(max_length=100, blank=True)
+    instrument_type = models.CharField(max_length=50, blank=True)
+    instrument_serial = models.CharField(max_length=50, blank=True)
+    sensor_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="e.g., AHC (Anti-hIgG Fc Capture)"
+    )
+
+    # Experimental parameters (from HTSettings.efrd)
+    binding_model = models.CharField(
+        max_length=50,
+        default='FastOne2One',
+        help_text="1:1, 2:1, etc."
+    )
+    fit_type = models.CharField(
+        max_length=50,
+        default='Global',
+        help_text="Global or Local fitting"
+    )
+    steps_to_analyze = models.CharField(
+        max_length=50,
+        default='Both',
+        help_text="Association, Dissociation, or Both"
+    )
+
+    # Association window (from HTSettings)
+    assoc_start_time = models.FloatField(default=0.0, help_text="seconds")
+    assoc_end_time = models.FloatField(default=180.0, help_text="seconds")
+    assoc_start_pt = models.IntegerField(default=0)
+    assoc_end_pt = models.IntegerField(default=900)
+
+    # Dissociation window (from HTSettings)
+    dissoc_start_time = models.FloatField(default=0.0, help_text="seconds")
+    dissoc_end_time = models.FloatField(default=60.0, help_text="seconds")
+    dissoc_start_pt = models.IntegerField(default=0)
+    dissoc_end_pt = models.IntegerField(default=300)
+
+    # Sampling
+    delta_t = models.FloatField(
+        default=0.2,
+        help_text="Sampling interval (seconds)"
+    )
+    sampling_rate_hz = models.FloatField(
+        default=5.0,
+        help_text="Sampling rate (Hz)"
+    )
+
+    # Fit grouping (from HTSettings)
+    fit_group_by = models.CharField(max_length=50, default='Color')
+    rmax_unlink = models.CharField(max_length=50, default='Sensor')
+
+    # Units
+    concentration_units = models.CharField(max_length=20, default='nM')
+    response_units = models.CharField(max_length=20, default='nm')
+
+    # File tracking
+    original_folder_path = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Path to folder with FRD files"
+    )
+    ht_settings_path = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Path to HTSettings.efrd"
+    )
+    analysis_excel_path = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Path to FRD_Analysis.xlsx"
+    )
+
+    # Import tracking
+    date_imported = models.DateTimeField(auto_now_add=True)
+    imported_by = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        db_table = 'octet_kinetics_experiment'
+        ordering = ['-start_datetime']
+        indexes = [
+            models.Index(fields=['run_id']),
+            models.Index(fields=['experiment_name']),
+            models.Index(fields=['experiment_type']),
+            models.Index(fields=['start_datetime']),
+        ]
+
+    def __str__(self):
+        return f"{self.experiment_name} ({self.run_id[:8]}...)"
+
+
+class OctetKineticsSensor(models.Model):
+    """
+    Complete sensor data - ONE ROW per antibody×concentration
+    All time series data stored as JSON in single row
+
+    This is the core table - everything you need in one place!
+    """
+    # Foreign key to experiment
+    experiment = models.ForeignKey(
+        OctetKineticsExperiment,
+        on_delete=models.CASCADE,
+        related_name='sensors'
+    )
+
+    # ==========================================
+    # SENSOR IDENTIFICATION
+    # ==========================================
+    sensor_location = models.CharField(
+        max_length=50,
+        db_index=True,
+        help_text="t1_001_01 format from FRD file"
+    )
+    frd_file = models.CharField(
+        max_length=100,
+        db_index=True,
+        help_text="251013_001.frd"
+    )
+    frd_number = models.IntegerField(
+        help_text="1-16 for OE292"
+    )
+    cycle_number = models.IntegerField(
+        help_text="Cycle within FRD file"
+    )
+
+    # ==========================================
+    # SAMPLE IDENTIFICATION
+    # ==========================================
+    antibody_id = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="Loading sample (e.g., SI-157C11_P5158)"
+    )
+    analyte_id = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="Sample being tested (e.g., hsCD3d/e_Acro_CDD-H52W1)"
+    )
+    concentration_nm = models.FloatField(
+        db_index=True,
+        help_text="Analyte concentration in nM"
+    )
+
+    # ==========================================
+    # WELL LOCATIONS (for traceability)
+    # ==========================================
+    loading_sample = models.CharField(
+        max_length=255,
+        help_text="Sample name loaded"
+    )
+    loading_well = models.CharField(
+        max_length=10,
+        db_index=True,
+        help_text="e.g., A5, C10"
+    )
+
+    baseline_sample = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Usually buffer"
+    )
+    baseline_well = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="e.g., A1, A3"
+    )
+
+    association_sample = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Analyte sample"
+    )
+    association_well = models.CharField(
+        max_length=10,
+        db_index=True,
+        blank=True,
+        help_text="e.g., A2, A4"
+    )
+
+    dissociation_well = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Usually buffer (same as baseline)"
+    )
+
+    # ==========================================
+    # REFERENCE TRACKING
+    # ==========================================
+    is_reference = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True if concentration_nm = 0.0 (buffer only)"
+    )
+    reference_sensor = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='samples_using_this_ref',
+        help_text="Link to reference sensor for subtraction"
+    )
+
+    # ==========================================
+    # DATA POINT COUNTS
+    # ==========================================
+    loading_points = models.IntegerField(default=0)
+    baseline_points = models.IntegerField(default=0)
+    association_points = models.IntegerField(default=0)
+    dissociation_points = models.IntegerField(default=0)
+    total_points = models.IntegerField(default=0)
+
+    # ==========================================
+    # TIME SERIES DATA (JSON)
+    # ==========================================
+    # Each step stored as: {'time': [array], 'response': [array]}
+
+    loading_data = models.JSONField(
+        default=dict,
+        help_text="{'time': [...], 'response': [...]}"
+    )
+    baseline_data = models.JSONField(
+        default=dict,
+        help_text="{'time': [...], 'response': [...]}"
+    )
+    association_data = models.JSONField(
+        default=dict,
+        help_text="{'time': [...], 'response': [...]}"
+    )
+    dissociation_data = models.JSONField(
+        default=dict,
+        help_text="{'time': [...], 'response': [...]}"
+    )
+
+    # ==========================================
+    # TIME RANGES (for quick reference)
+    # ==========================================
+    assoc_time_start = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Association start time (s)"
+    )
+    assoc_time_end = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Association end time (s)"
+    )
+
+    # ==========================================
+    # KINETIC PARAMETERS (from vendor analysis)
+    # ==========================================
+    # These come from Excel if available
+
+    # Primary kinetic constants
+    kd_m = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Dissociation constant (M)"
+    )
+    kd_error = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="KD error (M)"
+    )
+    ka_1_ms = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Association rate constant (1/Ms)"
+    )
+    ka_error = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="ka error (1/Ms)"
+    )
+    kdis_1_s = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Dissociation rate constant (1/s)"
+    )
+    kdis_error = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="kdis error (1/s)"
+    )
+
+    # Response parameters
+    response = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Response (nm)"
+    )
+    rmax = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Maximum response (nm)"
+    )
+    rmax_error = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Rmax error (nm)"
+    )
+
+    # Intermediate parameters
+    kobs = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Observed rate (1/s)"
+    )
+    kobs_error = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="kobs error (1/s)"
+    )
+    req = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Equilibrium response (nm)"
+    )
+    req_rmax_percent = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Req/Rmax (%)"
+    )
+
+    # Goodness of fit
+    rss = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Residual sum of squares"
+    )
+    r_squared = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Full R² (goodness of fit)"
+    )
+
+    # Steady-state global (SSG) parameters
+    ssg_kd = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Steady-state global KD"
+    )
+    ssg_rmax = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Steady-state global Rmax"
+    )
+    ssg_r_squared = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Steady-state global R²"
+    )
+
+    class Meta:
+        db_table = 'octet_kinetics_sensor'
+        ordering = ['antibody_id', 'concentration_nm']
+        unique_together = [
+            ['experiment', 'antibody_id', 'concentration_nm']
+        ]
+        indexes = [
+            models.Index(fields=['experiment', 'antibody_id']),
+            models.Index(fields=['experiment', 'antibody_id', 'concentration_nm']),
+            models.Index(fields=['antibody_id']),
+            models.Index(fields=['is_reference']),
+            models.Index(fields=['loading_well']),
+            models.Index(fields=['association_well']),
+            models.Index(fields=['frd_file']),
+        ]
+
+    def __str__(self):
+        ref_str = " [REF]" if self.is_reference else ""
+        return f"{self.antibody_id} @ {self.concentration_nm} nM{ref_str}"
+
+    def get_full_timeseries(self):
+        """
+        Combine all steps into single time series
+        Returns: (time_array, response_array) as numpy arrays
+        """
+        import numpy as np
+
+        all_time = []
+        all_response = []
+
+        for step_data in [
+            self.loading_data,
+            self.baseline_data,
+            self.association_data,
+            self.dissociation_data
+        ]:
+            if step_data and 'time' in step_data:
+                all_time.extend(step_data['time'])
+                all_response.extend(step_data['response'])
+
+        return np.array(all_time), np.array(all_response)
+
+    def get_association_data(self):
+        """Get just association step as numpy arrays"""
+        import numpy as np
+
+        if not self.association_data:
+            return np.array([]), np.array([])
+
+        return (
+            np.array(self.association_data.get('time', [])),
+            np.array(self.association_data.get('response', []))
+        )
+
+    def get_dissociation_data(self):
+        """Get just dissociation step as numpy arrays"""
+        import numpy as np
+
+        if not self.dissociation_data:
+            return np.array([]), np.array([])
+
+        return (
+            np.array(self.dissociation_data.get('time', [])),
+            np.array(self.dissociation_data.get('response', []))
+        )

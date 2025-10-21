@@ -703,22 +703,24 @@ app_layout = html.Div([
                                         )
                                     ], id='rt-input-container', style={'display': 'block'}),
 
-                                    # Enhanced Refresh button
-                                    html.Button("Refresh RT", id="refresh-rt-btn", n_clicks=0, style={
-                                        'backgroundColor': '#2563eb',
-                                        'color': 'white',
-                                        'border': 'none',
-                                        'padding': '12px 20px',
-                                        'fontSize': '14px',
-                                        'cursor': 'pointer',
-                                        'borderRadius': '10px',
-                                        'fontWeight': '600',
-                                        'width': '100%',
-                                        'marginBottom': '18px',
-                                        'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)',
-                                        'fontFamily': 'system-ui, -apple-system, sans-serif'
-                                    }),
+                                    # Enhanced Refresh button (wrapped in container for visibility control)
+                                    html.Div([
+                                        html.Button("Refresh RT", id="refresh-rt-btn", n_clicks=0, style={
+                                            'backgroundColor': '#2563eb',
+                                            'color': 'white',
+                                            'border': 'none',
+                                            'padding': '12px 20px',
+                                            'fontSize': '14px',
+                                            'cursor': 'pointer',
+                                            'borderRadius': '10px',
+                                            'fontWeight': '600',
+                                            'width': '100%',
+                                            'marginBottom': '18px',
+                                            'transition': 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.25)',
+                                            'fontFamily': 'system-ui, -apple-system, sans-serif'
+                                        })
+                                    ], id='refresh-rt-btn-container', style={'display': 'block'}),
 
                                     html.Div([
                                         html.Label("LMW Cutoff Time:",

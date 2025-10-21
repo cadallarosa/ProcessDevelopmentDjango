@@ -1,0 +1,1088 @@
+2025/10/13 12:22:58	Instrument is busy
+2025/10/13 12:23:36	Instrument is finished
+2025/10/13 12:23:36	Ready
+2025/10/13 12:33:36	Experiment started
+2025/10/13 12:33:36	Starting new step
+2025/10/13 12:33:36	Plate 1 temperature = 30 C
+2025/10/13 12:33:36	Plate 2 temperature = 30 C
+2025/10/13 12:33:36	Waiting to pick up sensor location A11
+2025/10/13 12:33:36	Picking sensors location A11
+2025/10/13 12:33:50	Checking sensors location A11
+2025/10/13 12:33:51	Sensor 1: Integration Time = 3.15 ms
+2025/10/13 12:33:51	Sensor 2: Integration Time = 2.70 ms
+2025/10/13 12:33:52	Sensor 3: Integration Time = 2.49 ms
+2025/10/13 12:33:52	Sensor 4: Integration Time = 3.08 ms
+2025/10/13 12:33:52	Sensor 5: Integration Time = 3.01 ms
+2025/10/13 12:33:52	Sensor 6: Integration Time = 3.28 ms
+2025/10/13 12:33:52	Sensor 7: Integration Time = 3.27 ms
+2025/10/13 12:33:52	Sensor 8: Integration Time = 3.78 ms
+2025/10/13 12:33:52	Sensor 9: Integration Time = 2.32 ms
+2025/10/13 12:33:52	Sensor 10: Integration Time = 3.02 ms
+2025/10/13 12:33:52	Sensor 11: Integration Time = 2.85 ms
+2025/10/13 12:33:52	Sensor 12: Integration Time = 2.53 ms
+2025/10/13 12:33:52	Sensor 13: Integration Time = 2.72 ms
+2025/10/13 12:33:52	Sensor 14: Integration Time = 2.92 ms
+2025/10/13 12:33:52	Sensor 15: Integration Time = 2.74 ms
+2025/10/13 12:33:52	Sensor 16: Integration Time = 2.71 ms
+2025/10/13 12:33:56	Picking sensors completed location A11
+2025/10/13 12:33:56	Plate 1 temperature = 30 C
+2025/10/13 12:33:56	Plate 2 temperature = 30 C
+2025/10/13 12:33:56	Ready to move to sample location B5
+2025/10/13 12:33:56	Moving to sample location B5
+2025/10/13 12:34:07	Arrived at sample location B5
+2025/10/13 12:34:07	Waiting to start sample location B5
+2025/10/13 12:34:07	Processing sample location B5
+2025/10/13 12:34:12	Sample completed location B5
+2025/10/13 12:34:12	Waiting to start new step
+2025/10/13 12:34:12	Starting new step
+2025/10/13 12:34:13	Ready to move to sample location B6
+2025/10/13 12:34:13	Moving to sample location B6
+2025/10/13 12:34:20	Arrived at sample location B6
+2025/10/13 12:34:20	Waiting to start sample location B6
+2025/10/13 12:34:20	Processing sample location B6
+2025/10/13 12:34:25	Sample completed location B6
+2025/10/13 12:34:26	Waiting to start new step
+2025/10/13 12:34:26	Starting new step
+2025/10/13 12:34:26	Ready to move to sample location B5
+2025/10/13 12:34:26	Moving to sample location B5
+2025/10/13 12:34:34	Arrived at sample location B5
+2025/10/13 12:34:34	Waiting to start sample location B5
+2025/10/13 12:34:34	Processing sample location B5
+2025/10/13 12:34:39	Sample completed location B5
+2025/10/13 12:34:39	Waiting to start new step
+2025/10/13 12:34:39	Starting new step
+2025/10/13 12:34:39	Ready to move to sample location B6
+2025/10/13 12:34:40	Moving to sample location B6
+2025/10/13 12:34:47	Arrived at sample location B6
+2025/10/13 12:34:47	Waiting to start sample location B6
+2025/10/13 12:34:47	Processing sample location B6
+2025/10/13 12:34:52	Sample completed location B6
+2025/10/13 12:34:52	Waiting to start new step
+2025/10/13 12:34:53	Starting new step
+2025/10/13 12:34:53	Ready to move to sample location B5
+2025/10/13 12:34:53	Moving to sample location B5
+2025/10/13 12:35:00	Arrived at sample location B5
+2025/10/13 12:35:01	Waiting to start sample location B5
+2025/10/13 12:35:01	Processing sample location B5
+2025/10/13 12:35:05	Sample completed location B5
+2025/10/13 12:35:06	Waiting to start new step
+2025/10/13 12:35:06	Starting new step
+2025/10/13 12:35:06	Ready to move to sample location B6
+2025/10/13 12:35:07	Moving to sample location B6
+2025/10/13 12:35:14	Arrived at sample location B6
+2025/10/13 12:35:14	Waiting to start sample location B6
+2025/10/13 12:35:14	Processing sample location B6
+2025/10/13 12:35:19	Sample completed location B6
+2025/10/13 12:35:19	Waiting to start new step
+2025/10/13 12:35:20	Starting new step
+2025/10/13 12:35:20	Ready to move to sample location A1
+2025/10/13 12:35:20	Moving to sample location A1
+2025/10/13 12:35:29	Arrived at sample location A1
+2025/10/13 12:35:29	Waiting to start sample location A1
+2025/10/13 12:35:29	Processing sample location A1
+2025/10/13 12:35:48	Sample completed location A1
+2025/10/13 12:35:49	Waiting to start new step
+2025/10/13 12:35:49	Starting new step
+2025/10/13 12:35:49	Ready to move to sample location A5
+2025/10/13 12:35:50	Moving to sample location A5
+2025/10/13 12:35:57	Arrived at sample location A5
+2025/10/13 12:35:57	Waiting to start sample location A5
+2025/10/13 12:35:57	Processing sample location A5
+2025/10/13 12:37:57	Sample completed location A5
+2025/10/13 12:37:58	Waiting to start new step
+2025/10/13 12:37:58	Starting new step
+2025/10/13 12:37:58	Ready to move to sample location A1
+2025/10/13 12:37:58	Moving to sample location A1
+2025/10/13 12:38:06	Arrived at sample location A1
+2025/10/13 12:38:06	Waiting to start sample location A1
+2025/10/13 12:38:06	Processing sample location A1
+2025/10/13 12:39:46	Sample completed location A1
+2025/10/13 12:39:47	Waiting to start new step
+2025/10/13 12:39:47	Starting new step
+2025/10/13 12:39:47	Ready to move to sample location A2
+2025/10/13 12:39:48	Moving to sample location A2
+2025/10/13 12:39:55	Arrived at sample location A2
+2025/10/13 12:39:55	Waiting to start sample location A2
+2025/10/13 12:39:55	Processing sample location A2
+2025/10/13 12:42:55	Sample completed location A2
+2025/10/13 12:42:55	Waiting to start new step
+2025/10/13 12:42:55	Starting new step
+2025/10/13 12:42:55	Ready to move to sample location A1
+2025/10/13 12:42:56	Moving to sample location A1
+2025/10/13 12:43:03	Arrived at sample location A1
+2025/10/13 12:43:03	Waiting to start sample location A1
+2025/10/13 12:43:03	Processing sample location A1
+2025/10/13 12:48:03	Sample completed location A1
+2025/10/13 12:48:03	Waiting to start new step
+2025/10/13 12:48:04	Starting new step
+2025/10/13 12:48:04	Ready to move to sample location B5
+2025/10/13 12:48:04	Moving to sample location B5
+2025/10/13 12:48:12	Arrived at sample location B5
+2025/10/13 12:48:12	Waiting to start sample location B5
+2025/10/13 12:48:12	Processing sample location B5
+2025/10/13 12:48:17	Sample completed location B5
+2025/10/13 12:48:18	Waiting to start new step
+2025/10/13 12:48:18	Starting new step
+2025/10/13 12:48:18	Ready to move to sample location B6
+2025/10/13 12:48:18	Moving to sample location B6
+2025/10/13 12:48:26	Arrived at sample location B6
+2025/10/13 12:48:26	Waiting to start sample location B6
+2025/10/13 12:48:26	Processing sample location B6
+2025/10/13 12:48:31	Sample completed location B6
+2025/10/13 12:48:31	Waiting to start new step
+2025/10/13 12:48:31	Starting new step
+2025/10/13 12:48:31	Ready to move to sample location B5
+2025/10/13 12:48:32	Moving to sample location B5
+2025/10/13 12:48:39	Arrived at sample location B5
+2025/10/13 12:48:39	Waiting to start sample location B5
+2025/10/13 12:48:39	Processing sample location B5
+2025/10/13 12:48:44	Sample completed location B5
+2025/10/13 12:48:44	Waiting to start new step
+2025/10/13 12:48:45	Starting new step
+2025/10/13 12:48:45	Ready to move to sample location B6
+2025/10/13 12:48:45	Moving to sample location B6
+2025/10/13 12:48:52	Arrived at sample location B6
+2025/10/13 12:48:53	Waiting to start sample location B6
+2025/10/13 12:48:53	Processing sample location B6
+2025/10/13 12:48:57	Sample completed location B6
+2025/10/13 12:48:58	Waiting to start new step
+2025/10/13 12:48:58	Starting new step
+2025/10/13 12:48:58	Ready to move to sample location B5
+2025/10/13 12:48:58	Moving to sample location B5
+2025/10/13 12:49:05	Arrived at sample location B5
+2025/10/13 12:49:06	Waiting to start sample location B5
+2025/10/13 12:49:06	Processing sample location B5
+2025/10/13 12:49:11	Sample completed location B5
+2025/10/13 12:49:11	Waiting to start new step
+2025/10/13 12:49:11	Starting new step
+2025/10/13 12:49:11	Ready to move to sample location B6
+2025/10/13 12:49:12	Moving to sample location B6
+2025/10/13 12:49:19	Arrived at sample location B6
+2025/10/13 12:49:19	Waiting to start sample location B6
+2025/10/13 12:49:19	Processing sample location B6
+2025/10/13 12:49:24	Sample completed location B6
+2025/10/13 12:49:24	Waiting to start new step
+2025/10/13 12:49:25	Starting new step
+2025/10/13 12:49:25	Ready to move to sample location A1
+2025/10/13 12:49:25	Moving to sample location A1
+2025/10/13 12:49:34	Arrived at sample location A1
+2025/10/13 12:49:34	Waiting to start sample location A1
+2025/10/13 12:49:34	Processing sample location A1
+2025/10/13 12:49:54	Sample completed location A1
+2025/10/13 12:49:54	Waiting to start new step
+2025/10/13 12:49:54	Starting new step
+2025/10/13 12:49:55	Ready to move to sample location A6
+2025/10/13 12:49:55	Moving to sample location A6
+2025/10/13 12:50:03	Arrived at sample location A6
+2025/10/13 12:50:03	Waiting to start sample location A6
+2025/10/13 12:50:03	Processing sample location A6
+2025/10/13 12:52:03	Sample completed location A6
+2025/10/13 12:52:03	Waiting to start new step
+2025/10/13 12:52:04	Starting new step
+2025/10/13 12:52:04	Ready to move to sample location A1
+2025/10/13 12:52:04	Moving to sample location A1
+2025/10/13 12:52:12	Arrived at sample location A1
+2025/10/13 12:52:12	Waiting to start sample location A1
+2025/10/13 12:52:12	Processing sample location A1
+2025/10/13 12:53:52	Sample completed location A1
+2025/10/13 12:53:53	Waiting to start new step
+2025/10/13 12:53:53	Starting new step
+2025/10/13 12:53:53	Ready to move to sample location A2
+2025/10/13 12:53:53	Moving to sample location A2
+2025/10/13 12:54:00	Arrived at sample location A2
+2025/10/13 12:54:00	Waiting to start sample location A2
+2025/10/13 12:54:01	Processing sample location A2
+2025/10/13 12:57:00	Sample completed location A2
+2025/10/13 12:57:01	Waiting to start new step
+2025/10/13 12:57:01	Starting new step
+2025/10/13 12:57:01	Ready to move to sample location A1
+2025/10/13 12:57:01	Moving to sample location A1
+2025/10/13 12:57:09	Arrived at sample location A1
+2025/10/13 12:57:09	Waiting to start sample location A1
+2025/10/13 12:57:09	Processing sample location A1
+2025/10/13 13:02:09	Sample completed location A1
+2025/10/13 13:02:09	Waiting to start new step
+2025/10/13 13:02:09	Starting new step
+2025/10/13 13:02:09	Ready to move to sample location B5
+2025/10/13 13:02:10	Moving to sample location B5
+2025/10/13 13:02:18	Arrived at sample location B5
+2025/10/13 13:02:18	Waiting to start sample location B5
+2025/10/13 13:02:18	Processing sample location B5
+2025/10/13 13:02:23	Sample completed location B5
+2025/10/13 13:02:23	Waiting to start new step
+2025/10/13 13:02:23	Starting new step
+2025/10/13 13:02:24	Ready to move to sample location B6
+2025/10/13 13:02:24	Moving to sample location B6
+2025/10/13 13:02:31	Arrived at sample location B6
+2025/10/13 13:02:31	Waiting to start sample location B6
+2025/10/13 13:02:31	Processing sample location B6
+2025/10/13 13:02:36	Sample completed location B6
+2025/10/13 13:02:37	Waiting to start new step
+2025/10/13 13:02:37	Starting new step
+2025/10/13 13:02:37	Ready to move to sample location B5
+2025/10/13 13:02:37	Moving to sample location B5
+2025/10/13 13:02:44	Arrived at sample location B5
+2025/10/13 13:02:45	Waiting to start sample location B5
+2025/10/13 13:02:45	Processing sample location B5
+2025/10/13 13:02:49	Sample completed location B5
+2025/10/13 13:02:50	Waiting to start new step
+2025/10/13 13:02:50	Starting new step
+2025/10/13 13:02:50	Ready to move to sample location B6
+2025/10/13 13:02:51	Moving to sample location B6
+2025/10/13 13:02:58	Arrived at sample location B6
+2025/10/13 13:02:58	Waiting to start sample location B6
+2025/10/13 13:02:58	Processing sample location B6
+2025/10/13 13:03:03	Sample completed location B6
+2025/10/13 13:03:03	Waiting to start new step
+2025/10/13 13:03:03	Starting new step
+2025/10/13 13:03:03	Ready to move to sample location B5
+2025/10/13 13:03:04	Moving to sample location B5
+2025/10/13 13:03:11	Arrived at sample location B5
+2025/10/13 13:03:11	Waiting to start sample location B5
+2025/10/13 13:03:11	Processing sample location B5
+2025/10/13 13:03:16	Sample completed location B5
+2025/10/13 13:03:16	Waiting to start new step
+2025/10/13 13:03:17	Starting new step
+2025/10/13 13:03:17	Ready to move to sample location B6
+2025/10/13 13:03:17	Moving to sample location B6
+2025/10/13 13:03:24	Arrived at sample location B6
+2025/10/13 13:03:24	Waiting to start sample location B6
+2025/10/13 13:03:24	Processing sample location B6
+2025/10/13 13:03:29	Sample completed location B6
+2025/10/13 13:03:29	Waiting to start new step
+2025/10/13 13:03:30	Starting new step
+2025/10/13 13:03:30	Ready to move to sample location A1
+2025/10/13 13:03:30	Moving to sample location A1
+2025/10/13 13:03:39	Arrived at sample location A1
+2025/10/13 13:03:39	Waiting to start sample location A1
+2025/10/13 13:03:39	Processing sample location A1
+2025/10/13 13:03:58	Sample completed location A1
+2025/10/13 13:03:58	Waiting to start new step
+2025/10/13 13:03:59	Starting new step
+2025/10/13 13:03:59	Ready to move to sample location A9
+2025/10/13 13:03:59	Moving to sample location A9
+2025/10/13 13:04:08	Arrived at sample location A9
+2025/10/13 13:04:08	Waiting to start sample location A9
+2025/10/13 13:04:08	Processing sample location A9
+2025/10/13 13:06:08	Sample completed location A9
+2025/10/13 13:06:08	Waiting to start new step
+2025/10/13 13:06:09	Starting new step
+2025/10/13 13:06:09	Ready to move to sample location A1
+2025/10/13 13:06:09	Moving to sample location A1
+2025/10/13 13:06:17	Arrived at sample location A1
+2025/10/13 13:06:17	Waiting to start sample location A1
+2025/10/13 13:06:18	Processing sample location A1
+2025/10/13 13:07:57	Sample completed location A1
+2025/10/13 13:07:58	Waiting to start new step
+2025/10/13 13:07:58	Starting new step
+2025/10/13 13:07:58	Ready to move to sample location A2
+2025/10/13 13:07:59	Moving to sample location A2
+2025/10/13 13:08:06	Arrived at sample location A2
+2025/10/13 13:08:06	Waiting to start sample location A2
+2025/10/13 13:08:06	Processing sample location A2
+2025/10/13 13:11:06	Sample completed location A2
+2025/10/13 13:11:06	Waiting to start new step
+2025/10/13 13:11:06	Starting new step
+2025/10/13 13:11:07	Ready to move to sample location A1
+2025/10/13 13:11:07	Moving to sample location A1
+2025/10/13 13:11:14	Arrived at sample location A1
+2025/10/13 13:11:14	Waiting to start sample location A1
+2025/10/13 13:11:14	Processing sample location A1
+2025/10/13 13:16:14	Sample completed location A1
+2025/10/13 13:16:14	Waiting to start new step
+2025/10/13 13:16:15	Starting new step
+2025/10/13 13:16:15	Ready to move to sample location B5
+2025/10/13 13:16:15	Moving to sample location B5
+2025/10/13 13:16:23	Arrived at sample location B5
+2025/10/13 13:16:24	Waiting to start sample location B5
+2025/10/13 13:16:24	Processing sample location B5
+2025/10/13 13:16:28	Sample completed location B5
+2025/10/13 13:16:28	Waiting to start new step
+2025/10/13 13:16:29	Starting new step
+2025/10/13 13:16:29	Ready to move to sample location B6
+2025/10/13 13:16:29	Moving to sample location B6
+2025/10/13 13:16:36	Arrived at sample location B6
+2025/10/13 13:16:36	Waiting to start sample location B6
+2025/10/13 13:16:37	Processing sample location B6
+2025/10/13 13:16:41	Sample completed location B6
+2025/10/13 13:16:42	Waiting to start new step
+2025/10/13 13:16:42	Starting new step
+2025/10/13 13:16:42	Ready to move to sample location B5
+2025/10/13 13:16:43	Moving to sample location B5
+2025/10/13 13:16:49	Arrived at sample location B5
+2025/10/13 13:16:50	Waiting to start sample location B5
+2025/10/13 13:16:50	Processing sample location B5
+2025/10/13 13:16:54	Sample completed location B5
+2025/10/13 13:16:55	Waiting to start new step
+2025/10/13 13:16:55	Starting new step
+2025/10/13 13:16:55	Ready to move to sample location B6
+2025/10/13 13:16:55	Moving to sample location B6
+2025/10/13 13:17:03	Arrived at sample location B6
+2025/10/13 13:17:03	Waiting to start sample location B6
+2025/10/13 13:17:03	Processing sample location B6
+2025/10/13 13:17:08	Sample completed location B6
+2025/10/13 13:17:08	Waiting to start new step
+2025/10/13 13:17:08	Starting new step
+2025/10/13 13:17:08	Ready to move to sample location B5
+2025/10/13 13:17:09	Moving to sample location B5
+2025/10/13 13:17:16	Arrived at sample location B5
+2025/10/13 13:17:16	Waiting to start sample location B5
+2025/10/13 13:17:16	Processing sample location B5
+2025/10/13 13:17:21	Sample completed location B5
+2025/10/13 13:17:21	Waiting to start new step
+2025/10/13 13:17:21	Starting new step
+2025/10/13 13:17:22	Ready to move to sample location B6
+2025/10/13 13:17:22	Moving to sample location B6
+2025/10/13 13:17:29	Arrived at sample location B6
+2025/10/13 13:17:29	Waiting to start sample location B6
+2025/10/13 13:17:29	Processing sample location B6
+2025/10/13 13:17:34	Sample completed location B6
+2025/10/13 13:17:34	Waiting to start new step
+2025/10/13 13:17:34	Starting new step
+2025/10/13 13:17:35	Ready to move to sample location A1
+2025/10/13 13:17:35	Moving to sample location A1
+2025/10/13 13:17:43	Arrived at sample location A1
+2025/10/13 13:17:43	Waiting to start sample location A1
+2025/10/13 13:17:43	Processing sample location A1
+2025/10/13 13:18:03	Sample completed location A1
+2025/10/13 13:18:03	Waiting to start new step
+2025/10/13 13:18:04	Starting new step
+2025/10/13 13:18:04	Ready to move to sample location A10
+2025/10/13 13:18:04	Moving to sample location A10
+2025/10/13 13:18:13	Arrived at sample location A10
+2025/10/13 13:18:13	Waiting to start sample location A10
+2025/10/13 13:18:13	Processing sample location A10
+2025/10/13 13:20:13	Sample completed location A10
+2025/10/13 13:20:13	Waiting to start new step
+2025/10/13 13:20:13	Starting new step
+2025/10/13 13:20:14	Ready to move to sample location A1
+2025/10/13 13:20:14	Moving to sample location A1
+2025/10/13 13:20:23	Arrived at sample location A1
+2025/10/13 13:20:23	Waiting to start sample location A1
+2025/10/13 13:20:23	Processing sample location A1
+2025/10/13 13:22:03	Sample completed location A1
+2025/10/13 13:22:03	Waiting to start new step
+2025/10/13 13:22:03	Starting new step
+2025/10/13 13:22:03	Ready to move to sample location A2
+2025/10/13 13:22:04	Moving to sample location A2
+2025/10/13 13:22:11	Arrived at sample location A2
+2025/10/13 13:22:11	Waiting to start sample location A2
+2025/10/13 13:22:11	Processing sample location A2
+2025/10/13 13:25:11	Sample completed location A2
+2025/10/13 13:25:11	Waiting to start new step
+2025/10/13 13:25:11	Starting new step
+2025/10/13 13:25:11	Ready to move to sample location A1
+2025/10/13 13:25:12	Moving to sample location A1
+2025/10/13 13:25:19	Arrived at sample location A1
+2025/10/13 13:25:19	Waiting to start sample location A1
+2025/10/13 13:25:19	Processing sample location A1
+2025/10/13 13:30:19	Sample completed location A1
+2025/10/13 13:30:19	Waiting to start new step
+2025/10/13 13:30:19	Starting new step
+2025/10/13 13:30:20	Ready to move to sample location B5
+2025/10/13 13:30:20	Moving to sample location B5
+2025/10/13 13:30:28	Arrived at sample location B5
+2025/10/13 13:30:28	Waiting to start sample location B5
+2025/10/13 13:30:28	Processing sample location B5
+2025/10/13 13:30:33	Sample completed location B5
+2025/10/13 13:30:34	Waiting to start new step
+2025/10/13 13:30:34	Starting new step
+2025/10/13 13:30:34	Ready to move to sample location B6
+2025/10/13 13:30:34	Moving to sample location B6
+2025/10/13 13:30:41	Arrived at sample location B6
+2025/10/13 13:30:42	Waiting to start sample location B6
+2025/10/13 13:30:42	Processing sample location B6
+2025/10/13 13:30:47	Sample completed location B6
+2025/10/13 13:30:47	Waiting to start new step
+2025/10/13 13:30:47	Starting new step
+2025/10/13 13:30:47	Ready to move to sample location B5
+2025/10/13 13:30:48	Moving to sample location B5
+2025/10/13 13:30:55	Arrived at sample location B5
+2025/10/13 13:30:55	Waiting to start sample location B5
+2025/10/13 13:30:55	Processing sample location B5
+2025/10/13 13:31:00	Sample completed location B5
+2025/10/13 13:31:00	Waiting to start new step
+2025/10/13 13:31:00	Starting new step
+2025/10/13 13:31:01	Ready to move to sample location B6
+2025/10/13 13:31:01	Moving to sample location B6
+2025/10/13 13:31:08	Arrived at sample location B6
+2025/10/13 13:31:08	Waiting to start sample location B6
+2025/10/13 13:31:08	Processing sample location B6
+2025/10/13 13:31:13	Sample completed location B6
+2025/10/13 13:31:13	Waiting to start new step
+2025/10/13 13:31:14	Starting new step
+2025/10/13 13:31:14	Ready to move to sample location B5
+2025/10/13 13:31:14	Moving to sample location B5
+2025/10/13 13:31:21	Arrived at sample location B5
+2025/10/13 13:31:22	Waiting to start sample location B5
+2025/10/13 13:31:22	Processing sample location B5
+2025/10/13 13:31:26	Sample completed location B5
+2025/10/13 13:31:27	Waiting to start new step
+2025/10/13 13:31:27	Starting new step
+2025/10/13 13:31:27	Ready to move to sample location B6
+2025/10/13 13:31:28	Moving to sample location B6
+2025/10/13 13:31:35	Arrived at sample location B6
+2025/10/13 13:31:35	Waiting to start sample location B6
+2025/10/13 13:31:35	Processing sample location B6
+2025/10/13 13:31:40	Sample completed location B6
+2025/10/13 13:31:40	Waiting to start new step
+2025/10/13 13:31:41	Starting new step
+2025/10/13 13:31:41	Ready to move to sample location A1
+2025/10/13 13:31:41	Moving to sample location A1
+2025/10/13 13:31:50	Arrived at sample location A1
+2025/10/13 13:31:50	Waiting to start sample location A1
+2025/10/13 13:31:50	Processing sample location A1
+2025/10/13 13:32:09	Sample completed location A1
+2025/10/13 13:32:10	Waiting to start new step
+2025/10/13 13:32:10	Starting new step
+2025/10/13 13:32:11	Ready to move to sample location A13
+2025/10/13 13:32:11	Moving to sample location A13
+2025/10/13 13:32:20	Arrived at sample location A13
+2025/10/13 13:32:20	Waiting to start sample location A13
+2025/10/13 13:32:20	Processing sample location A13
+2025/10/13 13:34:20	Sample completed location A13
+2025/10/13 13:34:20	Waiting to start new step
+2025/10/13 13:34:20	Starting new step
+2025/10/13 13:34:21	Ready to move to sample location A1
+2025/10/13 13:34:21	Moving to sample location A1
+2025/10/13 13:34:30	Arrived at sample location A1
+2025/10/13 13:34:30	Waiting to start sample location A1
+2025/10/13 13:34:30	Processing sample location A1
+2025/10/13 13:36:10	Sample completed location A1
+2025/10/13 13:36:10	Waiting to start new step
+2025/10/13 13:36:11	Starting new step
+2025/10/13 13:36:11	Ready to move to sample location A2
+2025/10/13 13:36:11	Moving to sample location A2
+2025/10/13 13:36:19	Arrived at sample location A2
+2025/10/13 13:36:19	Waiting to start sample location A2
+2025/10/13 13:36:19	Processing sample location A2
+2025/10/13 13:39:18	Sample completed location A2
+2025/10/13 13:39:19	Waiting to start new step
+2025/10/13 13:39:19	Starting new step
+2025/10/13 13:39:19	Ready to move to sample location A1
+2025/10/13 13:39:20	Moving to sample location A1
+2025/10/13 13:39:27	Arrived at sample location A1
+2025/10/13 13:39:27	Waiting to start sample location A1
+2025/10/13 13:39:27	Processing sample location A1
+2025/10/13 13:44:27	Sample completed location A1
+2025/10/13 13:44:27	Waiting to start new step
+2025/10/13 13:44:27	Starting new step
+2025/10/13 13:44:27	Ready to move to sample location B5
+2025/10/13 13:44:28	Moving to sample location B5
+2025/10/13 13:44:36	Arrived at sample location B5
+2025/10/13 13:44:36	Waiting to start sample location B5
+2025/10/13 13:44:36	Processing sample location B5
+2025/10/13 13:44:41	Sample completed location B5
+2025/10/13 13:44:41	Waiting to start new step
+2025/10/13 13:44:42	Starting new step
+2025/10/13 13:44:42	Ready to move to sample location B6
+2025/10/13 13:44:42	Moving to sample location B6
+2025/10/13 13:44:49	Arrived at sample location B6
+2025/10/13 13:44:49	Waiting to start sample location B6
+2025/10/13 13:44:49	Processing sample location B6
+2025/10/13 13:44:54	Sample completed location B6
+2025/10/13 13:44:54	Waiting to start new step
+2025/10/13 13:44:55	Starting new step
+2025/10/13 13:44:55	Ready to move to sample location B5
+2025/10/13 13:44:55	Moving to sample location B5
+2025/10/13 13:45:02	Arrived at sample location B5
+2025/10/13 13:45:02	Waiting to start sample location B5
+2025/10/13 13:45:03	Processing sample location B5
+2025/10/13 13:45:07	Sample completed location B5
+2025/10/13 13:45:08	Waiting to start new step
+2025/10/13 13:45:08	Starting new step
+2025/10/13 13:45:08	Ready to move to sample location B6
+2025/10/13 13:45:08	Moving to sample location B6
+2025/10/13 13:45:16	Arrived at sample location B6
+2025/10/13 13:45:16	Waiting to start sample location B6
+2025/10/13 13:45:16	Processing sample location B6
+2025/10/13 13:45:21	Sample completed location B6
+2025/10/13 13:45:21	Waiting to start new step
+2025/10/13 13:45:21	Starting new step
+2025/10/13 13:45:22	Ready to move to sample location B5
+2025/10/13 13:45:22	Moving to sample location B5
+2025/10/13 13:45:29	Arrived at sample location B5
+2025/10/13 13:45:29	Waiting to start sample location B5
+2025/10/13 13:45:29	Processing sample location B5
+2025/10/13 13:45:34	Sample completed location B5
+2025/10/13 13:45:34	Waiting to start new step
+2025/10/13 13:45:35	Starting new step
+2025/10/13 13:45:35	Ready to move to sample location B6
+2025/10/13 13:45:35	Moving to sample location B6
+2025/10/13 13:45:42	Arrived at sample location B6
+2025/10/13 13:45:43	Waiting to start sample location B6
+2025/10/13 13:45:43	Processing sample location B6
+2025/10/13 13:45:47	Sample completed location B6
+2025/10/13 13:45:48	Waiting to start new step
+2025/10/13 13:45:48	Starting new step
+2025/10/13 13:45:48	Ready to move to sample location A1
+2025/10/13 13:45:49	Moving to sample location A1
+2025/10/13 13:45:57	Arrived at sample location A1
+2025/10/13 13:45:57	Waiting to start sample location A1
+2025/10/13 13:45:57	Processing sample location A1
+2025/10/13 13:46:17	Sample completed location A1
+2025/10/13 13:46:17	Waiting to start new step
+2025/10/13 13:46:18	Starting new step
+2025/10/13 13:46:18	Ready to move to sample location A14
+2025/10/13 13:46:18	Moving to sample location A14
+2025/10/13 13:46:27	Arrived at sample location A14
+2025/10/13 13:46:28	Waiting to start sample location A14
+2025/10/13 13:46:28	Processing sample location A14
+2025/10/13 13:48:28	Sample completed location A14
+2025/10/13 13:48:28	Waiting to start new step
+2025/10/13 13:48:28	Starting new step
+2025/10/13 13:48:28	Ready to move to sample location A1
+2025/10/13 13:48:29	Moving to sample location A1
+2025/10/13 13:48:38	Arrived at sample location A1
+2025/10/13 13:48:38	Waiting to start sample location A1
+2025/10/13 13:48:38	Processing sample location A1
+2025/10/13 13:50:18	Sample completed location A1
+2025/10/13 13:50:18	Waiting to start new step
+2025/10/13 13:50:19	Starting new step
+2025/10/13 13:50:19	Ready to move to sample location A2
+2025/10/13 13:50:19	Moving to sample location A2
+2025/10/13 13:50:26	Arrived at sample location A2
+2025/10/13 13:50:26	Waiting to start sample location A2
+2025/10/13 13:50:27	Processing sample location A2
+2025/10/13 13:53:26	Sample completed location A2
+2025/10/13 13:53:26	Waiting to start new step
+2025/10/13 13:53:27	Starting new step
+2025/10/13 13:53:27	Ready to move to sample location A1
+2025/10/13 13:53:27	Moving to sample location A1
+2025/10/13 13:53:34	Arrived at sample location A1
+2025/10/13 13:53:34	Waiting to start sample location A1
+2025/10/13 13:53:35	Processing sample location A1
+2025/10/13 13:58:34	Sample completed location A1
+2025/10/13 13:58:35	Waiting to start new step
+2025/10/13 13:58:35	Starting new step
+2025/10/13 13:58:35	Ready to move to sample location B5
+2025/10/13 13:58:35	Moving to sample location B5
+2025/10/13 13:58:44	Arrived at sample location B5
+2025/10/13 13:58:44	Waiting to start sample location B5
+2025/10/13 13:58:44	Processing sample location B5
+2025/10/13 13:58:49	Sample completed location B5
+2025/10/13 13:58:49	Waiting to start new step
+2025/10/13 13:58:49	Starting new step
+2025/10/13 13:58:49	Ready to move to sample location B6
+2025/10/13 13:58:50	Moving to sample location B6
+2025/10/13 13:58:57	Arrived at sample location B6
+2025/10/13 13:58:57	Waiting to start sample location B6
+2025/10/13 13:58:57	Processing sample location B6
+2025/10/13 13:59:02	Sample completed location B6
+2025/10/13 13:59:02	Waiting to start new step
+2025/10/13 13:59:02	Starting new step
+2025/10/13 13:59:03	Ready to move to sample location B5
+2025/10/13 13:59:03	Moving to sample location B5
+2025/10/13 13:59:10	Arrived at sample location B5
+2025/10/13 13:59:10	Waiting to start sample location B5
+2025/10/13 13:59:10	Processing sample location B5
+2025/10/13 13:59:15	Sample completed location B5
+2025/10/13 13:59:15	Waiting to start new step
+2025/10/13 13:59:15	Starting new step
+2025/10/13 13:59:16	Ready to move to sample location B6
+2025/10/13 13:59:16	Moving to sample location B6
+2025/10/13 13:59:23	Arrived at sample location B6
+2025/10/13 13:59:23	Waiting to start sample location B6
+2025/10/13 13:59:23	Processing sample location B6
+2025/10/13 13:59:28	Sample completed location B6
+2025/10/13 13:59:28	Waiting to start new step
+2025/10/13 13:59:28	Starting new step
+2025/10/13 13:59:29	Ready to move to sample location B5
+2025/10/13 13:59:29	Moving to sample location B5
+2025/10/13 13:59:36	Arrived at sample location B5
+2025/10/13 13:59:36	Waiting to start sample location B5
+2025/10/13 13:59:36	Processing sample location B5
+2025/10/13 13:59:41	Sample completed location B5
+2025/10/13 13:59:42	Waiting to start new step
+2025/10/13 13:59:42	Starting new step
+2025/10/13 13:59:42	Ready to move to sample location B6
+2025/10/13 13:59:43	Moving to sample location B6
+2025/10/13 13:59:50	Arrived at sample location B6
+2025/10/13 13:59:50	Waiting to start sample location B6
+2025/10/13 13:59:50	Processing sample location B6
+2025/10/13 13:59:55	Sample completed location B6
+2025/10/13 13:59:55	Waiting to start new step
+2025/10/13 13:59:55	Starting new step
+2025/10/13 13:59:55	Ready to move to sample location A1
+2025/10/13 13:59:56	Moving to sample location A1
+2025/10/13 14:00:04	Arrived at sample location A1
+2025/10/13 14:00:04	Waiting to start sample location A1
+2025/10/13 14:00:04	Processing sample location A1
+2025/10/13 14:00:24	Sample completed location A1
+2025/10/13 14:00:24	Waiting to start new step
+2025/10/13 14:00:24	Starting new step
+2025/10/13 14:00:25	Ready to move to sample location A17
+2025/10/13 14:00:25	Moving to sample location A17
+2025/10/13 14:00:36	Arrived at sample location A17
+2025/10/13 14:00:36	Waiting to start sample location A17
+2025/10/13 14:00:36	Processing sample location A17
+2025/10/13 14:02:35	Sample completed location A17
+2025/10/13 14:02:36	Waiting to start new step
+2025/10/13 14:02:36	Starting new step
+2025/10/13 14:02:36	Ready to move to sample location A1
+2025/10/13 14:02:37	Moving to sample location A1
+2025/10/13 14:02:47	Arrived at sample location A1
+2025/10/13 14:02:47	Waiting to start sample location A1
+2025/10/13 14:02:47	Processing sample location A1
+2025/10/13 14:04:26	Sample completed location A1
+2025/10/13 14:04:27	Waiting to start new step
+2025/10/13 14:04:27	Starting new step
+2025/10/13 14:04:27	Ready to move to sample location A2
+2025/10/13 14:04:28	Moving to sample location A2
+2025/10/13 14:04:35	Arrived at sample location A2
+2025/10/13 14:04:35	Waiting to start sample location A2
+2025/10/13 14:04:35	Processing sample location A2
+2025/10/13 14:07:35	Sample completed location A2
+2025/10/13 14:07:35	Waiting to start new step
+2025/10/13 14:07:35	Starting new step
+2025/10/13 14:07:35	Ready to move to sample location A1
+2025/10/13 14:07:35	Moving to sample location A1
+2025/10/13 14:07:43	Arrived at sample location A1
+2025/10/13 14:07:43	Waiting to start sample location A1
+2025/10/13 14:07:43	Processing sample location A1
+2025/10/13 14:12:43	Sample completed location A1
+2025/10/13 14:12:43	Waiting to start new step
+2025/10/13 14:12:43	Starting new step
+2025/10/13 14:12:44	Ready to move to sample location B5
+2025/10/13 14:12:44	Moving to sample location B5
+2025/10/13 14:12:52	Arrived at sample location B5
+2025/10/13 14:12:52	Waiting to start sample location B5
+2025/10/13 14:12:52	Processing sample location B5
+2025/10/13 14:12:57	Sample completed location B5
+2025/10/13 14:12:57	Waiting to start new step
+2025/10/13 14:12:58	Starting new step
+2025/10/13 14:12:58	Ready to move to sample location B6
+2025/10/13 14:12:58	Moving to sample location B6
+2025/10/13 14:13:05	Arrived at sample location B6
+2025/10/13 14:13:05	Waiting to start sample location B6
+2025/10/13 14:13:05	Processing sample location B6
+2025/10/13 14:13:10	Sample completed location B6
+2025/10/13 14:13:10	Waiting to start new step
+2025/10/13 14:13:11	Starting new step
+2025/10/13 14:13:11	Ready to move to sample location B5
+2025/10/13 14:13:11	Moving to sample location B5
+2025/10/13 14:13:18	Arrived at sample location B5
+2025/10/13 14:13:18	Waiting to start sample location B5
+2025/10/13 14:13:19	Processing sample location B5
+2025/10/13 14:13:23	Sample completed location B5
+2025/10/13 14:13:23	Waiting to start new step
+2025/10/13 14:13:24	Starting new step
+2025/10/13 14:13:24	Ready to move to sample location B6
+2025/10/13 14:13:24	Moving to sample location B6
+2025/10/13 14:13:31	Arrived at sample location B6
+2025/10/13 14:13:31	Waiting to start sample location B6
+2025/10/13 14:13:32	Processing sample location B6
+2025/10/13 14:13:36	Sample completed location B6
+2025/10/13 14:13:36	Waiting to start new step
+2025/10/13 14:13:37	Starting new step
+2025/10/13 14:13:37	Ready to move to sample location B5
+2025/10/13 14:13:37	Moving to sample location B5
+2025/10/13 14:13:44	Arrived at sample location B5
+2025/10/13 14:13:44	Waiting to start sample location B5
+2025/10/13 14:13:45	Processing sample location B5
+2025/10/13 14:13:49	Sample completed location B5
+2025/10/13 14:13:50	Waiting to start new step
+2025/10/13 14:13:50	Starting new step
+2025/10/13 14:13:50	Ready to move to sample location B6
+2025/10/13 14:13:50	Moving to sample location B6
+2025/10/13 14:13:57	Arrived at sample location B6
+2025/10/13 14:13:58	Waiting to start sample location B6
+2025/10/13 14:13:58	Processing sample location B6
+2025/10/13 14:14:02	Sample completed location B6
+2025/10/13 14:14:03	Waiting to start new step
+2025/10/13 14:14:03	Starting new step
+2025/10/13 14:14:03	Ready to move to sample location A1
+2025/10/13 14:14:04	Moving to sample location A1
+2025/10/13 14:14:12	Arrived at sample location A1
+2025/10/13 14:14:12	Waiting to start sample location A1
+2025/10/13 14:14:12	Processing sample location A1
+2025/10/13 14:14:32	Sample completed location A1
+2025/10/13 14:14:32	Waiting to start new step
+2025/10/13 14:14:32	Starting new step
+2025/10/13 14:14:33	Ready to move to sample location A18
+2025/10/13 14:14:33	Moving to sample location A18
+2025/10/13 14:14:43	Arrived at sample location A18
+2025/10/13 14:14:43	Waiting to start sample location A18
+2025/10/13 14:14:43	Processing sample location A18
+2025/10/13 14:16:43	Sample completed location A18
+2025/10/13 14:16:44	Waiting to start new step
+2025/10/13 14:16:44	Starting new step
+2025/10/13 14:16:44	Ready to move to sample location A1
+2025/10/13 14:16:44	Moving to sample location A1
+2025/10/13 14:16:55	Arrived at sample location A1
+2025/10/13 14:16:55	Waiting to start sample location A1
+2025/10/13 14:16:55	Processing sample location A1
+2025/10/13 14:18:35	Sample completed location A1
+2025/10/13 14:18:35	Waiting to start new step
+2025/10/13 14:18:35	Starting new step
+2025/10/13 14:18:35	Ready to move to sample location A2
+2025/10/13 14:18:36	Moving to sample location A2
+2025/10/13 14:18:43	Arrived at sample location A2
+2025/10/13 14:18:43	Waiting to start sample location A2
+2025/10/13 14:18:43	Processing sample location A2
+2025/10/13 14:21:43	Sample completed location A2
+2025/10/13 14:21:43	Waiting to start new step
+2025/10/13 14:21:44	Starting new step
+2025/10/13 14:21:44	Ready to move to sample location A1
+2025/10/13 14:21:44	Moving to sample location A1
+2025/10/13 14:21:51	Arrived at sample location A1
+2025/10/13 14:21:52	Waiting to start sample location A1
+2025/10/13 14:21:52	Processing sample location A1
+2025/10/13 14:26:51	Sample completed location A1
+2025/10/13 14:26:51	Waiting to start new step
+2025/10/13 14:26:52	Starting new step
+2025/10/13 14:26:52	Ready to move to sample location B5
+2025/10/13 14:26:52	Moving to sample location B5
+2025/10/13 14:27:00	Arrived at sample location B5
+2025/10/13 14:27:00	Waiting to start sample location B5
+2025/10/13 14:27:01	Processing sample location B5
+2025/10/13 14:27:05	Sample completed location B5
+2025/10/13 14:27:06	Waiting to start new step
+2025/10/13 14:27:06	Starting new step
+2025/10/13 14:27:06	Ready to move to sample location B6
+2025/10/13 14:27:06	Moving to sample location B6
+2025/10/13 14:27:13	Arrived at sample location B6
+2025/10/13 14:27:13	Waiting to start sample location B6
+2025/10/13 14:27:14	Processing sample location B6
+2025/10/13 14:27:18	Sample completed location B6
+2025/10/13 14:27:19	Waiting to start new step
+2025/10/13 14:27:19	Starting new step
+2025/10/13 14:27:19	Ready to move to sample location B5
+2025/10/13 14:27:20	Moving to sample location B5
+2025/10/13 14:27:27	Arrived at sample location B5
+2025/10/13 14:27:27	Waiting to start sample location B5
+2025/10/13 14:27:27	Processing sample location B5
+2025/10/13 14:27:32	Sample completed location B5
+2025/10/13 14:27:32	Waiting to start new step
+2025/10/13 14:27:32	Starting new step
+2025/10/13 14:27:32	Ready to move to sample location B6
+2025/10/13 14:27:33	Moving to sample location B6
+2025/10/13 14:27:40	Arrived at sample location B6
+2025/10/13 14:27:40	Waiting to start sample location B6
+2025/10/13 14:27:40	Processing sample location B6
+2025/10/13 14:27:45	Sample completed location B6
+2025/10/13 14:27:45	Waiting to start new step
+2025/10/13 14:27:45	Starting new step
+2025/10/13 14:27:45	Ready to move to sample location B5
+2025/10/13 14:27:45	Moving to sample location B5
+2025/10/13 14:27:53	Arrived at sample location B5
+2025/10/13 14:27:53	Waiting to start sample location B5
+2025/10/13 14:27:53	Processing sample location B5
+2025/10/13 14:27:58	Sample completed location B5
+2025/10/13 14:27:58	Waiting to start new step
+2025/10/13 14:27:58	Starting new step
+2025/10/13 14:27:59	Ready to move to sample location B6
+2025/10/13 14:27:59	Moving to sample location B6
+2025/10/13 14:28:06	Arrived at sample location B6
+2025/10/13 14:28:06	Waiting to start sample location B6
+2025/10/13 14:28:06	Processing sample location B6
+2025/10/13 14:28:11	Sample completed location B6
+2025/10/13 14:28:11	Waiting to start new step
+2025/10/13 14:28:11	Starting new step
+2025/10/13 14:28:11	Ready to move to sample location A1
+2025/10/13 14:28:12	Moving to sample location A1
+2025/10/13 14:28:20	Arrived at sample location A1
+2025/10/13 14:28:20	Waiting to start sample location A1
+2025/10/13 14:28:20	Processing sample location A1
+2025/10/13 14:28:40	Sample completed location A1
+2025/10/13 14:28:41	Waiting to start new step
+2025/10/13 14:28:41	Starting new step
+2025/10/13 14:28:41	Ready to move to sample location A21
+2025/10/13 14:28:42	Moving to sample location A21
+2025/10/13 14:28:52	Arrived at sample location A21
+2025/10/13 14:28:52	Waiting to start sample location A21
+2025/10/13 14:28:53	Processing sample location A21
+2025/10/13 14:30:52	Sample completed location A21
+2025/10/13 14:30:52	Waiting to start new step
+2025/10/13 14:30:53	Starting new step
+2025/10/13 14:30:53	Ready to move to sample location A1
+2025/10/13 14:30:53	Moving to sample location A1
+2025/10/13 14:31:04	Arrived at sample location A1
+2025/10/13 14:31:04	Waiting to start sample location A1
+2025/10/13 14:31:04	Processing sample location A1
+2025/10/13 14:32:44	Sample completed location A1
+2025/10/13 14:32:44	Waiting to start new step
+2025/10/13 14:32:44	Starting new step
+2025/10/13 14:32:45	Ready to move to sample location A2
+2025/10/13 14:32:45	Moving to sample location A2
+2025/10/13 14:32:52	Arrived at sample location A2
+2025/10/13 14:32:52	Waiting to start sample location A2
+2025/10/13 14:32:52	Processing sample location A2
+2025/10/13 14:35:52	Sample completed location A2
+2025/10/13 14:35:53	Waiting to start new step
+2025/10/13 14:35:53	Starting new step
+2025/10/13 14:35:53	Ready to move to sample location A1
+2025/10/13 14:35:53	Moving to sample location A1
+2025/10/13 14:36:00	Arrived at sample location A1
+2025/10/13 14:36:01	Waiting to start sample location A1
+2025/10/13 14:36:01	Processing sample location A1
+2025/10/13 14:41:01	Sample completed location A1
+2025/10/13 14:41:01	Waiting to start new step
+2025/10/13 14:41:01	Starting new step
+2025/10/13 14:41:02	Ready to move to sample location B5
+2025/10/13 14:41:02	Moving to sample location B5
+2025/10/13 14:41:10	Arrived at sample location B5
+2025/10/13 14:41:10	Waiting to start sample location B5
+2025/10/13 14:41:10	Processing sample location B5
+2025/10/13 14:41:15	Sample completed location B5
+2025/10/13 14:41:15	Waiting to start new step
+2025/10/13 14:41:16	Starting new step
+2025/10/13 14:41:16	Ready to move to sample location B6
+2025/10/13 14:41:16	Moving to sample location B6
+2025/10/13 14:41:24	Arrived at sample location B6
+2025/10/13 14:41:24	Waiting to start sample location B6
+2025/10/13 14:41:24	Processing sample location B6
+2025/10/13 14:41:28	Sample completed location B6
+2025/10/13 14:41:29	Waiting to start new step
+2025/10/13 14:41:29	Starting new step
+2025/10/13 14:41:29	Ready to move to sample location B5
+2025/10/13 14:41:29	Moving to sample location B5
+2025/10/13 14:41:37	Arrived at sample location B5
+2025/10/13 14:41:37	Waiting to start sample location B5
+2025/10/13 14:41:37	Processing sample location B5
+2025/10/13 14:41:42	Sample completed location B5
+2025/10/13 14:41:42	Waiting to start new step
+2025/10/13 14:41:42	Starting new step
+2025/10/13 14:41:43	Ready to move to sample location B6
+2025/10/13 14:41:43	Moving to sample location B6
+2025/10/13 14:41:50	Arrived at sample location B6
+2025/10/13 14:41:50	Waiting to start sample location B6
+2025/10/13 14:41:50	Processing sample location B6
+2025/10/13 14:41:55	Sample completed location B6
+2025/10/13 14:41:56	Waiting to start new step
+2025/10/13 14:41:56	Starting new step
+2025/10/13 14:41:56	Ready to move to sample location B5
+2025/10/13 14:41:56	Moving to sample location B5
+2025/10/13 14:42:03	Arrived at sample location B5
+2025/10/13 14:42:04	Waiting to start sample location B5
+2025/10/13 14:42:04	Processing sample location B5
+2025/10/13 14:42:09	Sample completed location B5
+2025/10/13 14:42:09	Waiting to start new step
+2025/10/13 14:42:09	Starting new step
+2025/10/13 14:42:09	Ready to move to sample location B6
+2025/10/13 14:42:10	Moving to sample location B6
+2025/10/13 14:42:17	Arrived at sample location B6
+2025/10/13 14:42:17	Waiting to start sample location B6
+2025/10/13 14:42:17	Processing sample location B6
+2025/10/13 14:42:22	Sample completed location B6
+2025/10/13 14:42:22	Waiting to start new step
+2025/10/13 14:42:22	Starting new step
+2025/10/13 14:42:23	Ready to move to sample location A1
+2025/10/13 14:42:23	Moving to sample location A1
+2025/10/13 14:42:31	Arrived at sample location A1
+2025/10/13 14:42:31	Waiting to start sample location A1
+2025/10/13 14:42:32	Processing sample location A1
+2025/10/13 14:42:51	Sample completed location A1
+2025/10/13 14:42:52	Waiting to start new step
+2025/10/13 14:42:52	Starting new step
+2025/10/13 14:42:52	Ready to move to sample location A22
+2025/10/13 14:42:52	Moving to sample location A22
+2025/10/13 14:43:03	Arrived at sample location A22
+2025/10/13 14:43:04	Waiting to start sample location A22
+2025/10/13 14:43:04	Processing sample location A22
+2025/10/13 14:45:03	Sample completed location A22
+2025/10/13 14:45:03	Waiting to start new step
+2025/10/13 14:45:04	Starting new step
+2025/10/13 14:45:04	Ready to move to sample location A1
+2025/10/13 14:45:04	Moving to sample location A1
+2025/10/13 14:45:15	Arrived at sample location A1
+2025/10/13 14:45:15	Waiting to start sample location A1
+2025/10/13 14:45:16	Processing sample location A1
+2025/10/13 14:46:55	Sample completed location A1
+2025/10/13 14:46:55	Waiting to start new step
+2025/10/13 14:46:56	Starting new step
+2025/10/13 14:46:56	Ready to move to sample location A2
+2025/10/13 14:46:56	Moving to sample location A2
+2025/10/13 14:47:03	Arrived at sample location A2
+2025/10/13 14:47:03	Waiting to start sample location A2
+2025/10/13 14:47:04	Processing sample location A2
+2025/10/13 14:50:03	Sample completed location A2
+2025/10/13 14:50:03	Waiting to start new step
+2025/10/13 14:50:04	Starting new step
+2025/10/13 14:50:04	Ready to move to sample location A1
+2025/10/13 14:50:04	Moving to sample location A1
+2025/10/13 14:50:11	Arrived at sample location A1
+2025/10/13 14:50:11	Waiting to start sample location A1
+2025/10/13 14:50:12	Processing sample location A1
+2025/10/13 14:55:11	Sample completed location A1
+2025/10/13 14:55:12	Waiting to start new step
+2025/10/13 14:55:12	Starting new step
+2025/10/13 14:55:12	Ready to move to sample location B5
+2025/10/13 14:55:13	Moving to sample location B5
+2025/10/13 14:55:20	Arrived at sample location B5
+2025/10/13 14:55:20	Waiting to start sample location B5
+2025/10/13 14:55:21	Processing sample location B5
+2025/10/13 14:55:25	Sample completed location B5
+2025/10/13 14:55:26	Waiting to start new step
+2025/10/13 14:55:26	Starting new step
+2025/10/13 14:55:26	Ready to move to sample location B6
+2025/10/13 14:55:26	Moving to sample location B6
+2025/10/13 14:55:34	Arrived at sample location B6
+2025/10/13 14:55:34	Waiting to start sample location B6
+2025/10/13 14:55:34	Processing sample location B6
+2025/10/13 14:55:38	Sample completed location B6
+2025/10/13 14:55:39	Waiting to start new step
+2025/10/13 14:55:39	Starting new step
+2025/10/13 14:55:39	Ready to move to sample location B5
+2025/10/13 14:55:40	Moving to sample location B5
+2025/10/13 14:55:47	Arrived at sample location B5
+2025/10/13 14:55:47	Waiting to start sample location B5
+2025/10/13 14:55:47	Processing sample location B5
+2025/10/13 14:55:52	Sample completed location B5
+2025/10/13 14:55:52	Waiting to start new step
+2025/10/13 14:55:53	Starting new step
+2025/10/13 14:55:53	Ready to move to sample location B6
+2025/10/13 14:55:53	Moving to sample location B6
+2025/10/13 14:56:00	Arrived at sample location B6
+2025/10/13 14:56:00	Waiting to start sample location B6
+2025/10/13 14:56:00	Processing sample location B6
+2025/10/13 14:56:05	Sample completed location B6
+2025/10/13 14:56:05	Waiting to start new step
+2025/10/13 14:56:06	Starting new step
+2025/10/13 14:56:06	Ready to move to sample location B5
+2025/10/13 14:56:06	Moving to sample location B5
+2025/10/13 14:56:13	Arrived at sample location B5
+2025/10/13 14:56:13	Waiting to start sample location B5
+2025/10/13 14:56:14	Processing sample location B5
+2025/10/13 14:56:18	Sample completed location B5
+2025/10/13 14:56:19	Waiting to start new step
+2025/10/13 14:56:19	Starting new step
+2025/10/13 14:56:19	Ready to move to sample location B6
+2025/10/13 14:56:19	Moving to sample location B6
+2025/10/13 14:56:27	Arrived at sample location B6
+2025/10/13 14:56:27	Waiting to start sample location B6
+2025/10/13 14:56:27	Processing sample location B6
+2025/10/13 14:56:32	Sample completed location B6
+2025/10/13 14:56:32	Waiting to start new step
+2025/10/13 14:56:32	Starting new step
+2025/10/13 14:56:32	Ready to move to sample location A1
+2025/10/13 14:56:33	Moving to sample location A1
+2025/10/13 14:56:41	Arrived at sample location A1
+2025/10/13 14:56:41	Waiting to start sample location A1
+2025/10/13 14:56:41	Processing sample location A1
+2025/10/13 14:57:01	Sample completed location A1
+2025/10/13 14:57:01	Waiting to start new step
+2025/10/13 14:57:02	Starting new step
+2025/10/13 14:57:02	Ready to move to sample location B1
+2025/10/13 14:57:02	Moving to sample location B1
+2025/10/13 14:57:09	Arrived at sample location B1
+2025/10/13 14:57:10	Waiting to start sample location B1
+2025/10/13 14:57:10	Processing sample location B1
+2025/10/13 14:59:09	Sample completed location B1
+2025/10/13 14:59:10	Waiting to start new step
+2025/10/13 14:59:10	Starting new step
+2025/10/13 14:59:10	Ready to move to sample location A1
+2025/10/13 14:59:10	Moving to sample location A1
+2025/10/13 14:59:18	Arrived at sample location A1
+2025/10/13 14:59:18	Waiting to start sample location A1
+2025/10/13 14:59:18	Processing sample location A1
+2025/10/13 15:00:58	Sample completed location A1
+2025/10/13 15:00:58	Waiting to start new step
+2025/10/13 15:00:58	Starting new step
+2025/10/13 15:00:58	Ready to move to sample location A2
+2025/10/13 15:00:59	Moving to sample location A2
+2025/10/13 15:01:06	Arrived at sample location A2
+2025/10/13 15:01:06	Waiting to start sample location A2
+2025/10/13 15:01:06	Processing sample location A2
+2025/10/13 15:04:06	Sample completed location A2
+2025/10/13 15:04:06	Waiting to start new step
+2025/10/13 15:04:07	Starting new step
+2025/10/13 15:04:07	Ready to move to sample location A1
+2025/10/13 15:04:07	Moving to sample location A1
+2025/10/13 15:04:14	Arrived at sample location A1
+2025/10/13 15:04:14	Waiting to start sample location A1
+2025/10/13 15:04:14	Processing sample location A1
+2025/10/13 15:09:14	Sample completed location A1
+2025/10/13 15:09:15	Waiting to start new step
+2025/10/13 15:09:15	Starting new step
+2025/10/13 15:09:15	Ready to move to sample location B5
+2025/10/13 15:09:15	Moving to sample location B5
+2025/10/13 15:09:24	Arrived at sample location B5
+2025/10/13 15:09:24	Waiting to start sample location B5
+2025/10/13 15:09:24	Processing sample location B5
+2025/10/13 15:09:29	Sample completed location B5
+2025/10/13 15:09:29	Waiting to start new step
+2025/10/13 15:09:29	Starting new step
+2025/10/13 15:09:29	Ready to move to sample location B6
+2025/10/13 15:09:29	Moving to sample location B6
+2025/10/13 15:09:37	Arrived at sample location B6
+2025/10/13 15:09:37	Waiting to start sample location B6
+2025/10/13 15:09:37	Processing sample location B6
+2025/10/13 15:09:42	Sample completed location B6
+2025/10/13 15:09:42	Waiting to start new step
+2025/10/13 15:09:42	Starting new step
+2025/10/13 15:09:42	Ready to move to sample location B5
+2025/10/13 15:09:43	Moving to sample location B5
+2025/10/13 15:09:50	Arrived at sample location B5
+2025/10/13 15:09:50	Waiting to start sample location B5
+2025/10/13 15:09:50	Processing sample location B5
+2025/10/13 15:09:55	Sample completed location B5
+2025/10/13 15:09:55	Waiting to start new step
+2025/10/13 15:09:55	Starting new step
+2025/10/13 15:09:55	Ready to move to sample location B6
+2025/10/13 15:09:56	Moving to sample location B6
+2025/10/13 15:10:03	Arrived at sample location B6
+2025/10/13 15:10:03	Waiting to start sample location B6
+2025/10/13 15:10:03	Processing sample location B6
+2025/10/13 15:10:08	Sample completed location B6
+2025/10/13 15:10:08	Waiting to start new step
+2025/10/13 15:10:08	Starting new step
+2025/10/13 15:10:08	Ready to move to sample location B5
+2025/10/13 15:10:09	Moving to sample location B5
+2025/10/13 15:10:16	Arrived at sample location B5
+2025/10/13 15:10:16	Waiting to start sample location B5
+2025/10/13 15:10:16	Processing sample location B5
+2025/10/13 15:10:21	Sample completed location B5
+2025/10/13 15:10:21	Waiting to start new step
+2025/10/13 15:10:21	Starting new step
+2025/10/13 15:10:22	Ready to move to sample location B6
+2025/10/13 15:10:22	Moving to sample location B6
+2025/10/13 15:10:29	Arrived at sample location B6
+2025/10/13 15:10:29	Waiting to start sample location B6
+2025/10/13 15:10:29	Processing sample location B6
+2025/10/13 15:10:34	Sample completed location B6
+2025/10/13 15:10:34	Waiting to start new step
+2025/10/13 15:10:34	Starting new step
+2025/10/13 15:10:35	Ready to move to sample location A1
+2025/10/13 15:10:35	Moving to sample location A1
+2025/10/13 15:10:43	Arrived at sample location A1
+2025/10/13 15:10:43	Waiting to start sample location A1
+2025/10/13 15:10:43	Processing sample location A1
+2025/10/13 15:11:03	Sample completed location A1
+2025/10/13 15:11:04	Waiting to start new step
+2025/10/13 15:11:04	Starting new step
+2025/10/13 15:11:04	Ready to move to sample location B2
+2025/10/13 15:11:05	Moving to sample location B2
+2025/10/13 15:11:12	Arrived at sample location B2
+2025/10/13 15:11:12	Waiting to start sample location B2
+2025/10/13 15:11:12	Processing sample location B2
+2025/10/13 15:13:12	Sample completed location B2
+2025/10/13 15:13:12	Waiting to start new step
+2025/10/13 15:13:13	Starting new step
+2025/10/13 15:13:13	Ready to move to sample location A1
+2025/10/13 15:13:13	Moving to sample location A1
+2025/10/13 15:13:21	Arrived at sample location A1
+2025/10/13 15:13:21	Waiting to start sample location A1
+2025/10/13 15:13:21	Processing sample location A1
+2025/10/13 15:15:01	Sample completed location A1
+2025/10/13 15:15:01	Waiting to start new step
+2025/10/13 15:15:01	Starting new step
+2025/10/13 15:15:02	Ready to move to sample location A2
+2025/10/13 15:15:02	Moving to sample location A2
+2025/10/13 15:15:09	Arrived at sample location A2
+2025/10/13 15:15:09	Waiting to start sample location A2
+2025/10/13 15:15:09	Processing sample location A2
+2025/10/13 15:18:09	Sample completed location A2
+2025/10/13 15:18:09	Waiting to start new step
+2025/10/13 15:18:10	Starting new step
+2025/10/13 15:18:10	Ready to move to sample location A1
+2025/10/13 15:18:10	Moving to sample location A1
+2025/10/13 15:18:17	Arrived at sample location A1
+2025/10/13 15:18:17	Waiting to start sample location A1
+2025/10/13 15:18:18	Processing sample location A1
+2025/10/13 15:23:17	Sample completed location A1
+2025/10/13 15:23:18	Waiting for ejection start location A11
+2025/10/13 15:23:18	Ejecting sensor location A11
+2025/10/13 15:24:38	Ejecting completed location A11
+2025/10/13 15:24:38	Experiment finished
+2025/10/13 15:24:39	Ready

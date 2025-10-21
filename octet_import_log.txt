@@ -1,0 +1,301 @@
+SSH Tunnel ready after 0.5 seconds
+SSH Tunnel Opened: 127.0.0.1:3306 -> 127.0.0.1:3306
+================================================================================
+OCTET KINETICS DATA IMPORT: OE292
+================================================================================
+Data directory: C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\process_development\analytical\octet\data\Kinetics\OE292
+Created by: admin
+HTSettings.efrd not found - using defaults
+
+================================================================================
+LOADING FRD_Analysis.xlsx
+================================================================================
+Total cycles: 192
+Unique antibodies: 24
+Unique concentrations: 8
+
+================================================================================
+CREATING EXPERIMENT
+================================================================================
+Created experiment: OE292 (OE292_20...)
+
+================================================================================
+IMPORTING SENSORS
+================================================================================
+Importing 192 sensors...
+  Progress: 10/192 (5%)
+  Progress: 20/192 (10%)
+  Progress: 30/192 (15%)
+  Progress: 40/192 (20%)
+  Progress: 50/192 (26%)
+  Progress: 60/192 (31%)
+  Progress: 70/192 (36%)
+  Progress: 80/192 (41%)
+  Progress: 90/192 (46%)
+  Progress: 100/192 (52%)
+  Progress: 110/192 (57%)
+  Progress: 120/192 (62%)
+  Progress: 130/192 (67%)
+  Progress: 140/192 (72%)
+  Progress: 150/192 (78%)
+  Progress: 160/192 (83%)
+  Progress: 170/192 (88%)
+  Progress: 180/192 (93%)
+  Progress: 190/192 (98%)
+  Progress: 192/192 (100%)
+
+================================================================================
+LINKING REFERENCE SENSORS
+================================================================================
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C11_P5158
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C12_P5159
+  Linked 7 samples to reference: SI-157C13_P5198
+  Linked 7 samples to reference: SI-157C13_P5198
+  Linked 7 samples to reference: SI-157C13_P5198
+  Linked 7 samples to reference: SI-157C13_P5198
+  Linked 7 samples to reference: SI-157C13_P5198
+Advanced computer vision libraries not available. Basic analysis only.
+PyMuPDF not available. PDF features disabled.
+  Linked 7 samples to reference: SI-157C13_P5198
+USP Experiment Management App initialized successfully
+  Linked 7 samples to reference: SI-157C13_P5198
+  Linked 7 samples to reference: SI-157C13_P5198
+Starting PD Dashboard initialization...
+Initializing routing...
+Registering sidebar callbacks...
+Success: Sidebar collapse callbacks registered
+Success: Sidebar callbacks registered successfully
+Loading core callbacks...
+Testing callback imports one by one...
+Testing create_samples import...
+Loading samples callbacks module...
+Samples callbacks package initialized
+Loading samples callbacks module...
+Success: Samples callbacks package initialized
+Configuring create_samples callbacks...
+Success: create_samples callbacks registered successfully
+Success: create_samples imported successfully
+Testing view_samples import...
+Error: view_samples import failed: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+Testing sample_sets import...
+Some analysis models not available: cannot import name 'AnalysisRequest' from 'plotly_integration.models' (C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\models.py)
+Success: Complete Sample Sets Callbacks - Simplified table structure loaded
+Success: sample_sets imported successfully
+Testing file_upload_handlers import...
+Error: file_upload_handlers import failed: No module named 'plotly_integration.backup'
+Testing analysis_requests import...
+Success: analysis_requests imported successfully
+Testing USP create_samples import...
+Configuring USP create_samples callbacks...
+USP create_samples callbacks configured successfully
+Success: USP create_samples imported successfully
+Testing USP view_samples import...
+Configuring USP view_samples callbacks...
+USP view_samples callbacks configured successfully
+Success: USP view_samples imported successfully
+Testing USP sample_sets import...
+Configuring USP sample_sets callbacks...
+USP sample_sets callbacks configured successfully
+Success: USP sample_sets imported successfully
+Testing dashboard_home import...
+Success: dashboard_home imported successfully
+Testing sec_callbacks import...
+Error: sec_callbacks import failed: 'charmap' codec can't encode character '\U0001f4f1' in position 0: character maps to <undefined>
+PD Dashboard initialization complete!
+   Success: App created with suppress_callback_exceptions=True
+   Success: Layout set
+   Success: Routing initialized
+   Check above for callback import results
+  Linked 7 samples to reference: SI-157C14_P5199
+PD Dashboard App loaded successfully
+All Apps Loaded
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C14_P5199
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C15_P5235
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C16_P5236
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C17_P5237
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C18_P5317
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157C19_P5365
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X47_P5533
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X49_P5563
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X50_P5564
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X53_P5565
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X56_P5534
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X57_P5566
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X61_P5535
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X62_P5536
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X63_P5537
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X64_P5538
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X65_P5567
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X66_P5568
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X67_P5569
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-157X68_P5570
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+  Linked 7 samples to reference: SI-83X1_P5364
+
+================================================================================
+IMPORT COMPLETE
+================================================================================
+Experiment: OE292
+Sensors created: 192
+Reference sensors: 24
+Sample sensors: 168
+

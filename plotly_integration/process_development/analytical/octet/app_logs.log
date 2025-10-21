@@ -1,0 +1,57 @@
+2025-10-15 22:29:21,880 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:29:23,876 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'Homepage'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:29:26,880 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:29:31,860 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'UP Sample Manager'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:29:31,952 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:29:32,525 - DEBUG - EOF in transport thread
+2025-10-15 22:55:14,422 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:55:14,666 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'Homepage'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:55:19,424 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:55:21,558 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'UP Sample Manager'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:55:24,525 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:55:25,004 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'PD Dashboard'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:55:29,586 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:55:32,426 - DEBUG - EOF in transport thread
+2025-10-15 22:57:35,331 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'Homepage'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:57:35,738 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:57:40,752 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:57:42,423 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'UP Sample Manager'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:57:43,703 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'PD Dashboard'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 22:57:45,766 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:57:50,868 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:57:55,945 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:58:00,983 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:58:06,084 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 22:58:11,182 - DEBUG - Sending global request "keepalive@lag.net"

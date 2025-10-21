@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ManifestData>
+ <Version>1.0</Version>
+ <RunID>24F06473-F6D3-4D98-A1F9-0B1F7EF644AC</RunID>
+ <WritingSW>OctetBLIDiscovery.exe 13.0.3.26</WritingSW>
+ <MethodFile>251013_ExpMethod.fmf</MethodFile>
+ <SettingsFile></SettingsFile>
+ <DataFile>251013_001.frd</DataFile>
+ <DataFile>251013_002.frd</DataFile>
+ <DataFile>251013_003.frd</DataFile>
+ <DataFile>251013_004.frd</DataFile>
+ <DataFile>251013_005.frd</DataFile>
+ <DataFile>251013_006.frd</DataFile>
+ <DataFile>251013_007.frd</DataFile>
+ <DataFile>251013_008.frd</DataFile>
+ <DataFile>251013_009.frd</DataFile>
+ <DataFile>251013_010.frd</DataFile>
+ <DataFile>251013_011.frd</DataFile>
+ <DataFile>251013_012.frd</DataFile>
+ <DataFile>251013_013.frd</DataFile>
+ <DataFile>251013_014.frd</DataFile>
+ <DataFile>251013_015.frd</DataFile>
+ <DataFile>251013_016.frd</DataFile>
+</ManifestData>

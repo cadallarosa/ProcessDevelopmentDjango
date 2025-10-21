@@ -317,16 +317,17 @@ def toggle_manual_scaling_inputs(checkbox_value):
     return {'display': 'none'}
 
 
-# Callback to show/hide RT input based on peak detection mode
+# Callback to show/hide RT input and Refresh RT button based on peak detection mode
 @app.callback(
     Output('rt-input-container', 'style'),
+    Output('refresh-rt-btn-container', 'style'),
     Input('peak-detection-mode-dropdown', 'value'),
     prevent_initial_call=False
 )
-def toggle_rt_input_visibility(peak_mode):
+def toggle_rt_controls_visibility(peak_mode):
     if peak_mode == 'Peak Height':
-        # Hide RT input when Peak Height mode is selected
-        return {'display': 'none'}
+        # Hide RT input and Refresh RT button when Peak Height mode is selected
+        return {'display': 'none'}, {'display': 'none'}
     else:
-        # Show RT input for RT mode (default)
-        return {'display': 'block'}
+        # Show RT input and Refresh RT button for RT mode (default)
+        return {'display': 'block'}, {'display': 'block'}

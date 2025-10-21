@@ -1,0 +1,8 @@
+2025-10-15 19:37:42,006 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 19:37:45,859 - WARNING - C:\Users\cdallarosa\DataAlchemy\djangoProject\.venv\Lib\site-packages\django_plotly_dash\dash_wrapper.py:167: UserWarning:
+
+You are passing extra arguments {'title': 'Homepage'} that will be passed to Dash(...) but may not be properly handled by django-plotly-dash.
+
+
+2025-10-15 19:37:47,073 - DEBUG - Sending global request "keepalive@lag.net"
+2025-10-15 19:37:52,082 - DEBUG - Sending global request "keepalive@lag.net"

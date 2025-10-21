@@ -4,7 +4,7 @@
 from django_plotly_dash import DjangoDash
 from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
-from .core.routing_layouts import create_page_router
+from .core.routing_layouts_v1 import create_page_router
 from .shared.styles.common_styles import CONTENT_STYLE
 
 print("Starting PD Dashboard initialization...")

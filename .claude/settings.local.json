@@ -11,7 +11,21 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:community.plotly.com)",
-      "Read(//s/Shared/DjangoRawData/CESDS/Imported/**)"
+      "Read(//s/Shared/DjangoRawData/CESDS/Imported/**)",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\usp\\media_tracking_app\")",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\usp\\experiment_scheduler_app\")",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\usp\\experiment_management_app\")",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\process_development\\cell_culture\")",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\process_development\\cell_culture\\titer\")",
+      "Read(//c/Users/cdallarosa/DataAlchemy/ProteinMaker/**)",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\dash_apps\\Analytical\\sec_app\")",
+      "Bash(dir \"C:\\Users\\cdallarosa\\DataAlchemy\\djangoProject\\plotly_integration\\dash_apps\\Analytical\\octet\\data\\working_data\")",
+      "Read(//s/Shared/Vi-Blue_Unsorted/**)",
+      "Bash(powershell:*)",
+      "Bash(dir:*)",
+      "Read(//c/Users/cdallarosa/ProteinMakerV3/ProteinMakerV3/system_configuration/**)",
+      "Read(//c/Users/cdallarosa/ProteinMakerV3/**)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

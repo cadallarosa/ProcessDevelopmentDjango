@@ -1,7 +1,7 @@
 # plotly_integration/pd_dashboard/core/sidebar_navigation.py
-# Always expanded sidebar navigation with formulation section
+# Collapsible sidebar navigation with formulation section
 
-from dash import html
+from dash import html, dcc
 import dash_bootstrap_components as dbc
 from ..shared.styles.common_styles import (
     SIDEBAR_CONFIG,
@@ -15,10 +15,11 @@ from ..shared.styles.common_styles import (
     get_logo_area_style,
     SIDEBAR_HOVER_CSS
 )
+from .sidebar_state import SidebarStateManager
 
 
 def create_sidebar_navigation():
-    """Create the main sidebar navigation with all items always visible"""
+    """Create the main sidebar navigation with collapsible sections"""
 
     # Navigation items with their sub-menus
     nav_sections = [
@@ -36,6 +37,7 @@ def create_sidebar_navigation():
             'icon': 'fa-flask',
             'color': '#e74c3c',
             'items': [
+                {'name': 'Experiment Management', 'href': '#!/cld/experiment-manager', 'icon': 'fa-flask'},
                 {'name': 'Create Samples', 'href': '#!/cld/create-samples', 'icon': 'fa-plus'},
                 {'name': 'View Samples', 'href': '#!/cld/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/cld/sample-sets', 'icon': 'fa-layer-group'},
@@ -49,13 +51,11 @@ def create_sidebar_navigation():
             'icon': 'fa-seedling',
             'color': '#27ae60',
             'items': [
-                {'name': 'Create Samples', 'href': '#!/usp/create-samples', 'icon': 'fa-plus'},
-                {'name': 'View Samples', 'href': '#!/usp/view-samples', 'icon': 'fa-list'},
-                {'name': 'Sample Sets', 'href': '#!/usp/sample-sets', 'icon': 'fa-layer-group'},
-                {'name': 'Experiment Manager', 'href': '#!/usp/experiment-manager', 'icon': 'fa-flask'},
+                {'name': 'Experiment Management', 'href': '#!/usp/experiment-manager', 'icon': 'fa-flask'},
+                {'name': 'Media Tracking', 'href': '#!/usp/media-tracking', 'icon': 'fa-flask'},
+                {'name': 'Titer Tracking', 'href': '#!/usp/titer-tracking', 'icon': 'fa-flask'},
                 {'name': 'Vicell', 'href': '#!/usp/vicell', 'icon': 'fa-vial'},
-                {'name': 'Nova', 'href': '#!/usp/nova', 'icon': 'fa-microscope'},
-                {'name': 'Nova Data View', 'href': '#!/usp/nova-data-table', 'icon': 'fa-table'},
+                {'name': 'Nova Flex II', 'href': '#!/usp/nova', 'icon': 'fa-microscope'},
                 {'name': 'Bioreactors', 'href': '#!/usp/brx', 'icon': 'fa-microscope'}
             ]
         },
@@ -102,31 +102,35 @@ def create_sidebar_navigation():
                 {'name': 'Stability Visualization', 'href': '#!/formulation/visualization', 'icon': 'fa-chart-line'}
             ]
         },
-        {
-            'id': 'data-import',
-            'title': 'Data Import',
-            'icon': 'fa-upload',
-            'color': '#1abc9c',
-            'href': '#!/data-import',
-            'items': []
-        }
+
     ]
 
     def create_nav_item(section):
-        """Create a navigation item - always expanded if it has sub-items"""
+        """Create a navigation item - collapsible if it has sub-items"""
 
         nav_elements = []
 
         # Main item (section header)
         if section['items']:
-            # Section with sub-items - show header but no link
+            # Section with sub-items - clickable header with chevron
             main_item = html.Div([
                 html.I(
                     className=f"fas {section['icon']}",
                     style=get_main_item_icon_style(section['color'])
                 ),
-                html.Span(section['title'], style=get_main_item_text_style())
+                html.Span(section['title'], style=get_main_item_text_style()),
+                html.I(
+                    id={'type': 'collapse-icon', 'index': section['id']},
+                    className="fas fa-chevron-down",
+                    style={
+                        'fontSize': SIDEBAR_CONFIG['chevron_size'],
+                        'color': SIDEBAR_CONFIG['text_muted'],
+                        'marginLeft': 'auto',
+                        'transition': 'transform 0.3s ease'
+                    }
+                )
             ],
+                id={'type': 'section-header', 'index': section['id']},
                 style={
                     'display': 'flex',
                     'alignItems': 'center',
@@ -134,12 +138,17 @@ def create_sidebar_navigation():
                     'borderRadius': '8px',
                     'marginBottom': f"{SIDEBAR_CONFIG['item_margin']}",
                     'backgroundColor': 'rgba(255,255,255,0.05)',
-                    'fontWeight': 'bold'
-                }
+                    'fontWeight': 'bold',
+                    'cursor': 'pointer',
+                    'transition': 'all 0.2s ease'
+                },
+                className="sidebar-section-header"
             )
             nav_elements.append(main_item)
 
-            # Sub-items (always visible)
+            # Sub-items (collapsible)
+            # Start collapsed by default
+            initial_state = SidebarStateManager.DEFAULT_COLLAPSE_STATE.get(section['id'], False)
             sub_items = html.Div([
                 html.A([
                     html.I(
@@ -152,12 +161,15 @@ def create_sidebar_navigation():
                     style=get_dropdown_item_style(),
                     className="sidebar-sub-item"
                 ) for item in section['items']
-            ], style=get_dropdown_container_style())
+            ],
+                id={'type': 'sub-items', 'index': section['id']},
+                style=SidebarStateManager.get_section_style(section['id'], initial_state)
+            )
 
             nav_elements.append(sub_items)
 
         else:
-            # Direct link item (no sub-items) - like Dashboard and Settings
+            # Direct link item (no sub-items) - like Dashboard and Data Import
             main_item = html.A([
                 html.I(
                     className=f"fas {section['icon']}",
@@ -185,10 +197,12 @@ def create_sidebar_navigation():
     nav_items = [create_nav_item(section) for section in nav_sections]
 
     return html.Div([
+        # State storage for collapse state
+        SidebarStateManager.create_state_store(),
+
         # Logo/Brand area
         html.Div([
             html.Div([
-                html.Span("PD", style={'fontSize': '22px', 'marginRight': '8px', 'fontWeight': 'bold'}),
                 html.Span("PD Dashboard", style=get_sidebar_title_style())
             ], style=get_logo_area_style())
         ]),
@@ -196,11 +210,19 @@ def create_sidebar_navigation():
         # Navigation items
         html.Div(nav_items),
 
-        # Add CSS for hover effects
+        # Add CSS for hover and collapse effects
         html.Div([
             html.Link(
                 rel="stylesheet",
-                href="data:text/css;charset=utf-8," + SIDEBAR_HOVER_CSS
+                href="data:text/css;charset=utf-8," + SIDEBAR_HOVER_CSS + """
+.sidebar-section-header:hover {
+    background-color: rgba(52, 152, 219, 0.15) !important;
+}
+
+.collapse-icon-rotated {
+    transform: rotate(-90deg);
+}
+"""
             )
         ])
 
@@ -208,6 +230,83 @@ def create_sidebar_navigation():
 
 
 def register_sidebar_callbacks(app):
-    """No callbacks needed for always-expanded sidebar"""
-    print("Success: Sidebar callbacks skipped - using always-expanded mode")
-    pass
+    """Register callbacks for collapsible sidebar sections"""
+    from dash import Input, Output, State, ALL
+    import dash
+
+    @app.callback(
+        [Output({'type': 'sub-items', 'index': ALL}, 'style'),
+         Output({'type': 'collapse-icon', 'index': ALL}, 'style'),
+         Output('sidebar-collapse-state', 'data')],
+        [Input({'type': 'section-header', 'index': ALL}, 'n_clicks')],
+        [State('sidebar-collapse-state', 'data'),
+         State({'type': 'sub-items', 'index': ALL}, 'id'),
+         State({'type': 'collapse-icon', 'index': ALL}, 'id')],
+        prevent_initial_call=False
+    )
+    def toggle_sidebar_sections(n_clicks, current_state, sub_items_ids, icon_ids):
+        """Toggle sidebar section collapse state"""
+        import json
+
+        # Get which section was clicked from callback context
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            # Return current styles
+            return (
+                [SidebarStateManager.get_section_style(item['index'], current_state.get(item['index'], False))
+                 for item in sub_items_ids],
+                [{'fontSize': SIDEBAR_CONFIG['chevron_size'],
+                  'color': SIDEBAR_CONFIG['text_muted'],
+                  'marginLeft': 'auto',
+                  'transition': 'transform 0.3s ease',
+                  'transform': 'rotate(0deg)' if current_state.get(icon['index'], False) else 'rotate(-90deg)'}
+                 for icon in icon_ids],
+                current_state
+            )
+
+        # Parse the triggered prop_id to get the section that was clicked
+        triggered_prop = ctx.triggered[0]['prop_id']
+        if not triggered_prop or triggered_prop == '.':
+            # Return current styles
+            return (
+                [SidebarStateManager.get_section_style(item['index'], current_state.get(item['index'], False))
+                 for item in sub_items_ids],
+                [{'fontSize': SIDEBAR_CONFIG['chevron_size'],
+                  'color': SIDEBAR_CONFIG['text_muted'],
+                  'marginLeft': 'auto',
+                  'transition': 'transform 0.3s ease',
+                  'transform': 'rotate(0deg)' if current_state.get(icon['index'], False) else 'rotate(-90deg)'}
+                 for icon in icon_ids],
+                current_state
+            )
+
+        # Extract the section ID from the triggered prop_id
+        # Format: {"index":"cld","type":"section-header"}.n_clicks
+        triggered_id_str = triggered_prop.split('.')[0]
+        triggered_id = json.loads(triggered_id_str)
+        section_id = triggered_id['index']
+
+        # Toggle the state
+        new_state = SidebarStateManager.toggle_section_state(current_state, section_id)
+
+        # Generate new styles for all sections
+        new_styles = [
+            SidebarStateManager.get_section_style(item['index'], new_state.get(item['index'], False))
+            for item in sub_items_ids
+        ]
+
+        # Generate icon styles with rotation
+        icon_styles = [
+            {
+                'fontSize': SIDEBAR_CONFIG['chevron_size'],
+                'color': SIDEBAR_CONFIG['text_muted'],
+                'marginLeft': 'auto',
+                'transition': 'transform 0.3s ease',
+                'transform': 'rotate(0deg)' if new_state.get(icon['index'], False) else 'rotate(-90deg)'
+            }
+            for icon in icon_ids
+        ]
+
+        return new_styles, icon_styles, new_state
+
+    print("Success: Sidebar collapse callbacks registered")

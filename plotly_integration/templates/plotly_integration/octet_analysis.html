@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octet Analysis - Biolayer Interferometry</title>
+    {% load plotly_dash %}
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f6fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .nav-links {
+            background-color: white;
+            padding: 10px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+        }
+        #dash-container {
+            background-color: white;
+            min-height: calc(100vh - 150px);
+        }
+        .footer {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Octet Biolayer Interferometry Analysis</h1>
+            <p>Interactive visualization and analysis of binding kinetics data</p>
+        </div>
+    </div>
+
+    <div class="nav-links">
+        <div class="container">
+            <a href="/">Home</a>
+            <a href="/admin/">Admin</a>
+            <a href="/plotly_integration/octet-analysis/" class="active">Octet Analysis</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="dash-container">
+            {% plotly_app name='OctetAnalysisApp' ratio=1 %}
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="container">
+            <p>&copy; 2025 Octet Analysis System | Powered by Django & Plotly Dash</p>
+        </div>
+    </div>
+</body>
+</html>
