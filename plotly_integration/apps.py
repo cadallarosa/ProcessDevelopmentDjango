@@ -131,6 +131,8 @@ class PlotlyIntegrationConfig(AppConfig):
                 #CLD Project Management
                 import plotly_integration.cld.project_management_app
                 import plotly_integration.cld.clonality_report_analyzer
+                import plotly_integration.cld.vicell.vicell_report_app
+                import plotly_integration.cld.nova_flex_II.nova_report_app
 
                 #USP Apps
                 import plotly_integration.usp.media_tracking_app.media_tracking_app

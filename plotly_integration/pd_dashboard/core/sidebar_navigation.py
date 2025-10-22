@@ -42,7 +42,7 @@ def create_sidebar_navigation():
                 {'name': 'View Samples', 'href': '#!/cld/view-samples', 'icon': 'fa-list'},
                 {'name': 'Sample Sets', 'href': '#!/cld/sample-sets', 'icon': 'fa-layer-group'},
                 {'name': 'Vicell', 'href': '#!/cld/vicell', 'icon': 'fa-vial'},
-                {'name': 'Nova', 'href': '#!/cld/nova', 'icon': 'fa-microscope'}
+                {'name': 'Nova Flex II', 'href': '#!/cld/nova', 'icon': 'fa-microscope'}
             ]
         },
         {
@@ -100,6 +100,15 @@ def create_sidebar_navigation():
                 {'name': 'Sample Management', 'href': '#!/formulation/samples', 'icon': 'fa-plus-circle'},
                 {'name': 'Data Entry', 'href': '#!/formulation/data-entry', 'icon': 'fa-table'},
                 {'name': 'Stability Visualization', 'href': '#!/formulation/visualization', 'icon': 'fa-chart-line'}
+            ]
+        },
+        {
+            'id': 'protein-engineering',
+            'title': 'PE',
+            'icon': 'fa-vials',
+            'color': '#e67e22',
+            'items': [
+                {'name': 'Octet Kinetics', 'href': '#!/protein-engineering/octet-kinetics', 'icon': 'fa-chart-line'}
             ]
         },
 

@@ -89,12 +89,10 @@ def create_page_router(app):
             "/usp/media-tracking": ("USP Media Tracking","/plotly_integration/dash-app/app/USPMediaTrackingApp/","refresh-usp-media-tracking", False),
             "/usp/titer-tracking": ("USP Titer Tracking", "/plotly_integration/dash-app/app/USPTiterTrackingApp/","refresh-usp-titer-tracking", False),
 
-
             # CLD routes
-
             "/cld/experiment-management": ("CLD Experiment Management", "/plotly_integration/dash-app/app/CLDProjectManagementApp/", "refresh-cld-experiment-management", False),
-            "/cld/vicell": ("CLD ViCell", "/plotly_integration/dash-app/app/ViCellReportApp/", "refresh-cld-vicell", False),
-            "/cld/nova": ("CLD Nova", "/plotly_integration/dash-app/app/NovaDataReportApp/", "refresh-cld-nova", False),
+            "/cld/vicell": ("CLD ViCell", "/plotly_integration/dash-app/app/CLDViCellApp/", "refresh-cld-vicell", False),
+            "/cld/nova": ("CLD Nova", "/plotly_integration/dash-app/app/CLDNovaFlexIIApp/", "refresh-cld-nova", False),
 
             # Formulation routes
             "/formulation/dashboard": ("Formulation Dashboard", "/plotly_integration/dash-app/app/FormulationDashboardApp/", "refresh-formulation-dashboard", False),
@@ -105,6 +103,9 @@ def create_page_router(app):
             "/formulation/data-entry": ("Analytical Data Entry", "/plotly_integration/dash-app/app/DataEntryApp/", "refresh-data-entry", False),
             "/formulation/stability": ("Formulation Stability Studies", "/plotly_integration/dash-app/app/FormulationStabilityApp/", "refresh-formulation-stability", False),
             "/formulation/visualization": ("Formulation Stability Visualization", "/plotly_integration/dash-app/app/FormulationVisualizationApp/", "refresh-formulation-visualization", False),
+
+            # Formulation routes
+            "/protein-engineering/octet-kinetics": ("Octet Kinetics", "/plotly_integration/dash-app/app/OctetKineticsDashboard/", "refresh-kinetics-dashboard", False),
 
             # Database Management routes
             "/database/import-empower": ("Import Empower Data", "/plotly_integration/dash-app/app/DatabaseManagerApp/", "refresh-db-empower", False),
