@@ -1,0 +1,522 @@
+================================================================================
+OCTET FRD FILE IMPORT PROCESS - TECHNICAL DOCUMENTATION
+================================================================================
+
+Location: C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\
+          process_development\analytical\octet\apps\kinetic_analysis\data_import
+
+Author: Data Processing Team
+Last Updated: 2025-10-23
+
+================================================================================
+OVERVIEW
+================================================================================
+
+The FRD (ForteBio Raw Data) import system processes Octet kinetics data from
+raw XML files into a structured database. The process involves:
+
+1. Decoding Base64-encoded binary time series data from XML files
+2. Parsing experiment metadata and step information
+3. Extracting vendor analysis settings (HTSettings)
+4. Storing structured data in Django database models
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+The import system consists of 4 main Python modules:
+
+1. frd_parser.py         - Low-level FRD XML parsing and data decoding
+2. frd_importer.py       - Database import orchestration
+3. htsettings_parser.py  - Vendor analysis settings extraction
+4. import_command.py     - Django management command wrapper
+
+================================================================================
+PART 1: FRD PARSING (frd_parser.py)
+================================================================================
+
+PURPOSE:
+--------
+Extracts time series data and metadata from .frd XML files without touching
+the database. Pure parsing logic.
+
+KEY CLASS: FRDParser
+--------------------
+
+INITIALIZATION:
+  - Loads .frd file using xml.etree.ElementTree
+  - FRD files are XML format with Base64-encoded binary data
+
+MAIN METHODS:
+
+  get_experiment_info() → Dict
+    - Extracts experiment-level metadata from <ExperimentInfo> tag
+    - Returns: run_id, experiment_type, start_datetime, machine_name,
+               instrument_type, sensor_type, sensor_plate, etc.
+
+  get_all_steps() → List[Dict]
+    - Parses <KineticsData><Step> elements
+    - Each step represents a phase: LOADING, BASELINE, ASSOCIATION, DISSOCIATION
+    - Returns list of step dictionaries with metadata + time series arrays
+
+  _parse_step(step_elem) → Dict
+    - Extracts CommonData: sample_location, sample_id, concentration, temperature
+    - Extracts Step-specific: step_type, step_name, actual_time, flow_rate
+    - Calls _decode_base64_array() to convert binary data to numpy arrays
+
+  _decode_base64_array(base64_string) → np.ndarray
+    *** CRITICAL METHOD - DATA DECODING ***
+
+    How it works:
+    1. Base64 decode to binary bytes:
+         binary_data = base64.b64decode(base64_string)
+
+    2. Unpack binary as IEEE 754 floats (little-endian, 4 bytes each):
+         num_floats = len(binary_data) // 4
+         float_values = struct.unpack(f'<{num_floats}f', binary_data)
+
+         Format string breakdown:
+         '<'  = little-endian byte order
+         'f'  = 32-bit float (IEEE 754)
+         {num_floats} = number of values to unpack
+
+    3. Convert to numpy array for numerical operations
+
+    Data flow:
+      XML <AssayXData>AAABBBCCCDDD==</AssayXData>  (Base64 text)
+        ↓
+      [0x00, 0x01, 0x02, ...]  (Binary bytes)
+        ↓
+      [0.0, 0.2, 0.4, ...]  (Float array)
+        ↓
+      numpy.ndarray([0.0, 0.2, 0.4, ...])
+
+  get_all_cycles() → List[Dict]
+    - Groups steps into experimental cycles
+    - Each cycle = Loading → Baseline → Association → Dissociation
+    - Combines association + dissociation time series into single binding curve
+    - Returns cycle data with antibody_id, analyte_id, concentration_nm
+
+HELPER METHODS:
+  - get_association_step() - Find association phase
+  - get_dissociation_step() - Find dissociation phase
+  - get_loading_step() - Find loading phase
+  - get_baseline_step() - Find baseline phase
+
+XML STRUCTURE EXAMPLE:
+----------------------
+<ForteBio>
+  <ExperimentInfo Name="OE292" RunID="12345">
+    <StartDateTime>2024-09-17T10:30:00</StartDateTime>
+    <SensorType>Protein A</SensorType>
+  </ExperimentInfo>
+
+  <KineticsData>
+    <Step>
+      <StepType>LOADING</StepType>
+      <StepName>Load Antibody</StepName>
+      <CommonData>
+        <SampleID>P5216-001</SampleID>
+        <Concentration>50.0</Concentration>
+      </CommonData>
+      <AssayXData Points="1000">AAABAAA...==</AssayXData>  <!-- Base64 time data -->
+      <AssayYData Points="1000">BBBCCCD...==</AssayYData>  <!-- Base64 response -->
+    </Step>
+
+    <Step>
+      <StepType>ASSOCIATION</StepType>
+      ...
+    </Step>
+  </KineticsData>
+</ForteBio>
+
+================================================================================
+PART 2: HTSettings PARSING (htsettings_parser.py)
+================================================================================
+
+PURPOSE:
+--------
+Extracts vendor (ForteBio) analysis settings from HTSettings.efrd XML files.
+These settings define how the vendor software analyzed the data.
+
+KEY CLASS: HTSettingsParser
+---------------------------
+
+MAIN METHODS:
+
+  parse_all() → Dict
+    - Comprehensive extraction of all settings
+    - Returns structured dict with:
+      * analysis_type
+      * run_id
+      * kinetic_params
+      * preprocessing
+      * reference_wells
+
+  _parse_kinetic_params() → Dict
+    - Extracts curve fitting parameters:
+      * binding_model: 'FastOne2One', '2:1 Heterogeneous', etc.
+      * fit_type: 'Global' vs 'Local'
+      * assoc_start_time, assoc_end_time: Association fitting window
+      * dissoc_start_time, dissoc_end_time: Dissociation fitting window
+      * rmax_unlink: 'Sensor' or 'Global' (Rmax linking strategy)
+      * steps_to_analyze: 'Both', 'Association Only', etc.
+
+  _parse_preprocessing() → Dict
+    - Data preprocessing settings:
+      * align_y_correction: Baseline alignment method
+      * align_y_start, align_y_end: Baseline window
+      * interstep_correction: Between-step correction
+      * savitzky_golay_filter: Smoothing enabled/disabled
+
+  _parse_reference_wells() → Dict
+    - Reference well configurations
+    - Sample reference groups (which samples share references)
+
+SETTINGS FLOW:
+  HTSettings.efrd (XML) → parse_all() → experiment.vendor_analysis_settings
+
+================================================================================
+PART 3: DATABASE IMPORT (frd_importer.py)
+================================================================================
+
+PURPOSE:
+--------
+Orchestrates database import from parsed FRD data. Creates Django model
+instances and handles transactions.
+
+KEY CLASSES:
+
+1. FRDImporter
+--------------
+  - Wrapper around FRDParser for database-aware operations
+  - Inherits parsing methods from frd_parser.py
+  - Adds database-specific logic
+
+2. FRDDatasetImporter (MAIN IMPORT CLASS)
+-----------------------------------------
+
+  import_dataset(vendor_settings) → OctetExperiment
+    *** MAIN ENTRY POINT ***
+
+    Process:
+    1. Parse first FRD file for experiment metadata
+    2. Create/update OctetExperiment record
+    3. Loop through all FRD files (one per sensor)
+    4. For each FRD:
+         - Parse sensor location and steps
+         - Create OctetSensorData record
+         - Import steps and time series
+
+  _create_experiment(exp_info, vendor_settings) → OctetExperiment
+    - Creates OctetExperiment model instance
+    - Stores: run_id, experiment_name, type, start_datetime, machine_name,
+              sensor_type, vendor_analysis_settings (JSON)
+    - Uses transaction.atomic() for rollback safety
+
+  _import_sensor_from_frd(frd_file)
+    - Imports single sensor's data
+    - Creates OctetSensorData record (one per sensor)
+    - Calls _import_steps_and_timeseries()
+
+  _import_steps_and_timeseries(sensor, steps)
+    *** WHERE DATA GETS WRITTEN TO DATABASE ***
+
+    For each step:
+    1. Create OctetStepData record
+         - step_number, step_name, step_type
+         - sample_location, sample_id, well_type
+         - concentration, temperature
+         - start_time, assay_time
+
+    2. Bulk create OctetTimeSeriesData records
+         - One row per time point
+         - Batch size: 1000 rows at a time
+         - Fields: run_id, sensor_location, step_number, time, response
+         - Denormalized for query performance
+
+    Data flow:
+      numpy.ndarray → zip(time_data, response_data) → List[OctetTimeSeriesData]
+        ↓
+      OctetTimeSeriesData.objects.bulk_create(batch)
+
+HELPER FUNCTION:
+
+  import_octet_kinetics_data(experiment_folder, vendor_settings)
+    - Convenience wrapper
+    - Finds all .frd files in folder
+    - Creates FRDDatasetImporter and runs import
+
+================================================================================
+PART 4: IMPORT COMMAND (import_command.py)
+================================================================================
+
+PURPOSE:
+--------
+Django management command for importing kinetics data. Can be run from command
+line or called programmatically.
+
+KEY CLASS: KineticsImporter
+----------------------------
+
+  import_data(clear_existing=False) → OctetKineticsExperiment
+    *** HIGH-LEVEL IMPORT ORCHESTRATOR ***
+
+    Full process:
+    1. Validate data directory exists
+    2. Find FRD_Analysis.xlsx (consolidated experiment file)
+    3. Load HTSettings.efrd
+    4. Clear existing data if requested
+    5. Load FRD_Analysis.xlsx into pandas DataFrame
+    6. Parse HTSettings → ht_params dict
+    7. Create OctetKineticsExperiment record (optimized model)
+    8. Import sensors from DataFrame:
+         - Group by (antibody_id, concentration_nm)
+         - For each group:
+           * Find corresponding FRD file
+           * Parse using FRDParser
+           * Extract cycle data
+           * Create OctetKineticsSensor with JSON time series
+    9. Link reference sensors (0.0 nM → sample sensors)
+    10. Print summary
+
+  _import_sensors(experiment, df_all_cycles)
+    - Imports to OctetKineticsSensor model (optimized version)
+    - Stores complete time series as JSON fields:
+      * loading_data: {'time': [...], 'response': [...]}
+      * baseline_data: {'time': [...], 'response': [...]}
+      * association_data: {'time': [...], 'response': [...]}
+      * dissociation_data: {'time': [...], 'response': [...]}
+    - One row per antibody×concentration (not per time point!)
+
+  _link_reference_sensors(experiment)
+    - Finds reference sensors (concentration_nm = 0.0)
+    - Links non-reference sensors via reference_sensor ForeignKey
+    - Enables reference subtraction in analysis
+
+================================================================================
+DATABASE MODELS
+================================================================================
+
+TWO PARALLEL ARCHITECTURES:
+
+1. DETAILED MODELS (frd_importer.py uses these)
+-----------------------------------------------
+  OctetExperiment
+    ├─ OctetSensorData (one per sensor)
+    │   ├─ OctetStepData (one per step per sensor)
+    │   │   └─ OctetTimeSeriesData (one per time point - MANY ROWS)
+    │   └─ OctetKineticAnalysis (curve fitting results)
+    ├─ OctetSensorLayout
+    ├─ OctetSampleLayout
+    └─ OctetStepSequence
+
+  Storage: Time series stored as individual rows in OctetTimeSeriesData
+  Pros: Maximum database compatibility, easy querying
+  Cons: HUGE number of rows (1000s per sensor)
+
+2. OPTIMIZED MODELS (import_command.py uses these)
+--------------------------------------------------
+  OctetKineticsExperiment
+    └─ OctetKineticsSensor (one per antibody×concentration)
+         - Fields: loading_data, baseline_data, association_data,
+                   dissociation_data (all JSONField)
+         - ForeignKey: reference_sensor (for 0.0 nM reference)
+
+  Storage: Time series stored as JSON arrays in single row
+  Pros: Fast, compact, fewer rows
+  Cons: Less flexible querying
+
+================================================================================
+COMPLETE DATA FLOW (End-to-End)
+================================================================================
+
+1. DATA ACQUISITION (Instrument)
+   ├─ Octet generates .frd XML files (one per sensor)
+   ├─ HTSettings.efrd (analysis configuration)
+   └─ Software exports FRD_Analysis.xlsx (consolidated results)
+
+2. FILE PARSING (frd_parser.py)
+   ├─ FRDParser loads XML
+   ├─ Extracts <ExperimentInfo> metadata
+   ├─ Finds <KineticsData><Step> elements
+   ├─ Decodes Base64 → binary → floats → numpy arrays
+   └─ Groups steps into cycles
+
+3. SETTINGS PARSING (htsettings_parser.py)
+   ├─ HTSettingsParser loads HTSettings.efrd
+   ├─ Extracts kinetic fitting parameters
+   ├─ Extracts preprocessing settings
+   └─ Returns vendor_settings dict
+
+4. DATABASE IMPORT (frd_importer.py OR import_command.py)
+
+   A. DETAILED IMPORT (frd_importer.py):
+      ├─ FRDDatasetImporter.import_dataset()
+      ├─ Create OctetExperiment
+      ├─ For each FRD file:
+      │   ├─ Create OctetSensorData
+      │   ├─ For each step:
+      │   │   ├─ Create OctetStepData
+      │   │   └─ Bulk create OctetTimeSeriesData (1000s of rows)
+      └─ Transaction commit
+
+   B. OPTIMIZED IMPORT (import_command.py):
+      ├─ KineticsImporter.import_data()
+      ├─ Load FRD_Analysis.xlsx → DataFrame
+      ├─ Parse HTSettings → ht_params
+      ├─ Create OctetKineticsExperiment
+      ├─ For each (antibody, concentration):
+      │   ├─ Find FRD file and cycle number
+      │   ├─ Parse FRD → cycles
+      │   ├─ Convert numpy arrays → JSON lists
+      │   └─ Create OctetKineticsSensor (one row with JSON data)
+      ├─ Link reference sensors
+      └─ Transaction commit
+
+5. DATA ANALYSIS (Dashboard)
+   ├─ Query OctetKineticsSensor records
+   ├─ Load JSON time series → numpy arrays
+   ├─ Perform curve fitting
+   ├─ Create OctetKineticAnalysis results
+   └─ Display interactive plots
+
+================================================================================
+USAGE EXAMPLES
+================================================================================
+
+EXAMPLE 1: Import using Django management command
+--------------------------------------------------
+python manage.py import_kinetics \
+    --experiment_name OE292 \
+    --data_dir "C:\Data\Octet\OE292" \
+    --description "P5216 kinetics study" \
+    --created_by "cdallarosa" \
+    --clear_existing
+
+EXAMPLE 2: Import programmatically (optimized)
+----------------------------------------------
+from plotly_integration.process_development.analytical.octet.apps.kinetic_analysis.data_import.import_command import import_kinetics_data
+
+experiment = import_kinetics_data(
+    experiment_name='OE292',
+    data_dir=r'C:\Data\Octet\OE292',
+    description='Antibody kinetics',
+    created_by='admin',
+    clear_existing=True
+)
+
+print(f"Imported: {experiment.experiment_name}")
+print(f"Sensors: {experiment.octetkineticssensor_set.count()}")
+
+EXAMPLE 3: Import programmatically (detailed)
+---------------------------------------------
+from plotly_integration.process_development.analytical.octet.apps.kinetic_analysis.data_import.frd_importer import import_octet_kinetics_data
+from plotly_integration.process_development.analytical.octet.apps.kinetic_analysis.data_import.htsettings_parser import parse_htsettings
+
+# Parse HTSettings first
+ht_settings = parse_htsettings(r'C:\Data\Octet\OE292\HTSettings.efrd')
+
+# Import data
+experiment = import_octet_kinetics_data(
+    experiment_folder=r'C:\Data\Octet\OE292',
+    vendor_settings=ht_settings
+)
+
+print(f"Imported: {experiment.experiment_name}")
+print(f"Sensors: {experiment.octetsensordata_set.count()}")
+
+EXAMPLE 4: Parse FRD file only (no database)
+--------------------------------------------
+from plotly_integration.process_development.analytical.octet.apps.kinetic_analysis.data_import.frd_parser import FRDParser
+
+parser = FRDParser(r'C:\Data\Octet\OE292\251013_001.frd')
+
+# Get experiment info
+exp_info = parser.get_experiment_info()
+print(f"Experiment: {exp_info['name']}")
+print(f"Run ID: {exp_info['run_id']}")
+
+# Get all cycles
+cycles = parser.get_all_cycles()
+for i, cycle in enumerate(cycles, 1):
+    print(f"Cycle {i}: {cycle['antibody_id']} @ {cycle['concentration_nm']} nM")
+    print(f"  Time points: {len(cycle['time_array'])}")
+    print(f"  Signal range: {cycle['signal_array'].min():.2f} - {cycle['signal_array'].max():.2f} nm")
+
+# Get binding curve
+time, signal, meta = parser.get_binding_curve()
+print(f"\nBinding curve: {len(time)} points")
+print(f"  Sample: {meta['sample_id']}")
+print(f"  Antibody: {meta['antibody_id']}")
+
+================================================================================
+KEY TECHNICAL DETAILS
+================================================================================
+
+BASE64 DECODING:
+- FRD files store time series as Base64-encoded IEEE 754 floats
+- Little-endian byte order (common on Intel/AMD processors)
+- 4 bytes per float (single precision)
+- struct format string: '<{n}f' where n = number of floats
+
+TRANSACTION SAFETY:
+- All imports wrapped in @transaction.atomic() decorators
+- Rollback on error to prevent partial imports
+- Batch operations use bulk_create() for performance
+
+PERFORMANCE OPTIMIZATIONS:
+- Bulk create in batches of 1000 rows
+- Denormalized fields (run_id, sensor_location) for fast querying
+- JSON storage for time series (optimized model)
+- Indexes on foreign keys and lookup fields
+
+DATA INTEGRITY:
+- Unique constraints on (experiment, sensor_location)
+- Foreign key cascades for cleanup
+- Reference sensor linking for proper subtraction
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+COMMON ISSUES:
+
+1. "No FRD files found"
+   - Check file extension is .frd (not .FRD)
+   - Ensure files are in specified directory
+   - Verify HTSettings.efrd is excluded from import
+
+2. "Error decoding base64 floats"
+   - FRD file may be corrupted
+   - Check Points attribute matches data length
+   - Verify Base64 string is complete
+
+3. "Cycle not found in FRD file"
+   - FRD_Analysis.xlsx cycle numbers are 1-indexed
+   - Check FRD file contains expected cycles
+   - Verify FRD_File column in Excel matches actual files
+
+4. "Duplicate sensor location"
+   - Use clear_existing=True to remove old data
+   - Check for multiple imports of same experiment
+   - Verify sensor_location uniqueness in FRD files
+
+================================================================================
+FURTHER READING
+================================================================================
+
+Related Documentation:
+- CURVE_FITTING_GUIDE.md: Kinetic analysis methods
+- models.py:2570-3400: Database model definitions
+- kinetics_curve_fitting.py: Analysis algorithms
+
+External Resources:
+- ForteBio Octet documentation
+- IEEE 754 floating point standard
+- Django bulk operations guide
+- Base64 encoding specification (RFC 4648)
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

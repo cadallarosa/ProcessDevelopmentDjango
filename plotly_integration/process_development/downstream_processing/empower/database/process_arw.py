@@ -322,8 +322,11 @@ def process_files(directory, reported_folder, use_orm=False):
         # Insert into the database
         insert_into_database(chrom_metadata, data_points, use_orm)
 
-        # Move file to the reported folder
-        shutil.move(file_path, os.path.join(reported_folder, filename))
+        # Move file to the reported folder (overwrite if exists to allow re-importing)
+        reported_path = os.path.join(reported_folder, filename)
+        if os.path.exists(reported_path):
+            os.remove(reported_path)  # Remove existing file first
+        shutil.move(file_path, reported_path)
 
     print("✅ Processing complete!")
 

@@ -1,0 +1,404 @@
+================================================================================
+DECODED FRD FILE EXAMPLE - OE292/251013_001.frd
+================================================================================
+
+This document shows actual decoded data from the FRD file at:
+C:\Users\cdallarosa\DataAlchemy\djangoProject\plotly_integration\
+process_development\analytical\octet\data\Kinetics\OE292\251013_001.frd
+
+================================================================================
+EXPERIMENT INFORMATION
+================================================================================
+
+Name:           OE292
+Run ID:         24F06473-F6D3-4D98-A1F9-0B1F7EF644AC
+Experiment:     KINETICS
+Start DateTime: 2025-10-13T15:18:17
+Machine:        F4G0FZ3
+Sensor Name:    A11 (one sensor on 384-well plate)
+Sensor Type:    AHC (Anti-hIgG Fc Capture)
+Total Steps:    132
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+The FRD file is XML with the following structure:
+
+<ExperimentResults>
+  <ExperimentInfo Name="OE292">
+    <!-- Metadata: run_id, dates, machine, sensor info -->
+  </ExperimentInfo>
+
+  <KineticsData>
+    <Step>
+      <CommonData>
+        <!-- Sample info: location, ID, concentration -->
+      </CommonData>
+      <StepType>LOADING</StepType>
+      <StepName>Loading</StepName>
+      <AssayXData Points="600">AAABBB...==</AssayXData>  <!-- Base64 time -->
+      <AssayYData Points="600">CCCDDD...==</AssayYData>  <!-- Base64 response -->
+    </Step>
+    <!-- 131 more steps... -->
+  </KineticsData>
+</ExperimentResults>
+
+================================================================================
+EXAMPLE: STEP 1 - REGENERATION (Glycine)
+================================================================================
+
+Raw XML:
+--------
+<Step>
+  <StepType>KREGENERATION</StepType>
+  <StepName>Regeneration</StepName>
+  <CommonData>
+    <SampleID>Glycine</SampleID>
+    <SampleLocation>5</SampleLocation>
+    <WellType>REGENERATION</WellType>
+  </CommonData>
+  <AssayXData Points="25">AAAAAM3MTD7NzMw+I9sZP83MTD8AAIA/...</AssayXData>
+  <AssayYData Points="25">AAAAACEtA740AFq+B6KQvuHJsb45eNK+...</AssayYData>
+</Step>
+
+Decoded Data:
+-------------
+Points: 25
+Duration: 5 seconds (0.2 second intervals)
+
+Time array (first 10 values, in seconds):
+[0.0, 0.2, 0.4, 0.601, 0.8, 1.0, 1.2, 1.4, 1.601, 1.8]
+
+Response array (first 10 values, in nanometers):
+[0.0, -0.128, -0.213, -0.282, -0.347, -0.411, -0.453, -0.497, -0.545, -0.578]
+
+Statistics:
+  Time range:     0.00 - 4.80 seconds
+  Response range: -0.942 - 0.000 nm
+  Mean response:  -0.617 nm
+  Std response:   0.261 nm
+
+Interpretation:
+  Regeneration strips bound antibodies from sensor
+  Negative signal shows material being removed
+  Signal decreases (becomes more negative) over time
+
+================================================================================
+EXAMPLE: STEP 7 - LOADING (Antibody Loading)
+================================================================================
+
+Raw XML:
+--------
+<Step>
+  <StepType>LOADING</StepType>
+  <StepName>Loading</StepName>
+  <CommonData>
+    <SampleID>SI-157C11_P5158</SampleID>
+    <SampleLocation>5</SampleLocation>
+    <WellType>KLOAD</WellType>
+    <Concentration>5</Concentration>
+    <ConcentrationUnits>µg/ml</ConcentrationUnits>
+  </CommonData>
+  <AssayXData Points="600">DQJIQtrOSEKnm0lCc2hKQkA1S0ITA0xC...</AssayXData>
+  <AssayYData Points="600">lQcrQC8gLEDsuixASiUtQPhXLUAuuy1A...</AssayYData>
+</Step>
+
+Decoded Data:
+-------------
+Antibody: SI-157C11_P5158
+Concentration: 5.0 µg/ml
+Points: 600
+Duration: 120 seconds (0.2 second intervals)
+
+Sample of decoded values (every ~30 points):
+
+Index    Time (s)     Response (nm)
+----------------------------------------
+0        141.23       2.4373
+30       147.22       3.1211
+60       153.22       3.7945
+90       159.22       4.5083
+120      165.22       5.2502
+150      171.22       5.9920
+180      177.21       6.7546
+210      183.21       7.4898
+240      189.21       8.2453
+270      195.21       8.9930
+300      201.21       9.7473
+330      207.21       10.5149
+360      213.21       11.2645
+390      219.21       12.0087
+420      225.21       12.7491
+450      231.21       13.5020
+480      237.21       14.2463
+510      243.21       14.9882
+540      249.21       15.7273
+570      255.21       16.4762
+599      261.20       17.2186
+
+Statistics:
+  Time range: 141.23 - 261.20 seconds (from experiment start)
+  Response range: 2.437 - 17.219 nm
+  Signal increase: 14.78 nm (antibody binding to sensor)
+
+Interpretation:
+  Antibody SI-157C11_P5158 loaded onto sensor at 5 µg/ml
+  Positive signal shows material binding to sensor
+  Steady increase indicates antibody accumulation
+  Final response ~17 nm indicates good loading
+
+================================================================================
+BASE64 DECODING PROCESS (Detailed)
+================================================================================
+
+STEP 1: Base64 String
+----------------------
+AssayXData (first 60 characters):
+"AAAAAM3MTD7NzMw+I9sZP83MTD8AAIA/mpmZPzMzsz+R7cw/ZmbmP2IQAEDN..."
+
+This is a text encoding of binary data.
+
+STEP 2: Decode Base64 to Binary
+--------------------------------
+Python code:
+    binary_data = base64.b64decode(base64_string)
+
+Result: Binary bytes (hexadecimal representation):
+00 00 00 00 CD CC 4C 3E CD CC CC 3E 23 DB 19 3F CD CC 4C 3F 00 00 80 3F ...
+
+Each group of 4 bytes = one 32-bit float
+
+STEP 3: Unpack Binary as IEEE 754 Floats
+-----------------------------------------
+Python code:
+    num_floats = len(binary_data) // 4  # 4 bytes per float
+    float_format = f'<{num_floats}f'    # '<' = little-endian, 'f' = float
+    floats = struct.unpack(float_format, binary_data)
+
+Binary bytes → Float values:
+    00 00 00 00  →  0.0
+    CD CC 4C 3E  →  0.2
+    CD CC CC 3E  →  0.4
+    23 DB 19 3F  →  0.601
+    CD CC 4C 3F  →  0.8
+    00 00 80 3F  →  1.0
+    ...
+
+STEP 4: Create NumPy Array
+---------------------------
+Python code:
+    time_array = np.array(floats)
+
+Result: NumPy array ready for analysis
+    array([0.   , 0.2  , 0.4  , 0.601, 0.8  , 1.   , ...])
+
+================================================================================
+EXPERIMENTAL CYCLE STRUCTURE
+================================================================================
+
+The FRD file contains 132 steps organized into cycles. Each cycle tests one
+antibody against the analyte:
+
+CYCLE PATTERN (repeated 11 times in this file):
+------------------------------------------------
+
+1-6.   REGENERATION (3x Glycine + PBS cycles)
+       Purpose: Clean sensor from previous antibody
+
+7.     SENSOR CHECK
+       Purpose: Verify sensor baseline before loading
+
+8.     LOADING (120 seconds, 600 points)
+       Purpose: Load antibody onto sensor
+       Sample: Different antibody each cycle
+       Signal: Positive, increasing (antibody binding)
+
+9.     BASELINE (100 seconds, 500 points)
+       Purpose: Establish stable baseline before analyte binding
+       Sample: Buffer only
+       Signal: Stable, near zero
+
+10.    ASSOCIATION (180 seconds, 900 points)
+       Purpose: Measure analyte binding to loaded antibody
+       Sample: hsCD3d/e_Acro_CDD-H52W1 (the analyte)
+       Signal: Positive, increasing (analyte binding)
+
+11.    DISSOCIATION (300 seconds, 1500 points)
+       Purpose: Measure analyte unbinding
+       Sample: Buffer only
+       Signal: Decreasing (analyte dissociating)
+
+Then repeat for next antibody...
+
+ANTIBODIES TESTED (11 total):
+-------------------------------
+1.  SI-157C11_P5158
+2.  SI-157X87_P5592
+3.  SI-157X20_P5537
+4.  SI-157X21_P5538
+5.  SI-157X86_P5591
+6.  SI-157X62_P5536
+7.  SI-157X49_P5563
+8.  SI-157X50_P5564
+9.  SI-157X65_P5567
+10. SI-157X66_P5568
+11. (one more...)
+
+All tested against same analyte: hsCD3d/e_Acro_CDD-H52W1
+
+================================================================================
+DATA POINT COUNTS BY STEP TYPE
+================================================================================
+
+Step Type          Typical Points    Duration    Sampling Rate
+---------------------------------------------------------------
+KREGENERATION      25                5 sec       5 Hz (0.2s)
+SENSOR CHECK       100               20 sec      5 Hz
+LOADING            600               120 sec     5 Hz
+BASELINE           500               100 sec     5 Hz
+ASSOCIATION        900               180 sec     5 Hz
+DISSOCIATION       1500              300 sec     5 Hz
+
+Total points per cycle: ~3,625 points
+Total points in file: ~40,000+ points (11 cycles)
+
+Note: All sampling at 5 Hz (one point every 0.2 seconds)
+      This is set by IntegrationTime parameter in ExperimentInfo
+
+================================================================================
+TYPICAL SIGNAL PATTERNS
+================================================================================
+
+REGENERATION (Glycine):
+  Signal: Negative, decreasing
+  Range: 0 to -1.5 nm
+  Meaning: Stripping bound material
+
+NEUTRALIZATION (PBS):
+  Signal: Positive, stable
+  Range: 2.7 to 2.9 nm
+  Meaning: Returning to neutral pH
+
+LOADING:
+  Signal: Positive, strongly increasing
+  Range: 2 to 17 nm (gain ~15 nm)
+  Meaning: Antibody accumulating on sensor
+
+BASELINE:
+  Signal: Small changes, stabilizing
+  Range: ±0.5 nm around loaded value
+  Meaning: Signal equilibration before analyte
+
+ASSOCIATION:
+  Signal: Positive, increasing (curve)
+  Rate: Fast initially, slows over time
+  Meaning: Analyte binding to antibody (kon kinetics)
+
+DISSOCIATION:
+  Signal: Decreasing (decay curve)
+  Rate: Exponential decay
+  Meaning: Analyte unbinding from antibody (koff kinetics)
+
+================================================================================
+KINETIC PARAMETERS EXTRACTED FROM CURVES
+================================================================================
+
+From ASSOCIATION curve:
+  - kon (association rate constant)
+  - Amplitude (maximum binding)
+  - Curve shape
+
+From DISSOCIATION curve:
+  - koff (dissociation rate constant)
+  - t1/2 (half-life of complex)
+  - Decay shape
+
+Calculated:
+  - KD = koff / kon (equilibrium dissociation constant)
+  - Lower KD = tighter binding = better antibody
+
+================================================================================
+HOW DATA FLOWS TO DATABASE
+================================================================================
+
+1. FRD XML File (one per sensor)
+   ├─ 132 steps
+   └─ Each step: metadata + Base64 data
+
+2. FRDParser.parse_all_steps()
+   ├─ Decodes Base64 → NumPy arrays
+   └─ Returns list of step dictionaries
+
+3. FRDImporter.import_dataset()
+   ├─ Creates OctetExperiment record
+   ├─ Creates OctetSensorData record
+   └─ For each step:
+       ├─ Creates OctetStepData record
+       └─ Bulk creates OctetTimeSeriesData records
+           (one row per time point)
+
+4. Database Structure:
+   OctetExperiment (1 row)
+     └─ OctetSensorData (1 row per sensor)
+          └─ OctetStepData (132 rows for this sensor)
+               └─ OctetTimeSeriesData (~40,000 rows!)
+
+Alternative (Optimized):
+   OctetKineticsExperiment (1 row)
+     └─ OctetKineticsSensor (11 rows, one per antibody)
+          ├─ loading_data: JSON array
+          ├─ baseline_data: JSON array
+          ├─ association_data: JSON array
+          └─ dissociation_data: JSON array
+
+================================================================================
+KEY INSIGHTS
+================================================================================
+
+1. FRD files store time series as IEEE 754 binary floats encoded in Base64
+   - Efficient storage (4 bytes per value)
+   - Exact numerical precision
+   - Platform-independent format
+
+2. Little-endian byte order is standard for Intel/AMD processors
+   - Least significant byte first
+   - Struct format: '<f' for little-endian float
+
+3. One FRD file = one sensor's complete data
+   - Multiple cycles per file
+   - Each cycle = one antibody test
+   - Thousands of time points per cycle
+
+4. Signal measured in nanometers of optical thickness
+   - Biolayer interferometry principle
+   - Higher signal = more material on sensor
+   - Typical antibody loading: 10-20 nm
+
+5. Standard sampling rate: 5 Hz (0.2 second intervals)
+   - Fast enough for kinetics (seconds to minutes)
+   - Generates large datasets (40k+ points per sensor)
+
+6. Database storage trade-off:
+   - Individual rows: Maximum compatibility, flexible queries, HUGE size
+   - JSON storage: Compact, fast, less flexible queries
+
+================================================================================
+USAGE: RUN THE DECODER
+================================================================================
+
+To see this analysis yourself:
+
+    cd C:\Users\cdallarosa\DataAlchemy\djangoProject
+    python decode_frd_example.py
+
+This will:
+- Parse the FRD XML file
+- Decode all Base64 data
+- Print detailed analysis of steps
+- Show raw bytes → float conversion
+- Display time series statistics
+
+================================================================================
+END OF DECODED EXAMPLE
+================================================================================

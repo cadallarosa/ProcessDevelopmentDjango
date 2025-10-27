@@ -25,7 +25,8 @@
       "Bash(dir:*)",
       "Read(//c/Users/cdallarosa/ProteinMakerV3/ProteinMakerV3/system_configuration/**)",
       "Read(//c/Users/cdallarosa/ProteinMakerV3/**)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(move:*)"
     ],
     "deny": [],
     "ask": []

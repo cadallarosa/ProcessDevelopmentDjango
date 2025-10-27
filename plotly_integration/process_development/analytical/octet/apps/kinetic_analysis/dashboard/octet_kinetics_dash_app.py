@@ -20,6 +20,9 @@ import numpy as np
 from django_plotly_dash import DjangoDash
 from django.db.models import Q, Count, Prefetch
 import logging
+import io
+import time
+from functools import wraps
 
 from plotly_integration.models import (
     OctetKineticsExperiment,
@@ -28,8 +31,26 @@ from plotly_integration.models import (
 
 # Import signal processing functions from same package
 from .dashboard_processing import process_sensor_data
+from .kinetics_curve_fitting import (
+    fit_1_1_langmuir_global,
+    fit_dissociation_only
+)
 
 logger = logging.getLogger(__name__)
+
+
+# Performance timing decorator
+def time_function(func):
+    """Decorator to time function execution and print results to console"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        elapsed = time.time() - start_time
+        print(f"⏱️  {func.__name__} took {elapsed:.3f}s")
+        return result
+    return wrapper
+
 
 # Initialize Dash app
 app = DjangoDash(
@@ -51,6 +72,8 @@ app.layout = html.Div([
     # Data stores
     dcc.Store(id='selected-experiment', data=None),
     dcc.Store(id='experiment-data', data=None),
+    dcc.Store(id='processed-plot-data', data=None),  # Store processed data for export
+    dcc.Download(id='download-data'),  # Download component for exports
 
     # Experiment Selection Modal
     dbc.Modal(
@@ -419,16 +442,94 @@ def update_main_content(exp_data):
             ])
         ], style=CARD_STYLE),
 
-        # Plot button
+        # Curve Fitting Controls (New Section)
+        dbc.Card([
+            dbc.CardBody([
+                html.H6("Curve Fitting Options", className="mb-3"),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Checklist(
+                            id="enable-fitting",
+                            options=[
+                                {"label": " Enable Curve Fitting", "value": "enabled"}
+                            ],
+                            value=[],
+                            inline=True
+                        )
+                    ], width=3),
+                    dbc.Col([
+                        dbc.Label("Fitting Model:", id="fitting-model-label", style={"color": "#6c757d"}),
+                        dcc.Dropdown(
+                            id="fitting-model",
+                            options=[
+                                {"label": "1:1 Langmuir (Global)", "value": "1:1_langmuir"},
+                                {"label": "Dissociation Only (koff)", "value": "dissociation_only"},
+                            ],
+                            value="1:1_langmuir",
+                            disabled=True,
+                            clearable=False
+                        )
+                    ], width=3),
+                    dbc.Col([
+                        dbc.Label("Display Fitted Curves:", id="show-fitted-label", style={"color": "#6c757d"}),
+                        html.Div(
+                            id="show-fitted-curves-container",
+                            children=[
+                                dbc.Checklist(
+                                    id="show-fitted-curves",
+                                    options=[
+                                        {"label": " Overlay Fits", "value": "overlay"},
+                                        {"label": " Show Residuals", "value": "residuals"}
+                                    ],
+                                    value=["overlay"],
+                                    inline=True
+                                )
+                            ],
+                            style={"pointer-events": "none", "opacity": "0.5"}
+                        )
+                    ], width=3),
+                    dbc.Col([
+                        dbc.Label("Comparison Table:", id="show-comparison-label", style={"color": "#6c757d"}),
+                        html.Div(
+                            id="show-comparison-table-container",
+                            children=[
+                                dbc.Checklist(
+                                    id="show-comparison-table",
+                                    options=[
+                                        {"label": " Show KD Comparison", "value": "show"}
+                                    ],
+                                    value=["show"],
+                                    inline=True
+                                )
+                            ],
+                            style={"pointer-events": "none", "opacity": "0.5"}
+                        )
+                    ], width=3),
+                ])
+            ])
+        ], style=CARD_STYLE, id="fitting-controls-card"),
+
+        # Plot and Export buttons
         html.Div([
             dbc.Button(
                 "Generate Plot",
                 id="plot-button",
                 color="success",
                 size="lg",
-                className="mb-3"
+                className="mb-3 me-2"
+            ),
+            dbc.Button(
+                "Export Data",
+                id="export-button",
+                color="info",
+                size="lg",
+                className="mb-3",
+                disabled=True  # Initially disabled until plot is generated
             )
         ], style={"text-align": "center"}),
+
+        # Comparison Table Area (shown above plot when fitting enabled)
+        html.Div(id="comparison-table-container"),
 
         # Plot area
         dcc.Loading(
@@ -510,7 +611,43 @@ def toggle_filter_window(processing_options):
 
 
 @app.callback(
-    Output("plot-container", "children"),
+    [Output("fitting-model", "disabled"),
+     Output("show-fitted-curves-container", "style"),
+     Output("show-comparison-table-container", "style"),
+     Output("fitting-model-label", "style"),
+     Output("show-fitted-label", "style"),
+     Output("show-comparison-label", "style")],
+    Input("enable-fitting", "value")
+)
+def toggle_fitting_controls(enable_fitting):
+    """Enable/disable curve fitting controls"""
+    is_enabled = "enabled" in (enable_fitting or [])
+
+    if is_enabled:
+        return (
+            False,  # fitting-model enabled
+            {"pointer-events": "auto", "opacity": "1"},  # show-fitted-curves enabled
+            {"pointer-events": "auto", "opacity": "1"},  # show-comparison-table enabled
+            {"font-weight": "bold"},  # fitting-model-label style
+            {"font-weight": "bold"},  # show-fitted-label style
+            {"font-weight": "bold"}   # show-comparison-label style
+        )
+    else:
+        return (
+            True,  # fitting-model disabled
+            {"pointer-events": "none", "opacity": "0.5"},  # show-fitted-curves disabled
+            {"pointer-events": "none", "opacity": "0.5"},  # show-comparison-table disabled
+            {"color": "#6c757d"},  # fitting-model-label style
+            {"color": "#6c757d"},  # show-fitted-label style
+            {"color": "#6c757d"}   # show-comparison-label style
+        )
+
+
+@app.callback(
+    [Output("plot-container", "children"),
+     Output("comparison-table-container", "children"),
+     Output("processed-plot-data", "data"),
+     Output("export-button", "disabled")],
     Input("plot-button", "n_clicks"),
     [State("experiment-data", "data"),
      State("view-mode", "value"),
@@ -520,13 +657,18 @@ def toggle_filter_window(processing_options):
      State("processing-options", "value"),
      State("baseline-start", "value"),
      State("baseline-end", "value"),
-     State("filter-window", "value")]
+     State("filter-window", "value"),
+     State("enable-fitting", "value"),
+     State("fitting-model", "value"),
+     State("show-fitted-curves", "value"),
+     State("show-comparison-table", "value")]
 )
 def generate_plot(n_clicks, exp_data, view_mode, selected_antibody, grid_columns, display_options,
-                 processing_options, baseline_start, baseline_end, filter_window):
+                 processing_options, baseline_start, baseline_end, filter_window,
+                 enable_fitting, fitting_model, show_fitted_curves, show_comparison_table):
     """Generate kinetics plot based on selected mode"""
     if not n_clicks or not exp_data:
-        return html.Div()
+        return html.Div(), html.Div(), None, True
 
     experiment_id = exp_data['experiment_id']
     show_kd = "show_kd" in (display_options or [])
@@ -542,20 +684,54 @@ def generate_plot(n_clicks, exp_data, view_mode, selected_antibody, grid_columns
         'filter_window': filter_window or 11,
     }
 
+    # Fitting settings
+    fitting_enabled = "enabled" in (enable_fitting or [])
+    fitting_settings = {
+        'enabled': fitting_enabled,
+        'model': fitting_model if fitting_enabled else None,
+        'show_overlay': "overlay" in (show_fitted_curves or []) if fitting_enabled else False,
+        'show_residuals': "residuals" in (show_fitted_curves or []) if fitting_enabled else False,
+        'show_comparison': "show" in (show_comparison_table or []) if fitting_enabled else False,
+    }
+
     try:
         if view_mode == "grid":
             cols = grid_columns or 4  # Default to 4 columns
-            return generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settings, cols)
+            plot_output, plot_data = generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settings, cols, fitting_settings)
+            comparison_table = html.Div()  # No comparison table in grid mode for now
+
+            # Store plot data for export
+            export_data = {
+                'view_mode': 'grid',
+                'experiment_id': experiment_id,
+                'experiment_name': exp_data.get('name', 'Unknown'),
+                'plot_data': plot_data
+            }
+            return plot_output, comparison_table, export_data, False  # Enable export button
         else:
             if not selected_antibody:
-                return html.Div("Please select an antibody", className="alert alert-warning")
-            return generate_single_plot(experiment_id, selected_antibody, show_kd, show_all_steps, processing_settings)
+                return html.Div("Please select an antibody", className="alert alert-warning"), html.Div(), None, True
+            plot_output, comparison_table, plot_data = generate_single_plot(
+                experiment_id, selected_antibody, show_kd, show_all_steps,
+                processing_settings, fitting_settings
+            )
+
+            # Store plot data for export
+            export_data = {
+                'view_mode': 'single',
+                'experiment_id': experiment_id,
+                'experiment_name': exp_data.get('name', 'Unknown'),
+                'antibody': selected_antibody,
+                'plot_data': plot_data
+            }
+            return plot_output, comparison_table, export_data, False  # Enable export button
 
     except Exception as e:
         logger.error(f"Error generating plot: {e}", exc_info=True)
-        return html.Div(f"Error: {str(e)}", className="alert alert-danger")
+        return html.Div(f"Error: {str(e)}", className="alert alert-danger"), html.Div(), None, True
 
 
+@time_function
 def normalize_full_experiment_time(sensor):
     """
     Normalize full experiment time so ASSOCIATION starts at 0
@@ -628,12 +804,23 @@ def normalize_full_experiment_time(sensor):
     return time_normalized, response_full, step_info
 
 
-def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settings, cols=4):
-    """Generate grid of all antibodies with configurable column layout"""
+@time_function
+def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settings, cols=4, fitting_settings=None):
+    """
+    Generate grid of all antibodies with configurable column layout
+    Returns: (plot_component, plot_data_dict)
+    """
+    print(f"🔵 Starting grid plot generation for experiment {experiment_id}")
+
+    # For grid mode, fitting is disabled for now (too complex with multiple antibodies)
+    # Could be added later with individual fits per antibody
     # Query sensors - NO JOINS NEEDED!
+    t0 = time.time()
     sensors = OctetKineticsSensor.objects.filter(
         experiment_id=experiment_id
     ).select_related('experiment')
+    sensor_list = list(sensors)  # Force query evaluation
+    print(f"  ├─ Database query: {time.time() - t0:.3f}s ({len(sensor_list)} sensors)")
 
     # Organize data by antibody
     antibody_data = {}
@@ -644,7 +831,10 @@ def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settin
     # Track Y-axis minimum for visible data (association + dissociation)
     all_y_min = []
 
-    for sensor in sensors:
+    # Timing for data processing
+    t_data_processing = time.time()
+
+    for sensor in sensor_list:
         antibody = sensor.antibody_id
         concentration = sensor.concentration_nm
 
@@ -695,7 +885,10 @@ def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settin
                 'response': response_array,
             }
 
+    print(f"  ├─ Data loading & processing: {time.time() - t_data_processing:.3f}s")
+
     # Apply reference subtraction if requested (AFTER baseline correction)
+    t_ref_subtract = time.time()
     if processing_settings['reference_subtract']:
         for antibody in antibody_data:
             ab_data = antibody_data[antibody]
@@ -717,6 +910,7 @@ def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settin
                     if len(conc_time) == len(ref_time):
                         # Subtract reference response
                         conc_data['response'] = conc_response - ref_response
+        print(f"  ├─ Reference subtraction: {time.time() - t_ref_subtract:.3f}s")
 
     # Track Y-minimum for axis scaling AFTER all processing
     for antibody in antibody_data:
@@ -733,11 +927,14 @@ def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settin
                 all_y_min.append(np.min(visible_response))
 
     # Create subplot figure
+    t_plot_creation = time.time()
     antibodies = sorted(antibody_data.keys())
     n_antibodies = len(antibodies)
 
     if n_antibodies == 0:
         return html.Div("No data found", className="alert alert-warning")
+
+    print(f"  ├─ Creating subplot for {n_antibodies} antibodies in {cols} columns")
 
     # Calculate rows based on number of columns
     rows = int(np.ceil(n_antibodies / cols))
@@ -908,23 +1105,52 @@ def generate_grid_plot(experiment_id, show_kd, show_all_steps, processing_settin
         # When showing all steps, let it auto-range from all data
         fig.update_yaxes(title_text=y_axis_label, showgrid=True)
 
-    return dcc.Graph(figure=fig, config={'displayModeBar': True})
+    print(f"  ├─ Plot creation & rendering: {time.time() - t_plot_creation:.3f}s")
+
+    # Prepare export data - convert numpy arrays to lists for JSON serialization
+    t_export_prep = time.time()
+    export_data = {
+        'step_info': first_step_info  # Include step boundaries for phase separation in export
+    }
+    for antibody, ab_data in antibody_data.items():
+        export_data[antibody] = {}
+        for conc, conc_data in ab_data['concentrations'].items():
+            export_data[antibody][str(conc)] = {
+                'time': conc_data['time'].tolist() if isinstance(conc_data['time'], np.ndarray) else conc_data['time'],
+                'response': conc_data['response'].tolist() if isinstance(conc_data['response'], np.ndarray) else conc_data['response']
+            }
+    print(f"  └─ Export data preparation: {time.time() - t_export_prep:.3f}s")
+
+    return dcc.Graph(figure=fig, config={'displayModeBar': True}), export_data
 
 
-def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, processing_settings):
-    """Generate detailed plot for single antibody"""
+@time_function
+def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, processing_settings, fitting_settings=None):
+    """
+    Generate detailed plot for single antibody
+    Returns: (plot_component, comparison_table_component, plot_data_dict)
+    """
+    print(f"🟢 Starting single plot generation for antibody {antibody}")
+
+    # Default fitting settings if not provided
+    if fitting_settings is None:
+        fitting_settings = {'enabled': False}
+
     # Query sensors for this antibody - NO JOINS NEEDED!
+    t0 = time.time()
     sensors = OctetKineticsSensor.objects.filter(
         experiment_id=experiment_id,
         antibody_id=antibody
     ).select_related('experiment')
+    sensor_list = list(sensors)
+    print(f"  ├─ Database query: {time.time() - t0:.3f}s ({len(sensor_list)} sensors)")
 
-    if not sensors.exists():
+    if not sensor_list:
         return html.Div(f"No data found for {antibody}", className="alert alert-warning")
 
     # Get KD - stored directly on sensor!
     kd_value = None
-    first_sensor = sensors.first()
+    first_sensor = sensor_list[0]
     if first_sensor.kd_m:
         kd_value = first_sensor.kd_m
 
@@ -937,7 +1163,10 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
     # Track Y-axis minimum for visible data (association + dissociation)
     all_y_min = []
 
-    for sensor in sensors:
+    # Timing for data processing
+    t_data_processing = time.time()
+
+    for sensor in sensor_list:
         concentration = sensor.concentration_nm
 
         # ALWAYS get full time series data with normalization
@@ -977,7 +1206,10 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
                 'response': response_array,
             }
 
+    print(f"  ├─ Data loading & processing: {time.time() - t_data_processing:.3f}s")
+
     # Apply reference subtraction if requested (AFTER baseline correction)
+    t_ref_subtract = time.time()
     if processing_settings['reference_subtract']:
         # Find the 0.0 nM reference sensor data
         reference_data = concentration_data.get(0.0)
@@ -996,6 +1228,7 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
                 if len(conc_time) == len(ref_time):
                     # Subtract reference response
                     conc_data['response'] = conc_response - ref_response
+        print(f"  ├─ Reference subtraction: {time.time() - t_ref_subtract:.3f}s")
 
     # Track Y-minimum for axis scaling AFTER all processing
     for conc in concentration_data:
@@ -1010,6 +1243,7 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
             all_y_min.append(np.min(visible_response))
 
     # Create plot
+    t_plot_creation = time.time()
     fig = go.Figure()
 
     concentrations = sorted(concentration_data.keys())
@@ -1090,10 +1324,187 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
     except Exception as e:
         logger.warning(f"Could not add step boundaries: {e}")
 
+    # ========================================
+    # CURVE FITTING (if enabled)
+    # ========================================
+    fit_result = None
+    comparison_table = html.Div()  # Default empty
+
+    if fitting_settings.get('enabled', False):
+        t_curve_fitting = time.time()
+        print(f"  ├─ Starting curve fitting with model: {fitting_settings.get('model')}")
+        try:
+            fitting_model = fitting_settings.get('model', '1:1_langmuir')
+
+            if fitting_model == '1:1_langmuir':
+                # Perform global fit with step_info for proper phase separation
+                fit_result = fit_1_1_langmuir_global(concentration_data, step_info)
+
+                if fit_result.get('success'):
+                    # Add fitted curves to plot - ONLY ASSOCIATION PHASE
+                    if fitting_settings.get('show_overlay', False):
+                        for conc_idx, conc in enumerate(concentrations):
+                            if conc == 0.0:
+                                continue  # Skip reference
+
+                            if conc in fit_result['fitted_curves']:
+                                fitted_data = fit_result['fitted_curves'][conc]
+                                color = colors[conc_idx % len(colors)]
+
+                                # Plot ONLY the association fit
+                                assoc_fit = fitted_data['association']
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=assoc_fit['time'],
+                                        y=assoc_fit['response'],
+                                        mode='lines',
+                                        name=f'{conc} nM (Assoc Fit)',
+                                        line=dict(width=2, color=color, dash='dash'),
+                                        hovertemplate=f'{conc} nM ASSOCIATION FIT<br>' +
+                                                      'Time: %{x:.1f}s<br>' +
+                                                      'Response: %{y:.2f} nm<br>' +
+                                                      '<extra></extra>'
+                                    )
+                                )
+
+                                # Optionally plot dissociation fit too (if you want it)
+                                # dissoc_fit = fitted_data['dissociation']
+                                # fig.add_trace(
+                                #     go.Scatter(
+                                #         x=dissoc_fit['time'],
+                                #         y=dissoc_fit['response'],
+                                #         mode='lines',
+                                #         name=f'{conc} nM (Dissoc Fit)',
+                                #         line=dict(width=2, color=color, dash='dot'),
+                                #         showlegend=False
+                                #     )
+                                # )
+
+                    # Create comparison table if requested
+                    if fitting_settings.get('show_comparison', False):
+                        comparison_data = []
+
+                        # Add vendor KD vs fitted KD
+                        fitted_kd = fit_result.get('fitted_kd')
+                        fitted_kon = fit_result.get('fitted_kon')
+                        fitted_koff = fit_result.get('fitted_koff')
+
+                        # Get vendor values from sensor
+                        vendor_kd = kd_value if kd_value else None
+                        vendor_ka = first_sensor.ka_1_ms if first_sensor.ka_1_ms else None
+                        vendor_kdis = first_sensor.kdis_1_s if first_sensor.kdis_1_s else None
+
+                        comparison_data.append({
+                            'Parameter': 'k_on (1/Ms)',
+                            'Vendor': f'{vendor_ka:.2e}' if vendor_ka else 'N/A',
+                            'Fitted': f'{fitted_kon:.2e}' if fitted_kon else 'N/A',
+                            'Δ (%)': f'{((fitted_kon - vendor_ka) / vendor_ka * 100):.1f}' if (vendor_ka and fitted_kon) else 'N/A'
+                        })
+
+                        comparison_data.append({
+                            'Parameter': 'k_off (1/s)',
+                            'Vendor': f'{vendor_kdis:.2e}' if vendor_kdis else 'N/A',
+                            'Fitted': f'{fitted_koff:.2e}' if fitted_koff else 'N/A',
+                            'Δ (%)': f'{((fitted_koff - vendor_kdis) / vendor_kdis * 100):.1f}' if (vendor_kdis and fitted_koff) else 'N/A'
+                        })
+
+                        comparison_data.append({
+                            'Parameter': 'K_D (M)',
+                            'Vendor': f'{vendor_kd:.2e}' if vendor_kd else 'N/A',
+                            'Fitted': f'{fitted_kd:.2e}' if fitted_kd else 'N/A',
+                            'Δ (%)': f'{((fitted_kd - vendor_kd) / vendor_kd * 100):.1f}' if (vendor_kd and fitted_kd) else 'N/A'
+                        })
+
+                        # Add fit quality metrics
+                        avg_r_squared = np.mean([
+                            q['assoc_r_squared']
+                            for q in fit_result.get('fit_quality', {}).values()
+                        ])
+                        avg_rmse = np.mean([
+                            q['assoc_rmse']
+                            for q in fit_result.get('fit_quality', {}).values()
+                        ])
+
+                        comparison_table = dbc.Card([
+                            dbc.CardBody([
+                                html.H6("Kinetic Parameters Comparison", className="mb-3"),
+                                dbc.Row([
+                                    dbc.Col([
+                                        dash_table.DataTable(
+                                            data=comparison_data,
+                                            columns=[
+                                                {'name': 'Parameter', 'id': 'Parameter'},
+                                                {'name': 'Vendor Analysis', 'id': 'Vendor'},
+                                                {'name': 'Fitted (1:1 Langmuir)', 'id': 'Fitted'},
+                                                {'name': 'Difference (%)', 'id': 'Δ (%)'},
+                                            ],
+                                            style_cell={
+                                                'textAlign': 'left',
+                                                'padding': '10px',
+                                                'fontSize': '14px'
+                                            },
+                                            style_header={
+                                                'backgroundColor': '#f8f9fa',
+                                                'fontWeight': 'bold'
+                                            },
+                                            style_data_conditional=[
+                                                {
+                                                    'if': {'row_index': 'odd'},
+                                                    'backgroundColor': '#f8f9fa'
+                                                }
+                                            ]
+                                        )
+                                    ], width=8),
+                                    dbc.Col([
+                                        html.H6("Fit Quality", className="mb-2"),
+                                        html.P([
+                                            html.Strong("Avg R²: "),
+                                            f"{avg_r_squared:.4f}"
+                                        ], className="mb-1"),
+                                        html.P([
+                                            html.Strong("Avg RMSE: "),
+                                            f"{avg_rmse:.3f} nm"
+                                        ], className="mb-1"),
+                                        html.P([
+                                            html.Strong("Model: "),
+                                            "1:1 Langmuir (Global)"
+                                        ], className="mb-1", style={"font-size": "12px", "color": "#6c757d"})
+                                    ], width=4)
+                                ])
+                            ])
+                        ], style=CARD_STYLE, className="mb-3")
+
+                else:
+                    # Fitting failed
+                    error_msg = fit_result.get('error', 'Unknown error')
+                    comparison_table = dbc.Alert(
+                        f"Curve fitting failed: {error_msg}",
+                        color="warning",
+                        className="mb-3"
+                    )
+
+        except Exception as e:
+            logger.error(f"Error during curve fitting: {e}", exc_info=True)
+            comparison_table = dbc.Alert(
+                f"Error during curve fitting: {str(e)}",
+                color="danger",
+                className="mb-3"
+            )
+
+        if fitting_settings.get('enabled', False):
+            print(f"  ├─ Curve fitting: {time.time() - t_curve_fitting:.3f}s")
+
+    print(f"  ├─ Plot creation: {time.time() - t_plot_creation:.3f}s")
+
     # Update layout
     title = f'{antibody}'
     if show_kd and kd_value:
         title += f' (KD = {kd_value:.2e} M)'
+
+    # Add fit info to title if fitted
+    if fit_result and fit_result.get('success'):
+        fitted_kd = fit_result.get('fitted_kd')
+        title += f' | Fitted KD = {fitted_kd:.2e} M'
 
     # Set Y-axis label
     y_axis_label = 'Response (nm)'
@@ -1135,7 +1546,151 @@ def generate_single_plot(experiment_id, antibody, show_kd, show_all_steps, proce
         # When showing all steps, let it auto-range from all data
         fig.update_yaxes(showgrid=True)
 
-    return dcc.Graph(figure=fig, config={'displayModeBar': True})
+    # Prepare export data - convert numpy arrays to lists for JSON serialization
+    t_export_prep = time.time()
+    export_data = {
+        'step_info': step_info  # Include step boundaries for phase separation in export
+    }
+    for conc, conc_data in concentration_data.items():
+        export_data[str(conc)] = {
+            'time': conc_data['time'].tolist() if isinstance(conc_data['time'], np.ndarray) else conc_data['time'],
+            'response': conc_data['response'].tolist() if isinstance(conc_data['response'], np.ndarray) else conc_data['response']
+        }
+    print(f"  └─ Export data preparation: {time.time() - t_export_prep:.3f}s")
+
+    # Return plot, comparison table, and export data
+    return dcc.Graph(figure=fig, config={'displayModeBar': True}), comparison_table, export_data
+
+
+@app.callback(
+    Output("download-data", "data"),
+    Input("export-button", "n_clicks"),
+    State("processed-plot-data", "data"),
+    prevent_initial_call=True
+)
+def export_plot_data(n_clicks, plot_data):
+    """Export plot data to CSV file with association and dissociation phases separated"""
+    if not n_clicks or not plot_data:
+        return None
+
+    try:
+        view_mode = plot_data.get('view_mode')
+        experiment_name = plot_data.get('experiment_name', 'Unknown')
+        data = plot_data.get('plot_data', {})
+
+        # Extract step_info for phase boundaries
+        step_info = data.get('step_info', {})
+        assoc_start = step_info.get('association_start', 0)
+        assoc_end = step_info.get('association_end', 0)
+        dissoc_start = step_info.get('dissociation_start', assoc_end)
+        dissoc_end = step_info.get('dissociation_end', dissoc_start)
+
+        if view_mode == 'single':
+            # Single antibody mode - export with separate association and dissociation sheets
+            antibody = plot_data.get('antibody', 'Unknown')
+
+            # Create association phase DataFrame
+            assoc_dict = {}
+            dissoc_dict = {}
+
+            # Process each concentration
+            for conc_str, conc_data in data.items():
+                if conc_str == 'step_info':
+                    continue
+
+                conc_nm = float(conc_str)
+                time_array = conc_data['time']
+                response_array = conc_data['response']
+
+                # Split into association and dissociation based on time
+                assoc_mask = [(t >= assoc_start and t < dissoc_start) for t in time_array]
+                dissoc_mask = [(t >= dissoc_start and t <= dissoc_end) for t in time_array]
+
+                assoc_times = [t for t, m in zip(time_array, assoc_mask) if m]
+                assoc_responses = [r for r, m in zip(response_array, assoc_mask) if m]
+
+                dissoc_times = [t for t, m in zip(time_array, dissoc_mask) if m]
+                dissoc_responses = [r for r, m in zip(response_array, dissoc_mask) if m]
+
+                # Store in dictionaries
+                if not assoc_dict:  # First time, add time column
+                    assoc_dict['Time (s)'] = assoc_times
+                assoc_dict[f'Response_{conc_nm}_nM (nm)'] = assoc_responses
+
+                if not dissoc_dict:  # First time, add time column
+                    dissoc_dict['Time (s)'] = dissoc_times
+                dissoc_dict[f'Response_{conc_nm}_nM (nm)'] = dissoc_responses
+
+            # Create combined DataFrame with phase column
+            assoc_df = pd.DataFrame(assoc_dict)
+            assoc_df['Phase'] = 'Association'
+
+            dissoc_df = pd.DataFrame(dissoc_dict)
+            dissoc_df['Phase'] = 'Dissociation'
+
+            # Combine both phases
+            combined_df = pd.concat([assoc_df, dissoc_df], ignore_index=True)
+
+            # Reorder columns to have Phase first
+            cols = ['Phase', 'Time (s)'] + [c for c in combined_df.columns if c not in ['Phase', 'Time (s)']]
+            combined_df = combined_df[cols]
+
+            # Export to CSV
+            output = io.StringIO()
+            combined_df.to_csv(output, index=False)
+            csv_string = output.getvalue()
+
+            filename = f"{experiment_name}_{antibody}_kinetics_by_phase.csv"
+
+            return dict(content=csv_string, filename=filename)
+
+        else:
+            # Grid mode - export with phase information
+            all_rows = []
+
+            for antibody, antibody_data in data.items():
+                if antibody == 'step_info':
+                    continue
+
+                for conc_str, conc_data in antibody_data.items():
+                    conc_nm = float(conc_str)
+                    time_array = conc_data['time']
+                    response_array = conc_data['response']
+
+                    # Create rows for this antibody-concentration combination
+                    for i in range(len(time_array)):
+                        t = time_array[i]
+                        # Determine phase
+                        if assoc_start <= t < dissoc_start:
+                            phase = 'Association'
+                        elif dissoc_start <= t <= dissoc_end:
+                            phase = 'Dissociation'
+                        else:
+                            phase = 'Other'
+
+                        all_rows.append({
+                            'Antibody': antibody,
+                            'Concentration (nM)': conc_nm,
+                            'Phase': phase,
+                            'Time (s)': t,
+                            'Response (nm)': response_array[i]
+                        })
+
+            df = pd.DataFrame(all_rows)
+
+            # Export to CSV
+            output = io.StringIO()
+            df.to_csv(output, index=False)
+            csv_string = output.getvalue()
+
+            filename = f"{experiment_name}_all_antibodies_kinetics_by_phase.csv"
+
+            return dict(content=csv_string, filename=filename)
+
+    except Exception as e:
+        logger.error(f"Error exporting data: {e}", exc_info=True)
+        print(f"❌ Error exporting data: {e}")
+        return None
 
 
 if __name__ == '__main__':

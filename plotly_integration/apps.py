@@ -102,14 +102,10 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.dash_apps.Analytical.octet.octet_analysis_app
                 import plotly_integration.dash_apps.Analytical.octet_app.octet_analysis_app
                 import plotly_integration.process_development.analytical.octet.apps.octet_analysis_app_v2
-                import plotly_integration.process_development.analytical.octet.octet_kinetics_dash_app
+                import plotly_integration.process_development.analytical.octet.apps.kinetic_analysis.dashboard.octet_kinetics_dash_app
 
                 #Lims Apps
-                import plotly_integration.process_development.lims.dn_assignment_app
-                import plotly_integration.process_development.lims.dn_assignment_app_v2
-                import plotly_integration.dash_apps.DSP.experiment_set
-                import plotly_integration.dash_apps.DSP.experiment_set_improved
-                import plotly_integration.dash_apps.DSP.experiment_set_refined
+
                 import plotly_integration.process_development.lims.sample_analysis_app
                 import plotly_integration.process_development.lims.upstream_samples_app
                 # import plotly_integration.process_development.lims.cld_samples_app
@@ -133,6 +129,14 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.cld.clonality_report_analyzer
                 import plotly_integration.cld.vicell.vicell_report_app
                 import plotly_integration.cld.nova_flex_II.nova_report_app
+
+                #DSP Apps
+                import plotly_integration.process_development.lims.dn_assignment_app
+                import plotly_integration.process_development.lims.dn_assignment_app_v2
+                import plotly_integration.dash_apps.DSP.experiment_set
+                import plotly_integration.dash_apps.DSP.experiment_set_improved
+                import plotly_integration.dash_apps.DSP.experiment_set_refined
+                import plotly_integration.dash_apps.DSP.source_material_generation
 
                 #USP Apps
                 import plotly_integration.usp.media_tracking_app.media_tracking_app

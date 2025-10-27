@@ -427,12 +427,12 @@ def insert_peak_results(peak_results_df, use_orm=True):
                     result_id=row["result_id"],
                     channel_name=row["channel_name"],
                     peak_name=row["peak_name"],
-                    peak_retention_time=row["peak_retention_time"],
-                    peak_start_time=row["peak_start_time"],
-                    peak_end_time=row["peak_end_time"],
-                    area=row["area"],
-                    percent_area=row["percent_area"],
-                    height=row["height"],
+                    peak_retention_time=string_to_float(row["peak_retention_time"]),
+                    peak_start_time=string_to_float(row["peak_start_time"]),
+                    peak_end_time=string_to_float(row["peak_end_time"]),
+                    area=string_to_float(row["area"]),
+                    percent_area=string_to_float(row["percent_area"]),
+                    height=string_to_float(row["height"]),
                     asym_at_10=string_to_float(row["asym_at_10"]),
                     plate_count=string_to_float(row["plate_count"]),
                     res_hh=string_to_float(row["res_hh"]),
@@ -456,9 +456,9 @@ def insert_peak_results(peak_results_df, use_orm=True):
         values = [
             (
                 row["result_id"], row["channel_name"], row["peak_name"],
-                row["peak_retention_time"], row["peak_start_time"], row["peak_end_time"],
-                row["area"], row["percent_area"], row["height"], row["asym_at_10"],
-                row["plate_count"], row["res_hh"], row['system_name']
+                string_to_float(row["peak_retention_time"]), string_to_float(row["peak_start_time"]), string_to_float(row["peak_end_time"]),
+                string_to_float(row["area"]), string_to_float(row["percent_area"]), string_to_float(row["height"]), string_to_float(row["asym_at_10"]),
+                string_to_float(row["plate_count"]), string_to_float(row["res_hh"]), row['system_name']
             )
             for _, row in peak_results_df.iterrows()
         ]
@@ -538,4 +538,7 @@ def process_files(directory, reported_folder):
 
     # Step 3: Move all processed files to the Reported folder in bulk
     for file_path in files_to_move:
-        shutil.move(file_path, os.path.join(reported_folder, os.path.basename(file_path)))
+        reported_path = os.path.join(reported_folder, os.path.basename(file_path))
+        if os.path.exists(reported_path):
+            os.remove(reported_path)  # Remove existing file first to allow re-importing
+        shutil.move(file_path, reported_path)

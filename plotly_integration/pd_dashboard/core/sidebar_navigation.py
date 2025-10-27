@@ -66,6 +66,7 @@ def create_sidebar_navigation():
             'color': '#f39c12',
             'items': [
                 {'name': 'Create DN/PD', 'href': '#!/dsp/create-dn-pd', 'icon': 'fa-plus'},
+                {'name': 'Source Material Generation', 'href': '#!/dsp/source-material-generation', 'icon': 'fa-virus'},
                 {'name': 'AKTA', 'href': '#!/dsp/akta', 'icon': 'fa-chart-line'},
                 {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-filter'},
                 {'name': 'VF', 'href': '#!/dsp/vf', 'icon': 'fa-virus'},

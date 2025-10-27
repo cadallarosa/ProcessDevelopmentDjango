@@ -44,22 +44,35 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
         sample = SampleMetadata.objects.filter(result_id=result_id).first()
         if not sample:
             continue
-        time_series = TimeSeriesData.objects.filter(result_id=sample.result_id)
+        # Use injection_id to query TimeSeriesData (ARW files store data by injection_id)
+        time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id)
+
+        # Fallback: If no data found, search nearby injection_ids (some samples have ID mismatches)
+        if not time_series.exists():
+            for offset in [-10, -5, -2, -1, 1, 2, 5, 10]:
+                time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id + offset)
+                if time_series.exists():
+                    break
+
         df = pd.DataFrame(list(time_series.values()))
         sample_name = sample.sample_name
         # Get HMW Table row for the current sample
         # ✅ Find HMW row safely
         hmw_row = next((r for r in hmw_table_data if isinstance(r, dict) and r.get('Sample Name') == sample_name), None)
-        if not hmw_row:
-            continue
 
-        # Extract values from HMW Table
-        main_peak_start = hmw_row.get("Main Peak Start", None)
-        main_peak_end = hmw_row.get("Main Peak End", None)
-        hmw_start = hmw_row.get("HMW Start", None)
-        hmw_end = hmw_row.get("HMW End", None)
-        lmw_start = hmw_row.get("LMW Start", None)
-        lmw_end = hmw_row.get("LMW End", None)
+        # Extract values from HMW Table (will be None if no hmw_row)
+        if hmw_row:
+            main_peak_start = hmw_row.get("Main Peak Start", None)
+            main_peak_end = hmw_row.get("Main Peak End", None)
+            hmw_start = hmw_row.get("HMW Start", None)
+            hmw_end = hmw_row.get("HMW End", None)
+            lmw_start = hmw_row.get("LMW Start", None)
+            lmw_end = hmw_row.get("LMW End", None)
+        else:
+            # No HMW data available - still plot the chromatogram without shading
+            main_peak_start = main_peak_end = None
+            hmw_start = hmw_end = None
+            lmw_start = lmw_end = None
 
         def safe_float(value):
             try:
@@ -68,11 +81,15 @@ def generate_subplots_with_shading(selected_result_ids, sample_list, channels, e
             except (ValueError, TypeError):
                 return 0.0
 
-        percentages = {
-            "HMW": safe_float(hmw_row.get("HMW", 0)),
-            "MP": safe_float(hmw_row.get("Main Peak", 0)),
-            "LMW": safe_float(hmw_row.get("LMW", 0)),
-        }
+        # Get percentages from HMW row if available
+        if hmw_row:
+            percentages = {
+                "HMW": safe_float(hmw_row.get("HMW", 0)),
+                "MP": safe_float(hmw_row.get("Main Peak", 0)),
+                "LMW": safe_float(hmw_row.get("LMW", 0)),
+            }
+        else:
+            percentages = {"HMW": 0, "MP": 0, "LMW": 0}
 
         for channel in channels:
             if channel in df.columns:
@@ -256,7 +273,16 @@ def update_graph(plot_type, report_name, shading_options, peak_label_options,
             sample = SampleMetadata.objects.filter(result_id=result_id).first()
             if not sample:
                 continue
-            time_series = TimeSeriesData.objects.filter(result_id=result_id)
+            # Use injection_id to query TimeSeriesData (ARW files store data by injection_id)
+            time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id)
+
+            # Fallback: If no data found, search nearby injection_ids (some samples have ID mismatches)
+            if not time_series.exists():
+                for offset in [-10, -5, -2, -1, 1, 2, 5, 10]:
+                    time_series = TimeSeriesData.objects.filter(result_id=sample.injection_id + offset)
+                    if time_series.exists():
+                        break
+
             df = pd.DataFrame(list(time_series.values()))
             for channel in selected_channels:
                 if channel in df.columns:

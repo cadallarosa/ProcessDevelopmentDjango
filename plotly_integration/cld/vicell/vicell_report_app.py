@@ -1124,13 +1124,20 @@ def create_doubling_time_analysis(grouped_data):
         doubling_days = []
 
         for i in range(1, len(viable_cells)):
-            if viable_cells[i] > viable_cells[i - 1]:
-                # Calculate growth rate
-                growth_rate = (np.log(viable_cells[i]) - np.log(viable_cells[i - 1])) / (days[i] - days[i - 1])
-                # Calculate doubling time
-                if growth_rate > 0:
-                    dt = np.log(2) / growth_rate * 24  # Convert to hours
-                    doubling_times.append(dt)
+            if viable_cells[i] > viable_cells[i - 1] and viable_cells[i - 1] > 0:
+                # Calculate doubling time using: DT = ((t2-t1)*ln(2))/(ln(N2)-ln(N1))
+                t1 = days[i - 1]
+                t2 = days[i]
+                N1 = viable_cells[i - 1]
+                N2 = viable_cells[i]
+
+                # DT in days
+                dt_days = ((t2 - t1) * np.log(2)) / (np.log(N2) - np.log(N1))
+                # Convert to hours
+                dt_hours = dt_days * 24
+
+                if dt_hours > 0:
+                    doubling_times.append(dt_hours)
                     doubling_days.append((days[i] + days[i - 1]) / 2)
 
         if doubling_times:
