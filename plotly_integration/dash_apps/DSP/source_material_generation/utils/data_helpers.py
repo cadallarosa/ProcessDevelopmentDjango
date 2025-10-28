@@ -116,6 +116,34 @@ def format_sample_dropdown_label(sample: LimsSampleAnalysis) -> str:
     return f"{sample.sample_id} — {desc}{date_str}"
 
 
+def format_samples_for_pooling_table(samples: List[LimsSampleAnalysis]) -> List[Dict]:
+    """
+    Format samples for the pooling DataTable.
+
+    Args:
+        samples: List of LimsSampleAnalysis objects
+
+    Returns:
+        List of dicts with sample info formatted for table display
+    """
+    SAMPLE_TYPE_MAP = {1: "UP/UPFB", 2: "FB", 3: "PD"}
+
+    rows = []
+    for sample in samples:
+        row = {
+            "sample_id": sample.sample_id,
+            "sample_type_label": SAMPLE_TYPE_MAP.get(sample.sample_type, "Unknown"),
+            "dn": f"DN{sample.dn.dn}" if sample.dn else "",
+            "project_id": sample.project_id or "",
+            "description": sample.description or "",
+            "sample_date": sample.sample_date.strftime("%Y-%m-%d") if sample.sample_date else "",
+            "a280": f"{sample.a280_result:.2f}" if sample.a280_result else "",
+        }
+        rows.append(row)
+
+    return rows
+
+
 def format_sm_dropdown_label(sm: LimsSourceMaterial) -> str:
     """
     Format a source material for dropdown display.
@@ -126,20 +154,92 @@ def format_sm_dropdown_label(sm: LimsSourceMaterial) -> str:
     return f"SM{sm.sm_id}: {name}"
 
 
-def get_all_project_ids() -> List[str]:
+def normalize_project_id(project_id: str) -> str:
+    """
+    Normalize project ID to standard format (e.g., SI-49T5).
+
+    Examples:
+        - "49t5" -> "SI-49T5"
+        - "49T5" -> "SI-49T5"
+        - "si-49t5" -> "SI-49T5"
+        - "SI-49T5" -> "SI-49T5"
+
+    Args:
+        project_id: Raw project ID string
+
+    Returns:
+        Normalized project ID
+    """
+    if not project_id:
+        return ""
+
+    pid = project_id.strip().upper()
+
+    # If it doesn't start with "SI-", try to add it
+    if not pid.startswith("SI-"):
+        # Check if it's just a number pattern like "49T5"
+        if pid and (pid[0].isdigit() or len(pid) < 10):
+            pid = f"SI-{pid}"
+
+    return pid
+
+
+def get_all_project_ids(order_by: str = "recent") -> List[str]:
     """
     Get all unique project IDs from sample analysis table.
 
+    Args:
+        order_by: "recent" (most recent first), "numeric" (by number), or "alpha" (alphabetical)
+
     Returns:
-        Sorted list of unique project IDs
+        Ordered list of normalized unique project IDs
     """
-    project_ids = (
-        LimsSampleAnalysis.objects
-        .values_list('project_id', flat=True)
-        .distinct()
-        .order_by('project_id')
-    )
-    return [pid for pid in project_ids if pid]  # Filter out empty/None
+    from django.db.models import Max
+
+    if order_by == "recent":
+        # Order by most recent sample_date for each project
+        project_dates = (
+            LimsSampleAnalysis.objects
+            .values('project_id')
+            .annotate(latest_date=Max('sample_date'))
+            .order_by('-latest_date')
+        )
+        project_ids = [p['project_id'] for p in project_dates if p['project_id']]
+    elif order_by == "numeric":
+        # Try to extract numeric part and sort
+        all_pids = (
+            LimsSampleAnalysis.objects
+            .values_list('project_id', flat=True)
+            .distinct()
+        )
+        project_ids = sorted(
+            [pid for pid in all_pids if pid],
+            key=lambda x: (
+                # Extract number if exists, otherwise use string
+                int(''.join(filter(str.isdigit, x))) if any(c.isdigit() for c in x) else 0,
+                x
+            ),
+            reverse=True
+        )
+    else:  # alphabetical
+        project_ids = (
+            LimsSampleAnalysis.objects
+            .values_list('project_id', flat=True)
+            .distinct()
+            .order_by('project_id')
+        )
+        project_ids = [pid for pid in project_ids if pid]
+
+    # Normalize all project IDs and remove duplicates while preserving order
+    normalized = []
+    seen = set()
+    for pid in project_ids:
+        norm_pid = normalize_project_id(pid)
+        if norm_pid and norm_pid not in seen:
+            normalized.append(norm_pid)
+            seen.add(norm_pid)
+
+    return normalized
 
 
 def get_next_dn_number() -> int:

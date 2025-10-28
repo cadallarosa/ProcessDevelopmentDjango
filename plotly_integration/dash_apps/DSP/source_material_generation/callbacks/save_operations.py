@@ -8,7 +8,8 @@ from django.db import transaction
 from plotly_integration.models import (
     LimsSourceMaterial,
     LimsSampleAnalysis,
-    LimsSourceMaterialStep
+    LimsSourceMaterialStep,
+    LimsDnAssignment
 )
 from ..utils.data_helpers import get_next_pd_number, get_next_dn_number
 
@@ -20,6 +21,7 @@ def register_save_callbacks(app):
         Output("sm-gen-alert-container", "children"),
         Output("sm-gen-overwrite-modal", "is_open"),
         Output("sm-gen-modal-body", "children"),
+        Output("sm-gen-result-dn-number", "children"),
         Input("sm-gen-save-btn", "n_clicks"),
         Input("sm-gen-confirm-overwrite", "n_clicks"),
         Input("sm-gen-cancel-overwrite", "n_clicks"),
@@ -32,7 +34,8 @@ def register_save_callbacks(app):
         State("sm-gen-final-conductivity", "value"),
         State("sm-gen-final-concentration", "value"),
         State("sm-gen-final-volume", "value"),
-        State("sm-gen-pooled-samples", "value"),
+        State("sm-gen-pooling-table", "selected_rows"),
+        State("sm-gen-pooling-table", "data"),
         State("sm-gen-process-table", "data"),
         prevent_initial_call=True
     )
@@ -49,7 +52,8 @@ def register_save_callbacks(app):
         final_cond,
         final_conc,
         final_vol,
-        pooled_samples,
+        selected_rows,
+        pooling_table_data,
         step_table_data
     ):
         """
@@ -71,14 +75,19 @@ def register_save_callbacks(app):
 
         # Handle cancel button
         if triggered_id == "sm-gen-cancel-overwrite":
-            return no_update, False, no_update
+            return no_update, False, no_update, no_update
 
         # Validation
         if not project_id or not project_id.strip():
-            return create_error_alert("Project ID is required"), False, no_update
+            return create_error_alert("Project ID is required"), False, no_update, no_update
 
         if not name or not name.strip():
-            return create_error_alert("Source Material Name is required"), False, no_update
+            return create_error_alert("Source Material Name is required"), False, no_update, no_update
+
+        # Extract pooled sample IDs from selected rows in the table
+        pooled_samples = []
+        if selected_rows and pooling_table_data:
+            pooled_samples = [pooling_table_data[idx]["sample_id"] for idx in selected_rows]
 
         # Determine SM ID
         if mode == "existing" and existing_sm_id:
@@ -107,7 +116,7 @@ def register_save_callbacks(app):
                     f"Changes detected in SM{sm_id}. "
                     "Do you want to overwrite the existing Source Material?"
                 )
-                return no_update, True, modal_message
+                return no_update, True, modal_message, no_update
 
         # Proceed with save (either new or confirmed overwrite)
         if triggered_id in ("sm-gen-save-btn", "sm-gen-confirm-overwrite"):
@@ -205,16 +214,18 @@ def register_save_callbacks(app):
                             f"DN{dn_record.dn} created. "
                             f"Resulting sample: {result_sample}"
                         )
+                        dn_display = f"DN{dn_record.dn}"
                     else:
                         alert = create_success_alert(
                             f"Source Material SM{sm.sm_id} successfully {action}! "
                             f"Resulting sample: {result_sample}"
                         )
+                        dn_display = no_update
 
-                    return alert, False, no_update
+                    return alert, False, no_update, dn_display
 
             except Exception as e:
-                return create_error_alert(f"Error saving: {str(e)}"), False, no_update
+                return create_error_alert(f"Error saving: {str(e)}"), False, no_update, no_update
 
         raise PreventUpdate
 

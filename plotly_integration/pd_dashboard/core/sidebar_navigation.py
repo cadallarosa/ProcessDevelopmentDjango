@@ -67,6 +67,9 @@ def create_sidebar_navigation():
             'items': [
                 {'name': 'Create DN/PD', 'href': '#!/dsp/create-dn-pd', 'icon': 'fa-plus'},
                 {'name': 'Source Material Generation', 'href': '#!/dsp/source-material-generation', 'icon': 'fa-virus'},
+                {'name': 'Experiment Management', 'href': '#!/dsp/experiment-manager', 'icon': 'fa-virus'},
+                {'name': 'Sample Management', 'href': '#!/dsp/sample-manager', 'icon': 'fa-virus'},
+                {'name': 'Analytics Dashboard', 'href': '#!/dsp/analytics-dashboard', 'icon': 'fa-virus'},
                 {'name': 'AKTA', 'href': '#!/dsp/akta', 'icon': 'fa-chart-line'},
                 {'name': 'UFDF', 'href': '#!/dsp/ufdf', 'icon': 'fa-filter'},
                 {'name': 'VF', 'href': '#!/dsp/vf', 'icon': 'fa-virus'},

@@ -1096,6 +1096,13 @@ class LimsDnAssignment(models.Model):
     load_volume = models.FloatField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=50, default="Pending")
+
+    # Mass Balance fields
+    input_volume = models.FloatField(null=True, blank=True, help_text="Input volume in mL")
+    input_concentration = models.FloatField(null=True, blank=True, help_text="Input concentration in mg/mL")
+    output_volume = models.FloatField(null=True, blank=True, help_text="Output volume in mL")
+    output_concentration = models.FloatField(null=True, blank=True, help_text="Output concentration in mg/mL")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

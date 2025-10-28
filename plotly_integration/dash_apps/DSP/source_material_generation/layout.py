@@ -63,196 +63,179 @@ def create_layout():
         # Alert for feedback messages
         html.Div(id="sm-gen-alert-container", className="mb-3"),
 
-        # Main Tabs
-        dcc.Tabs(id="sm-gen-tabs", value="create-tab", children=[
+        # Main Tabs using DBC.Tabs
+        dbc.Tabs([
             # CREATE NEW TAB
-            dcc.Tab(label="Create New Source Material", value="create-tab", children=[
-                html.Div([
-        # Main Content Card (CREATE TAB CONTENT START)
-        dbc.Card([
-            dbc.CardHeader([
-                html.H5("Source Material Configuration", className="mb-0")
-            ]),
-            dbc.CardBody([
-                # Mode Selection
-                create_labeled_radio(
-                    label="Mode",
-                    radio_id="sm-gen-mode",
-                    options=[
-                        {"label": "Use Existing Source Material", "value": "existing"},
-                        {"label": "Create New Source Material", "value": "new"}
-                    ],
-                    value="new"
-                ),
+            dbc.Tab(
+                label="Create New Source Material",
+                tab_id="create-tab",
+                label_style={"color": "#6c757d"},
+                active_label_style={"color": "#0d6efd", "fontWeight": "600"},
+                children=[
+                    html.Div([
+                        # Main Content Card (CREATE TAB CONTENT START)
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5("Source Material Configuration", className="mb-0")
+                            ]),
+                            dbc.CardBody([
+                                # Project ID Searchable Dropdown (required for filtering)
+                                create_searchable_dropdown(
+                                    label="Project ID",
+                                    dropdown_id="sm-gen-project-id",
+                                    placeholder="Select existing or type new project ID...",
+                                    help_text="Required to filter samples and source materials. Select from existing or type a new one.",
+                                    required=True
+                                ),
 
-                html.Hr(),
+                                html.Hr(),
 
-                # Project ID Searchable Dropdown (required for filtering)
-                create_searchable_dropdown(
-                    label="Project ID",
-                    dropdown_id="sm-gen-project-id",
-                    placeholder="Select existing or type new project ID...",
-                    help_text="Required to filter samples and source materials. Select from existing or type a new one.",
-                    required=True
-                ),
+                                # Source Material Name
+                                create_labeled_input(
+                                    label="Source Material Name",
+                                    input_id="sm-gen-name",
+                                    placeholder="Enter descriptive name",
+                                    required=True
+                                )
+                            ])
+                        ], className="mb-4"),
 
-                # Existing SM Section (conditional visibility)
-                html.Div(
-                    id="sm-gen-existing-section",
-                    children=[
-                        create_labeled_dropdown(
-                            label="Select Existing Source Material",
-                            dropdown_id="sm-gen-existing-dropdown",
-                            placeholder="Choose a source material...",
-                            help_text="Available source materials for this project"
-                        )
-                    ],
-                    style={"display": "none"}
-                ),
+                        # Sample Pooling Card - NEW DATATABLE APPROACH
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5("Sample Pooling", className="mb-0")
+                            ]),
+                            dbc.CardBody([
+                                dbc.Row([
+                                    dbc.Col([
+                                        dbc.Label("Sample Types to Pool", className="fw-bold"),
+                                        dcc.Checklist(
+                                            id="sm-gen-sample-type-multi",
+                                            options=[
+                                                {"label": " Upstream (UP/UPFB)", "value": 1},
+                                                {"label": " Fed Batch (FB)", "value": 2},
+                                                {"label": " Process Development (PD)", "value": 3}
+                                            ],
+                                            value=[3],  # Default to PD
+                                            inline=True,
+                                            labelStyle={"marginRight": "20px", "cursor": "pointer"}
+                                        ),
+                                        html.Small("Select one or more sample types to display", className="text-muted")
+                                    ], md=12, className="mb-3"),
+                                ]),
+                                # DataTable for sample selection
+                                html.Div(id="sm-gen-pooling-table-container")
+                            ])
+                        ], className="mb-4"),
 
-                # New SM Section (always visible but fields may be populated from existing)
-                html.Div(id="sm-gen-new-section", children=[
-                    create_labeled_input(
-                        label="Source Material Name",
-                        input_id="sm-gen-name",
-                        placeholder="Enter descriptive name",
-                        required=True
-                    )
-                ])
-            ])
-        ], className="mb-4"),
+                        # Sample Details Card
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5("Final Sample Properties", className="mb-0")
+                            ]),
+                            dbc.CardBody([
+                                dbc.Row([
+                                    dbc.Col([
+                                        create_labeled_input(
+                                            label="Final pH",
+                                            input_id="sm-gen-final-ph",
+                                            input_type="number",
+                                            placeholder="pH"
+                                        )
+                                    ], md=3),
+                                    dbc.Col([
+                                        create_labeled_input(
+                                            label="Conductivity (mS/cm)",
+                                            input_id="sm-gen-final-conductivity",
+                                            input_type="number",
+                                            placeholder="Conductivity"
+                                        )
+                                    ], md=3),
+                                    dbc.Col([
+                                        create_labeled_input(
+                                            label="Concentration (mg/mL)",
+                                            input_id="sm-gen-final-concentration",
+                                            input_type="number",
+                                            placeholder="Concentration"
+                                        )
+                                    ], md=3),
+                                    dbc.Col([
+                                        create_labeled_input(
+                                            label="Volume (mL)",
+                                            input_id="sm-gen-final-volume",
+                                            input_type="number",
+                                            placeholder="Volume"
+                                        )
+                                    ], md=3)
+                                ]),
 
-        # Sample Pooling Card
-        dbc.Card([
-            dbc.CardHeader([
-                html.H5("Sample Pooling", className="mb-0")
-            ]),
-            dbc.CardBody([
-                dbc.Row([
-                    dbc.Col([
-                        create_labeled_dropdown(
-                            label="Sample Type Filter",
-                            dropdown_id="sm-gen-sample-type",
-                            options=[
-                                {"label": "Upstream (UP)", "value": 1},
-                                {"label": "Formulation Buffer (FB)", "value": 2},
-                                {"label": "Process Development (PD)", "value": 3}
-                            ],
-                            value=3,
-                            clearable=False,
-                            help_text="Filter available samples by type"
-                        )
-                    ], md=4),
-                    dbc.Col([
-                        create_labeled_dropdown(
-                            label="Pooled Samples",
-                            dropdown_id="sm-gen-pooled-samples",
-                            multi=True,
-                            placeholder="Select samples to pool...",
-                            help_text="Select one or more samples to combine"
-                        )
-                    ], md=8)
-                ])
-            ])
-        ], className="mb-4"),
+                                html.Hr(),
 
-        # Sample Details Card
-        dbc.Card([
-            dbc.CardHeader([
-                html.H5("Final Sample Properties", className="mb-0")
-            ]),
-            dbc.CardBody([
-                dbc.Row([
-                    dbc.Col([
-                        create_labeled_input(
-                            label="Final pH",
-                            input_id="sm-gen-final-ph",
-                            input_type="number",
-                            placeholder="pH"
-                        )
-                    ], md=3),
-                    dbc.Col([
-                        create_labeled_input(
-                            label="Conductivity (mS/cm)",
-                            input_id="sm-gen-final-conductivity",
-                            input_type="number",
-                            placeholder="Conductivity"
-                        )
-                    ], md=3),
-                    dbc.Col([
-                        create_labeled_input(
-                            label="Concentration (mg/mL)",
-                            input_id="sm-gen-final-concentration",
-                            input_type="number",
-                            placeholder="Concentration"
-                        )
-                    ], md=3),
-                    dbc.Col([
-                        create_labeled_input(
-                            label="Volume (mL)",
-                            input_id="sm-gen-final-volume",
-                            input_type="number",
-                            placeholder="Volume"
-                        )
-                    ], md=3)
-                ]),
+                                # Resulting Sample ID Display
+                                create_info_display(
+                                    label="Resulting Sample ID",
+                                    display_id="sm-gen-result-sample-id",
+                                    value="Will be auto-generated"
+                                ),
 
-                html.Hr(),
+                                # DN Number Display
+                                create_info_display(
+                                    label="DN Number",
+                                    display_id="sm-gen-result-dn-number",
+                                    value="Will be auto-generated"
+                                )
+                            ])
+                        ], className="mb-4"),
 
-                # Resulting Sample ID Display
-                create_info_display(
-                    label="Resulting Sample ID",
-                    display_id="sm-gen-result-sample-id",
-                    value="Will be auto-generated"
-                )
-            ])
-        ], className="mb-4"),
+                        # Process Steps Card
+                        dbc.Card([
+                            dbc.CardHeader([
+                                dbc.Row([
+                                    dbc.Col([
+                                        html.H5("Process Steps", className="mb-0")
+                                    ], width="auto"),
+                                    dbc.Col([
+                                        dbc.Button(
+                                            [html.I(className="bi bi-plus-circle me-1"), "Add Step"],
+                                            id="sm-gen-add-step",
+                                            color="secondary",
+                                            size="sm",
+                                            outline=True
+                                        )
+                                    ], width="auto", className="ms-auto")
+                                ])
+                            ]),
+                            dbc.CardBody([
+                                html.Div(id="sm-gen-process-table-container")
+                            ])
+                        ], className="mb-4"),
 
-        # Process Steps Card
-        dbc.Card([
-            dbc.CardHeader([
-                dbc.Row([
-                    dbc.Col([
-                        html.H5("Process Steps", className="mb-0")
-                    ], width="auto"),
-                    dbc.Col([
-                        dbc.Button(
-                            [html.I(className="bi bi-plus-circle me-1"), "Add Step"],
-                            id="sm-gen-add-step",
-                            color="secondary",
-                            size="sm",
-                            outline=True
-                        )
-                    ], width="auto", className="ms-auto")
-                ])
-            ]),
-            dbc.CardBody([
-                create_process_steps_table(
-                    table_id="sm-gen-process-table",
-                    data=[{"step": 1, "process": "", "notes": ""}]
-                )
-            ])
-        ], className="mb-4"),
-
-        # Action Buttons
-        dbc.Row([
-            dbc.Col([
-                dbc.Button(
-                    [html.I(className="bi bi-save me-2"), "Save Source Material"],
-                    id="sm-gen-save-btn",
-                    color="primary",
-                    size="lg",
-                    className="w-100"
-                )
-            ], md=6, className="mx-auto")
-        ], className="mb-3"),
-                ], style={"padding": "10px"})  # Close CREATE TAB content div
-            ]),  # Close CREATE TAB
+                        # Action Buttons
+                        dbc.Row([
+                            dbc.Col([
+                                dbc.Button(
+                                    [html.I(className="bi bi-save me-2"), "Save Source Material & Create DN"],
+                                    id="sm-gen-save-btn",
+                                    color="primary",
+                                    size="lg",
+                                    className="w-100"
+                                )
+                            ], md=6, className="mx-auto")
+                        ], className="mb-3"),
+                    ], style={"padding": "20px"})  # Close CREATE TAB content div
+                ]
+            ),  # Close CREATE TAB
 
             # MANAGE EXISTING TAB
-            dcc.Tab(label="Manage Existing Source Materials", value="manage-tab", children=[
-                create_manage_existing_tab()
-            ])
-        ])  # Close Tabs
+            dbc.Tab(
+                label="Manage Existing Source Materials",
+                tab_id="manage-tab",
+                label_style={"color": "#6c757d"},
+                active_label_style={"color": "#0d6efd", "fontWeight": "600"},
+                children=[
+                    create_manage_existing_tab()
+                ]
+            )
+        ], id="sm-gen-tabs", active_tab="create-tab")  # Close DBC.Tabs
 
     ], fluid=True, className="py-4")

@@ -77,6 +77,9 @@ def create_page_router(app):
             "/dsp/create-dn": ("Create DN Assignment", "/plotly_integration/dash-app/app/DnAssignmentApp/", "refresh-dsp-dn", False),
             "/dsp/create-dn-pd": ("DN Assignment", "/plotly_integration/dash-app/app/DnAssignmentApp/", "refresh-dsp-dn-pd", False),
             "/dsp/source-material-generation": ("Source Material Generation", "/plotly_integration/dash-app/app/SourceMaterialGenerationApp/", "refresh-dsp-sm-pd", False),
+            "/dsp/experiment-manager": ("Experiment Management","/plotly_integration/dash-app/app/DnAssignmentAppModular/","refresh-dsp-sm-pd", False),
+            "/dsp/sample-manager": ("Sample Management","/plotly_integration/dash-app/app/DSPSampleManagementApp/","refresh-dsp-sm-pd", False),
+            "/dsp/analytics-dashboard": ("Analytics Dashboard", "/plotly_integration/dash-app/app/PDAnalyticsDashboard/","refresh-dsp-analytics-dashboard", False),
             "/dsp/ufdf": ("UFDF Process", "/plotly_integration/dash-app/app/UFDFApp/", "refresh-dsp-ufdf", False),
             "/dsp/vf": ("Viral Filtration", "/plotly_integration/dash-app/app/ViralFiltrationApp/", "refresh-dsp-vf", False),
 

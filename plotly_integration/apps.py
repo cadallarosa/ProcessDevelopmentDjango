@@ -137,6 +137,11 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.dash_apps.DSP.experiment_set_improved
                 import plotly_integration.dash_apps.DSP.experiment_set_refined
                 import plotly_integration.dash_apps.DSP.source_material_generation
+                import plotly_integration.dash_apps.DSP.dn_assignment  # Modular DN Assignment App
+                from plotly_integration.dash_apps.DSP.pd_samples_management import create_pd_samples_app
+                create_pd_samples_app()  # PD Samples Management App
+                from plotly_integration.dash_apps.DSP.pd_analytics_dashboard import create_pd_analytics_app
+                create_pd_analytics_app()  # PD Analytics Dashboard
 
                 #USP Apps
                 import plotly_integration.usp.media_tracking_app.media_tracking_app
