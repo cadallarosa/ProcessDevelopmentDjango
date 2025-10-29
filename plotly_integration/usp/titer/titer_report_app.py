@@ -246,6 +246,7 @@ def parse_sample_id_for_day(sample_id):
     Patterns:
     - UP447 D10 -> day=10, group=UP447
     - UPFB0001 D05 -> day=5, group=UPFB0001
+    - UPST0001 D07 -> day=7, group=UPST0001
     - UP448 D9 -> day=9, group=UP448
     """
     parsed_info = {
@@ -263,16 +264,21 @@ def parse_sample_id_for_day(sample_id):
     if day_match:
         parsed_info['day'] = int(day_match.group(1))
 
-    # Extract base identifier (UP### or UPFB####)
-    # First try UPFB pattern
-    upfb_match = re.match(r'(UPFB\d+)', sample_id_str)
-    if upfb_match:
-        parsed_info['group'] = upfb_match.group(1)
+    # Extract base identifier (UPST####, UPFB####, or UP###)
+    # Try UPST pattern first (seed train)
+    upst_match = re.match(r'(UPST\d+)', sample_id_str)
+    if upst_match:
+        parsed_info['group'] = upst_match.group(1)
     else:
-        # Try UP pattern (with or without space)
-        up_match = re.match(r'(UP\d+)', sample_id_str)
-        if up_match:
-            parsed_info['group'] = up_match.group(1)
+        # Try UPFB pattern (vessel)
+        upfb_match = re.match(r'(UPFB\d+)', sample_id_str)
+        if upfb_match:
+            parsed_info['group'] = upfb_match.group(1)
+        else:
+            # Try UP pattern (legacy or other)
+            up_match = re.match(r'(UP\d+)', sample_id_str)
+            if up_match:
+                parsed_info['group'] = up_match.group(1)
 
     return parsed_info
 
@@ -446,12 +452,40 @@ def update_selected_experiment(confirm_clicks, url_params, selected_rows, table_
 def get_titer_data_for_experiment(experiment_id):
     """
     Fetch titer data for samples related to a specific USP experiment.
+    Queries the experiment's seed trains and vessels, then finds titer results
+    for samples matching those IDs.
     Returns grouped data.
     """
-    # Query all titer results with UP pattern
-    # For now, get all UP samples - in future, link to experiment metadata
+    from plotly_integration.models import USPSeedTrain, USPVessel
+
+    # Get all seed trains and vessels for this experiment
+    # Navigate: USPExperiment -> USPProcessStep -> USPSeedTrain/USPVessel
+    seed_trains = USPSeedTrain.objects.filter(
+        process_step__experiment__experiment_id=experiment_id
+    ).values_list('seed_train_id', flat=True)
+
+    vessels = USPVessel.objects.filter(
+        process_step__experiment__experiment_id=experiment_id
+    ).values_list('vessel_id', flat=True)
+
+    # Combine all sample IDs to look for
+    all_sample_ids = list(seed_trains) + list(vessels)
+
+    if not all_sample_ids:
+        return {}
+
+    # Build regex patterns for matching sample IDs with day notation
+    # e.g., UPST0001 -> UPST0001 D10, UPFB0001 -> UPFB0001 D12
+    from django.db.models import Q
+
+    query = Q()
+    for sample_id in all_sample_ids:
+        # Match samples like "UPST0001 D10" or "UPFB0001 D12"
+        query |= Q(sample_id__sample_id__istartswith=sample_id)
+
+    # Query titer results for samples matching these IDs
     titer_results = LimsTiterResult.objects.select_related('sample_id').filter(
-        sample_id__sample_id__istartswith='UP'
+        query
     ).values(
         'sample_id__sample_id',
         'titer',
@@ -486,7 +520,7 @@ def get_titer_data_for_experiment(experiment_id):
     # Sort by group and day
     df_sorted = df.sort_values(by=["group", "day"], ascending=[True, True])
 
-    # Group by sample group (UP### or UPFB####)
+    # Group by sample group (UPST#### or UPFB####)
     grouped_data = {}
     for group in df_sorted["group"].unique():
         group_df = df_sorted[df_sorted["group"] == group].copy()
