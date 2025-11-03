@@ -1,18 +1,20 @@
 """
-Layout for Plasma Stability SEC Analysis App
-Matrix-style configuration with side-by-side plots and trend analysis
+Layout for Plasma Stability SEC Analysis App V2
+Excel template-based workflow for multiple molecules
 """
 
-from dash import html, dcc, dash_table
+from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 app_layout = html.Div([
     # Data stores
-    dcc.Store(id='stability-config-store', data=[]),
-    dcc.Store(id='id-type-store-ps', data='result_id'),
-    dcc.Store(id='monomer-data-store', data=[]),
-    dcc.Store(id='conditions-store', data=['Plasma', 'Buffer']),  # Store condition names
-    dcc.Store(id='project-id-store', data=''),  # Store project ID
+    dcc.Store(id='template-data-store', data=None),
+    dcc.Store(id='analysis-results-store', data=None),
+    dcc.Store(id='channel-settings-store', data=['channel_1']),
+    dcc.Store(id='show-trend-store', data=False),
+    dcc.Store(id='x-axis-range-store', data=[4, 12]),
+    dcc.Store(id='image-height-store', data=225),
+    dcc.Store(id='plot-width-store', data=600),
 
     # Header
     html.Div(
@@ -21,163 +23,232 @@ app_layout = html.Div([
             'backgroundColor': '#ffffff',
             'borderBottom': '3px solid #2563eb',
             'boxShadow': '0 2px 12px rgba(0,0,0,0.1)',
-            'display': 'flex',
-            'justifyContent': 'space-between',
-            'alignItems': 'center'
         },
         children=[
-            html.Div([
-                html.H1("Plasma Stability SEC Analysis", style={
-                    'margin': '0',
-                    'color': '#2563eb',
-                    'fontSize': '32px',
-                    'fontWeight': '800'
-                }),
-                html.P("Track protein stability in plasma vs buffer over time", style={
-                    'margin': '8px 0 0 0',
-                    'color': '#6b7280',
-                    'fontSize': '15px'
-                })
-            ]),
-            html.Button("⚙️ Configure Analysis", id='open-config-modal-btn', style={
-                'backgroundColor': '#2563eb',
-                'color': 'white',
-                'border': 'none',
-                'padding': '12px 24px',
-                'fontSize': '15px',
-                'cursor': 'pointer',
-                'borderRadius': '8px',
-                'fontWeight': '600',
-                'boxShadow': '0 2px 8px rgba(37, 99, 235, 0.3)'
-            })
+            html.Div(
+                style={'maxWidth': '1400px', 'margin': '0 auto'},
+                children=[
+                    html.Div(
+                        style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'},
+                        children=[
+                            html.Div([
+                                html.H1("Plasma Stability SEC Analysis", style={
+                                    'margin': '0',
+                                    'color': '#2563eb',
+                                    'fontSize': '32px',
+                                    'fontWeight': '800'
+                                }),
+                                html.P("Upload Excel template to analyze multiple molecules", style={
+                                    'margin': '8px 0 0 0',
+                                    'color': '#6b7280',
+                                    'fontSize': '15px'
+                                })
+                            ]),
+                            html.Div(
+                                style={'display': 'flex', 'gap': '12px'},
+                                children=[
+                                    html.Button("Download Template", id='download-template-btn', style={
+                                        'backgroundColor': '#10b981',
+                                        'color': 'white',
+                                        'border': 'none',
+                                        'padding': '12px 24px',
+                                        'fontSize': '15px',
+                                        'cursor': 'pointer',
+                                        'borderRadius': '8px',
+                                        'fontWeight': '600',
+                                        'boxShadow': '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                    }),
+                                    dcc.Upload(
+                                        id='upload-template',
+                                        children=html.Button("Upload Template", style={
+                                            'backgroundColor': '#2563eb',
+                                            'color': 'white',
+                                            'border': 'none',
+                                            'padding': '12px 24px',
+                                            'fontSize': '15px',
+                                            'cursor': 'pointer',
+                                            'borderRadius': '8px',
+                                            'fontWeight': '600',
+                                            'boxShadow': '0 2px 8px rgba(37, 99, 235, 0.3)'
+                                        }),
+                                        multiple=False
+                                    ),
+                                    html.Button("Configure Settings", id='open-settings-modal-btn', style={
+                                        'backgroundColor': '#6b7280',
+                                        'color': 'white',
+                                        'border': 'none',
+                                        'padding': '12px 24px',
+                                        'fontSize': '15px',
+                                        'cursor': 'pointer',
+                                        'borderRadius': '8px',
+                                        'fontWeight': '600',
+                                        'boxShadow': '0 2px 8px rgba(107, 114, 128, 0.3)'
+                                    }),
+                                    html.Div(
+                                        id='export-ppt-btn-container',
+                                        style={'display': 'none'},
+                                        children=html.Button("Export to PowerPoint", id='export-ppt-btn', style={
+                                            'backgroundColor': '#dc2626',
+                                            'color': 'white',
+                                            'border': 'none',
+                                            'padding': '12px 24px',
+                                            'fontSize': '15px',
+                                            'cursor': 'pointer',
+                                            'borderRadius': '8px',
+                                            'fontWeight': '600',
+                                            'boxShadow': '0 2px 8px rgba(220, 38, 38, 0.3)'
+                                        })
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
         ]
     ),
 
-    # Configuration Modal
+    # Settings Modal
     dbc.Modal([
-        dbc.ModalHeader(dbc.ModalTitle("Configure Plasma Stability Analysis"), style={'backgroundColor': '#f8fafc'}),
+        dbc.ModalHeader(dbc.ModalTitle("Analysis Settings"), style={'backgroundColor': '#f8fafc'}),
         dbc.ModalBody([
-            # Project ID and ID Type
             html.Div(
-                style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '20px', 'marginBottom': '20px'},
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb', 'marginBottom': '20px'},
                 children=[
-                    html.Div([
-                        html.Label("Project ID:", style={'fontWeight': '600', 'marginBottom': '8px',
-                                                        'display': 'block', 'fontSize': '14px'}),
-                        dcc.Input(
-                            id='project-id-input',
-                            type='text',
-                            placeholder='e.g., SI-205T2',
-                            style={'width': '100%', 'padding': '10px', 'border': '2px solid #d1d5db',
-                                   'borderRadius': '8px', 'fontSize': '14px'}
-                        )
-                    ]),
-                    html.Div([
-                        html.Label("ID Type:", style={'fontWeight': '600', 'marginBottom': '8px',
-                                                     'display': 'block', 'fontSize': '14px'}),
-                        dcc.Dropdown(
-                            id='id-type-dropdown-ps',
-                            options=[
-                                {'label': 'Result ID', 'value': 'result_id'},
-                                {'label': 'Sample ID', 'value': 'sample_id'}
-                            ],
-                            value='result_id',
-                            clearable=False
-                        )
-                    ])
-                ]
-            ),
-
-            # Condition Configuration
-            html.Div(
-                style={'backgroundColor': '#f8fafc', 'borderRadius': '12px', 'padding': '16px',
-                       'marginBottom': '20px', 'border': '2px solid #e5e7eb'},
-                children=[
-                    html.Div(
-                        style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center',
-                               'marginBottom': '12px'},
-                        children=[
-                            html.Label("Conditions (e.g., Plasma, Buffer, Buffer 1):",
-                                      style={'fontWeight': '600', 'fontSize': '14px', 'margin': '0'}),
-                            html.Button("🔄 Update Matrix", id='update-conditions-btn', style={
-                                'backgroundColor': '#6b7280', 'color': 'white', 'border': 'none',
-                                'padding': '8px 16px', 'fontSize': '13px', 'cursor': 'pointer',
-                                'borderRadius': '6px', 'fontWeight': '600'
-                            })
-                        ]
-                    ),
-                    dcc.Input(
-                        id='conditions-input',
-                        type='text',
-                        placeholder='Enter conditions separated by commas',
-                        value='Plasma, Buffer',
-                        style={'width': '100%', 'padding': '10px', 'border': '1px solid #d1d5db',
-                               'borderRadius': '6px', 'fontSize': '14px'}
+                    html.Label("Channel Selection:", style={'fontWeight': '600', 'marginBottom': '10px',
+                                                           'display': 'block', 'fontSize': '14px'}),
+                    dcc.Checklist(
+                        id='channel-checklist-ps',
+                        options=[
+                            {'label': ' UV280', 'value': 'channel_1'},
+                            {'label': ' UV260', 'value': 'channel_2'}
+                        ],
+                        value=['channel_1'],
+                        labelStyle={'display': 'block', 'marginBottom': '8px'}
                     )
                 ]
             ),
-
-            # Matrix Table
-            html.Div(id='matrix-table-container', style={'marginBottom': '20px'}),
-
-            # Settings Row (3 columns)
             html.Div(
-                style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr 1fr', 'gap': '20px',
-                       'marginBottom': '20px', 'padding': '16px', 'backgroundColor': '#f8fafc',
-                       'borderRadius': '12px', 'border': '1px solid #e5e7eb'},
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb', 'marginBottom': '20px'},
                 children=[
-                    html.Div([
-                        html.Label("Channel:", style={'fontWeight': '600', 'marginBottom': '10px',
-                                                     'display': 'block', 'fontSize': '14px'}),
-                        dcc.Checklist(
-                            id='channel-checklist-ps',
-                            options=[
-                                {'label': ' UV280', 'value': 'channel_1'},
-                                {'label': ' UV260', 'value': 'channel_2'}
-                            ],
-                            value=['channel_1'],
-                            labelStyle={'display': 'block', 'marginBottom': '8px'}
-                        )
-                    ]),
-                    html.Div([
-                        html.Label("Peak Display:", style={'fontWeight': '600', 'marginBottom': '10px',
+                    html.Label("Peak Display Options:", style={'fontWeight': '600', 'marginBottom': '10px',
+                                                              'display': 'block', 'fontSize': '14px'}),
+                    dcc.Checklist(
+                        id='peak-options-ps',
+                        options=[
+                            {'label': ' Show Peak Shading', 'value': 'shading'},
+                            {'label': ' Show Percentages on Plot', 'value': 'percentages'}
+                        ],
+                        value=[],
+                        labelStyle={'display': 'block', 'marginBottom': '8px'}
+                    )
+                ]
+            ),
+            html.Div(
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb', 'marginBottom': '20px'},
+                children=[
+                    html.Label("Display Options:", style={'fontWeight': '600', 'marginBottom': '10px',
                                                           'display': 'block', 'fontSize': '14px'}),
-                        dcc.Checklist(
-                            id='peak-options-ps',
-                            options=[
-                                {'label': ' Show Shading', 'value': 'shading'},
-                                {'label': ' Show %', 'value': 'percentages'}
-                            ],
-                            value=[],
-                            labelStyle={'display': 'block', 'marginBottom': '8px'}
-                        )
-                    ]),
-                    html.Div([
-                        html.Label("Table Data:", style={'fontWeight': '600', 'marginBottom': '10px',
-                                                        'display': 'block', 'fontSize': '14px'}),
-                        dcc.Checklist(
-                            id='table-data-options',
-                            options=[
-                                {'label': ' Monomer %', 'value': 'monomer'},
-                                {'label': ' HMW %', 'value': 'hmw'},
-                                {'label': ' LMW %', 'value': 'lmw'}
-                            ],
-                            value=['monomer'],
-                            labelStyle={'display': 'block', 'marginBottom': '8px'}
-                        )
-                    ])
+                    dcc.Checklist(
+                        id='display-options-ps',
+                        options=[
+                            {'label': ' Show Stability Trend Plot', 'value': 'show_trend'}
+                        ],
+                        value=[],
+                        labelStyle={'display': 'block', 'marginBottom': '8px'}
+                    )
+                ]
+            ),
+            html.Div(
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb', 'marginBottom': '20px'},
+                children=[
+                    html.Label("X-Axis Range (minutes):", style={'fontWeight': '600', 'marginBottom': '10px',
+                                                                  'display': 'block', 'fontSize': '14px'}),
+                    html.Div(
+                        style={'display': 'flex', 'gap': '12px', 'alignItems': 'center'},
+                        children=[
+                            html.Div([
+                                html.Label("Min:", style={'fontSize': '12px', 'marginBottom': '4px'}),
+                                dcc.Input(
+                                    id='x-axis-min-input',
+                                    type='number',
+                                    value=4,
+                                    min=0,
+                                    step=0.5,
+                                    style={'width': '80px', 'padding': '6px', 'borderRadius': '4px', 'border': '1px solid #d1d5db'}
+                                )
+                            ]),
+                            html.Div([
+                                html.Label("Max:", style={'fontSize': '12px', 'marginBottom': '4px'}),
+                                dcc.Input(
+                                    id='x-axis-max-input',
+                                    type='number',
+                                    value=12,
+                                    min=0,
+                                    step=0.5,
+                                    style={'width': '80px', 'padding': '6px', 'borderRadius': '4px', 'border': '1px solid #d1d5db'}
+                                )
+                            ])
+                        ]
+                    )
+                ]
+            ),
+            html.Div(
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb', 'marginBottom': '20px'},
+                children=[
+                    html.Label("Image Height (px):", style={'fontWeight': '600', 'marginBottom': '10px',
+                                                            'display': 'block', 'fontSize': '14px'}),
+                    dcc.Input(
+                        id='image-height-input',
+                        type='number',
+                        value=225,
+                        min=100,
+                        max=600,
+                        step=10,
+                        style={'width': '100px', 'padding': '6px', 'borderRadius': '4px', 'border': '1px solid #d1d5db'}
+                    )
+                ]
+            ),
+            html.Div(
+                style={'padding': '16px', 'backgroundColor': '#f8fafc', 'borderRadius': '12px',
+                       'border': '2px solid #e5e7eb'},
+                children=[
+                    html.Label("Plot Height (px):", style={'fontWeight': '600', 'marginBottom': '10px',
+                                                           'display': 'block', 'fontSize': '14px'}),
+                    dcc.Input(
+                        id='plot-height-input',
+                        type='number',
+                        value=600,
+                        min=300,
+                        max=800,
+                        step=50,
+                        style={'width': '100px', 'padding': '6px', 'borderRadius': '4px', 'border': '1px solid #d1d5db'}
+                    )
                 ]
             )
         ]),
         dbc.ModalFooter([
-            html.Button("📊 Generate Analysis", id='generate-analysis-btn', style={
+            html.Button("Apply Settings", id='apply-settings-btn', style={
                 'backgroundColor': '#2563eb', 'color': 'white', 'border': 'none',
                 'padding': '12px 32px', 'fontSize': '15px', 'cursor': 'pointer',
                 'borderRadius': '8px', 'fontWeight': '700',
                 'boxShadow': '0 4px 12px rgba(37, 99, 235, 0.3)'
             })
         ])
-    ], id='config-modal', size='xl', is_open=False),
+    ], id='settings-modal', size='lg', is_open=False),
+
+    # Upload Status Section (compact)
+    html.Div(
+        style={'maxWidth': '1400px', 'margin': '0 auto', 'padding': '24px 24px 0 24px'},
+        children=[
+            html.Div(id='upload-status', style={'marginBottom': '16px'})
+        ]
+    ),
 
     # Main content area
     html.Div(
@@ -187,20 +258,17 @@ app_layout = html.Div([
             'padding': '24px'
         },
         children=[
-            # SEC Chromatograms Section (only shows after analysis)
             html.Div(
-                id='sec-plots-section',
-                children=[]  # Empty initially, populated after analysis
-            ),
-
-            # Results Section (also shown after analysis)
-            html.Div(
-                id='results-section',
-                children=[]  # Empty initially, populated after analysis
+                style={'maxWidth': '1400px', 'margin': '0 auto'},
+                children=[
+                    # Results Section (populated after upload and analysis)
+                    html.Div(id='results-container', children=[])
+                ]
             )
         ]
     ),
 
-    # Download component
-    dcc.Download(id='download-plasma-stability-data')
+    # Downloads
+    dcc.Download(id='download-template'),
+    dcc.Download(id='download-ppt')
 ])
