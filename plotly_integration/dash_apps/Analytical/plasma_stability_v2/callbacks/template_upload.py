@@ -3,7 +3,7 @@ Template Upload Callbacks
 Handle Excel template download and upload processing
 """
 
-from dash import Input, Output, State, html, no_update
+from dash import Input, Output, State, html, no_update, dcc
 from dash.exceptions import PreventUpdate
 import pandas as pd
 import io
@@ -49,11 +49,7 @@ def register_upload_callbacks(app):
             print(f"✓ Sending download: {filename}")
             print("="*80 + "\n")
 
-            return {
-                'content': template_content,
-                'filename': filename,
-                'type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            }
+            return dcc.send_bytes(template_content, filename)
 
         except Exception as e:
             print(f"✗ Error in download_template: {str(e)}")

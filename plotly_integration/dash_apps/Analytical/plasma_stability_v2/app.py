@@ -18,7 +18,8 @@ from .callbacks import (
     register_upload_callbacks,
     register_settings_callbacks,
     register_analysis_callbacks,
-    register_export_callbacks
+    register_export_callbacks,
+    register_sample_lookup_callbacks
 )
 
 # Create the Dash app
@@ -35,5 +36,6 @@ register_upload_callbacks(app)
 register_settings_callbacks(app)
 register_analysis_callbacks(app)
 register_export_callbacks(app)
+register_sample_lookup_callbacks(app)
 
 print("Plasma Stability App V2 initialized successfully")

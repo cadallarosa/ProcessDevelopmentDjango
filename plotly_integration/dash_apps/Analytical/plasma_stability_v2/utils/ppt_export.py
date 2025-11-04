@@ -185,6 +185,153 @@ def create_trend_matplotlib(molecule_id, conditions_data, width_inches=5.0, heig
     return img_stream
 
 
+def clone_slide(prs, slide_index):
+    """
+    Clone a slide within the presentation.
+
+    Args:
+        prs: Presentation object
+        slide_index: Index of slide to clone
+
+    Returns:
+        Cloned slide object
+    """
+    from pptx.oxml.xmlchemy import OxmlElement
+    from copy import deepcopy
+
+    source_slide = prs.slides[slide_index]
+
+    # Create a new blank slide with same layout
+    blank_slide_layout = prs.slide_layouts[6]  # Blank layout
+    new_slide = prs.slides.add_slide(blank_slide_layout)
+
+    # Copy all shapes from source slide
+    for shape in source_slide.shapes:
+        el = shape.element
+        newel = deepcopy(el)
+        new_slide.shapes._spTree.insert_element_before(newel, 'p:extLst')
+
+    return new_slide
+
+
+def create_summary_slides(prs, molecules, template_path):
+    """
+    Create summary slide(s) by cloning template slide and updating with molecule data.
+    Maximum 6 molecules per slide. Unused columns left blank.
+
+    Args:
+        prs: Presentation object (loaded from template)
+        molecules: List of molecule IDs
+        template_path: Path to template file
+    """
+    # Split molecules into chunks of 6
+    molecule_chunks = [molecules[i:i+6] for i in range(0, len(molecules), 6)]
+
+    print(f"\n  → Creating {len(molecule_chunks)} summary slide(s) for {len(molecules)} molecules")
+
+    # Template slide is at index 0
+    template_slide_idx = 0
+
+    for chunk_idx, chunk in enumerate(molecule_chunks, 1):
+        print(f"    Summary slide {chunk_idx}: {', '.join(chunk)}")
+
+        # Clone the template slide
+        if chunk_idx == 1:
+            # First chunk: use the existing template slide
+            slide = prs.slides[template_slide_idx]
+        else:
+            # Additional chunks: clone the template slide
+            slide = clone_slide(prs, template_slide_idx)
+
+        # Find the table shape in the slide
+        table_shape = None
+        for shape in slide.shapes:
+            if shape.has_table:
+                table_shape = shape
+                break
+
+        if not table_shape:
+            print(f"      ✗ No table found in slide")
+            continue
+
+        table = table_shape.table
+
+        # Update molecule IDs in Row 1 (columns 3-9 for up to 7 molecules in template)
+        # Only update columns that have molecules - leave rest blank
+        for mol_idx, molecule_id in enumerate(chunk):
+            if mol_idx >= 6:  # Safety check - max 6 molecules per slide
+                break
+            col_idx = 3 + mol_idx  # Columns 3-8
+            try:
+                cell = table.cell(1, col_idx)
+                cell.text = molecule_id
+                # Preserve/set formatting
+                if cell.text_frame.paragraphs:
+                    cell.text_frame.paragraphs[0].font.size = Pt(11)
+                    cell.text_frame.paragraphs[0].font.bold = True
+                    cell.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+                print(f"      ✓ Updated cell for {molecule_id} at column {col_idx}")
+            except Exception as e:
+                print(f"      ✗ Error updating cell for {molecule_id}: {e}")
+
+        # Note: Unused columns are left as-is (blank from template)
+
+        # Add molecule images - overlay on Row 0
+        # Calculate positions based on actual table column widths
+        for mol_idx, molecule_id in enumerate(chunk):
+            if mol_idx >= 6:
+                break
+
+            try:
+                # Get actual column position from table
+                col_idx = 3 + mol_idx
+
+                # Calculate the X position by summing actual column widths
+                x_offset = table_shape.left
+                for i in range(col_idx):
+                    x_offset += table.columns[i].width
+
+                # Get the width of the current column
+                col_width = table.columns[col_idx].width
+
+                # Y position - Row 0 top with small padding
+                y_pos = table_shape.top + Inches(0.05)
+
+                # Fetch molecule image
+                img_url = get_molecule_image_url(molecule_id)
+                response = requests.get(img_url, timeout=10)
+
+                if response.status_code == 200:
+                    img_stream = io.BytesIO(response.content)
+
+                    # Add image with height that fits in Row 0
+                    # Use a temporary position first
+                    pic = slide.shapes.add_picture(
+                        img_stream,
+                        Inches(0), Inches(0),  # Temporary position
+                        height=Inches(1.3)
+                    )
+
+                    # Now center the image in the column
+                    # Column center X position
+                    col_center_x = x_offset + (col_width / 2)
+                    # Image left should be center minus half the image width
+                    pic.left = int(col_center_x - (pic.width / 2))
+                    # Set Y position
+                    pic.top = int(y_pos)
+
+                    print(f"      ✓ Added image for {molecule_id} at column {col_idx}")
+                else:
+                    print(f"      ✗ Image not found for {molecule_id}")
+
+            except Exception as e:
+                print(f"      ✗ Error adding image for {molecule_id}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        print(f"    ✓ Summary slide {chunk_idx} updated")
+
+
 def create_powerpoint(template_data: List[Dict], analysis_data: Dict) -> bytes:
     """
     Create PowerPoint presentation from analysis data
@@ -200,14 +347,21 @@ def create_powerpoint(template_data: List[Dict], analysis_data: Dict) -> bytes:
     print("CREATING POWERPOINT PRESENTATION")
     print("="*80)
 
-    # Create presentation (16:9 widescreen)
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    # Load template presentation
+    import os
+    template_dir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'template'
+    )
+    template_path = os.path.join(template_dir, 'Plasma Stability Report.pptx')
+
+    print(f"Loading template: {template_path}")
+    prs = Presentation(template_path)
+    # Template already has correct dimensions (16:9 widescreen)
 
     # Process data
     df = pd.DataFrame(template_data)
-    molecules = df['Molecule ID'].unique()
+    molecules = df['Molecule ID'].unique().tolist()
     all_result_ids = df['Result ID'].tolist()
 
     print(f"Molecules to export: {list(molecules)}")
@@ -215,7 +369,12 @@ def create_powerpoint(template_data: List[Dict], analysis_data: Dict) -> bytes:
     # Batch fetch all data
     batch_data = batch_fetch_samples(all_result_ids)
 
-    # Create a slide for each molecule
+    # Create summary slide(s) by updating/cloning template slide
+    # The first summary slide modifies the template's Slide 0 in place
+    # Additional summary slides (if >6 molecules) are clones of Slide 0
+    create_summary_slides(prs, molecules, template_path)
+
+    # Create individual analysis slides for each molecule
     for molecule_id in molecules:
         print(f"\n  → Creating slide for {molecule_id}")
         mol_df = df[df['Molecule ID'] == molecule_id].copy()
