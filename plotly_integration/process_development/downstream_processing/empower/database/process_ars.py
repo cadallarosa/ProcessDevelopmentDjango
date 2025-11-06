@@ -161,17 +161,13 @@ def extract_metadata(file_path):
     result_id_str = metadata_dict.get("Result Id", "0")
     result_ids_in_content = [int(x.strip()) for x in result_id_str.split(",")]
 
-    # ✅ NEW: Extract Result ID from filename (e.g., CAD_export_report93265.ars -> 93265)
-    filename_match = re.search(r'(\d+)\.ars$', file_path)
-    filename_result_id = int(filename_match.group(1)) if filename_match else None
+    # ✅ Use the LARGEST Result ID from the list (most recent)
+    result_id = max(result_ids_in_content)
 
-    # ✅ Use filename's Result ID if it's in the content list, otherwise use the last one
-    if filename_result_id and filename_result_id in result_ids_in_content:
-        result_id = filename_result_id
-        print(f"✅ Using Result ID from filename: {result_id} (content had: {result_ids_in_content})")
+    if len(result_ids_in_content) > 1:
+        print(f"✅ Multiple Result IDs found: {result_ids_in_content}, using largest: {result_id}")
     else:
-        result_id = result_ids_in_content[-1]
-        print(f"⚠️ Filename ID {filename_result_id} not in content {result_ids_in_content}, using last: {result_id}")
+        print(f"✅ Single Result ID: {result_id}")
 
     # Update metadata_dict with the parsed result_id
     metadata_dict["Result Id"] = result_id

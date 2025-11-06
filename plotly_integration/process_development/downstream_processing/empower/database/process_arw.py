@@ -350,7 +350,7 @@ def process_files(directory, reported_folder, error_folder=None, use_orm=False):
             # Parse the file
             chrom_metadata, data_points = parse_arw_file(file_path)
 
-            if not chrom_metadata or not data_points or len(data_points) == 0:
+            if not chrom_metadata or data_points is None or data_points.empty:
                 raise Exception("Empty or invalid file content")
 
             # Insert into the database
