@@ -4,6 +4,7 @@ Main dashboard for tracking USP experiments with bioreactors, shake flasks, and 
 """
 
 import json
+import re
 import dash
 from dash import dcc, html, Input, Output, State, dash_table, no_update, ALL, MATCH
 from dash.exceptions import PreventUpdate
@@ -17,7 +18,8 @@ from datetime import datetime, timedelta, date
 from django.db.models import Count, Q, F, Avg
 from plotly_integration.models import (
     USPExperiment, USPProcessStep, USPVessel, USPSeedTrain, USPMediaPrep, USPCellBank,
-    LimsSampleAnalysis, LimsSecResult, LimsTiterResult, LimsCeSdsResult, LimsCiefResult
+    LimsSampleAnalysis, LimsSecResult, LimsTiterResult, LimsCeSdsResult, LimsCiefResult,
+    ViCellData, NovaFlex2
 )
 
 # ============================================================================
@@ -206,20 +208,54 @@ def create_process_step_card(step_data, index):
 
 def create_edit_process_step_card(step_data, index):
     """Create a process step card for edit modal (with edit- prefix)"""
+    # Check if this step has linked data
+    step_db_id = step_data.get('step_db_id')
+    has_linked_data = False
+    linked_data_count = {'seed_trains': 0, 'vessels': 0}
+
+    if step_db_id:
+        try:
+            from plotly_integration.models import USPProcessStep
+            step = USPProcessStep.objects.get(id=step_db_id)
+            linked_data_count['seed_trains'] = step.seed_trains.count()
+            linked_data_count['vessels'] = step.vessels.count()
+            has_linked_data = (linked_data_count['seed_trains'] > 0 or linked_data_count['vessels'] > 0)
+        except:
+            pass
+
+    # Build linked data badge if applicable
+    linked_badge = None
+    if has_linked_data:
+        total_items = linked_data_count['seed_trains'] + linked_data_count['vessels']
+        item_text = "item" if total_items == 1 else "items"
+        badge_text = f"📊 {total_items} {item_text} linked"
+        linked_badge = dbc.Badge(
+            badge_text,
+            color="info",
+            className="me-2"
+        )
+
     return dbc.Card([
         dbc.CardBody([
-            dbc.Row([
-                # Delete button
-                dbc.Col([
-                    dbc.Button(
-                        html.I(className="fas fa-trash"),
-                        id={'type': 'edit-delete-step', 'index': index},
-                        color="danger",
-                        size="sm",
-                        outline=True
-                    )
-                ], width="auto"),
+            # Hidden input to track database ID (None for new steps)
+            dcc.Store(id={'type': 'edit-step-db-id', 'index': index}, data=step_db_id),
 
+            # Show linked data indicator and delete button for new steps
+            html.Div([
+                linked_badge if linked_badge else None,
+                dbc.Badge("Existing Step", color="secondary", className="me-2") if step_db_id else dbc.Badge("New Step", color="success", className="me-2"),
+                # Delete button only for NEW steps (no db_id)
+                dbc.Button(
+                    html.I(className="fas fa-trash"),
+                    id={'type': 'edit-delete-step', 'index': index},
+                    color="danger",
+                    size="sm",
+                    outline=True,
+                    className="ms-auto"
+                ) if not step_db_id else None,
+            ], className="mb-2 d-flex align-items-center"),
+
+            dbc.Row([
                 # Step Name
                 dbc.Col([
                     dbc.Label("Step Name *", size="sm"),
@@ -507,6 +543,7 @@ app.layout = dbc.Container([
     dcc.Store(id="edit-mode", data=False),
     dcc.Store(id="loaded-experiment-steps", data=[]),  # Store for loading steps in edit mode
     dcc.Store(id="edit-process-steps-store", data=[]),  # Store for edit modal process steps
+    dcc.Store(id="reload-edit-steps-trigger", data=0),  # Trigger to reload steps after save
 
     # Alert container
     html.Div(id="alert-container"),
@@ -727,66 +764,102 @@ app.layout = dbc.Container([
                     dbc.ModalTitle(id="view-experiment-modal-title")
                 ]),
                 dbc.ModalBody([
-                    # Experiment Info Section
-                    dbc.Card([
-                        dbc.CardHeader(html.H5("Experiment Information")),
-                        dbc.CardBody([
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Strong("Experiment ID: "),
-                                    html.Span(id="view-exp-id")
-                                ], md=3),
-                                dbc.Col([
-                                    html.Strong("Project ID: "),
-                                    html.Span(id="view-exp-project-id")
-                                ], md=3),
-                                dbc.Col([
-                                    html.Strong("Status: "),
-                                    html.Span(id="view-exp-status")
-                                ], md=3),
-                                dbc.Col([
-                                    html.Strong("Start Date: "),
-                                    html.Span(id="view-exp-start-date")
-                                ], md=3),
-                            ], className="mb-2"),
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Strong("Experiment Name: "),
-                                    html.Span(id="view-exp-name")
-                                ], md=12),
-                            ], className="mb-2"),
-                            dbc.Row([
-                                dbc.Col([
-                                    html.Strong("Description: "),
-                                    html.Div(id="view-exp-description", style={'whiteSpace': 'pre-wrap'})
-                                ], md=12),
-                            ]),
-                        ])
-                    ], className="mb-3"),
+                    # Tabs for Details and Charts
+                    dbc.Tabs(
+                        id="view-experiment-tabs",
+                        active_tab="details-tab",
+                        children=[
+                            # Details Tab
+                            dbc.Tab(
+                                label="Details",
+                                tab_id="details-tab",
+                                children=[
+                                    html.Div([
+                                        # Experiment Info Section
+                                        dbc.Card([
+                                            dbc.CardHeader(html.H5("Experiment Information")),
+                                            dbc.CardBody([
+                                                dbc.Row([
+                                                    dbc.Col([
+                                                        html.Strong("Experiment ID: "),
+                                                        html.Span(id="view-exp-id")
+                                                    ], md=3),
+                                                    dbc.Col([
+                                                        html.Strong("Project ID: "),
+                                                        html.Span(id="view-exp-project-id")
+                                                    ], md=3),
+                                                    dbc.Col([
+                                                        html.Strong("Status: "),
+                                                        html.Span(id="view-exp-status")
+                                                    ], md=3),
+                                                    dbc.Col([
+                                                        html.Strong("Start Date: "),
+                                                        html.Span(id="view-exp-start-date")
+                                                    ], md=3),
+                                                ], className="mb-2"),
+                                                dbc.Row([
+                                                    dbc.Col([
+                                                        html.Strong("Experiment Name: "),
+                                                        html.Span(id="view-exp-name")
+                                                    ], md=12),
+                                                ], className="mb-2"),
+                                                dbc.Row([
+                                                    dbc.Col([
+                                                        html.Strong("Description: "),
+                                                        html.Div(id="view-exp-description", style={'whiteSpace': 'pre-wrap'})
+                                                    ], md=12),
+                                                ]),
+                                            ])
+                                        ], className="mb-3 mt-3"),
 
-                    # Seed Trains Section
-                    dbc.Card([
-                        dbc.CardHeader(html.H5("Seed Trains")),
-                        dbc.CardBody([
-                            html.Div(id="view-exp-seed-trains-table")
-                        ])
-                    ], className="mb-3"),
+                                        # Seed Trains Section
+                                        dbc.Card([
+                                            dbc.CardHeader(html.H5("Seed Trains")),
+                                            dbc.CardBody([
+                                                html.Div(id="view-exp-seed-trains-table")
+                                            ])
+                                        ], className="mb-3"),
 
-                    # Fed Batch Vessels Section
-                    dbc.Card([
-                        dbc.CardHeader(html.H5("Fed Batch Vessels")),
-                        dbc.CardBody([
-                            html.Div(id="view-exp-vessels-table")
-                        ])
-                    ], className="mb-3"),
+                                        # Fed Batch Vessels Section
+                                        dbc.Card([
+                                            dbc.CardHeader(html.H5("Fed Batch Vessels")),
+                                            dbc.CardBody([
+                                                html.Div(id="view-exp-vessels-table")
+                                            ])
+                                        ], className="mb-3"),
 
-                    # LIMS Analytical Results Section
-                    dbc.Card([
-                        dbc.CardHeader(html.H5("LIMS Analytical Results")),
-                        dbc.CardBody([
-                            html.Div(id="view-exp-lims-results-table")
-                        ])
-                    ], className="mb-3"),
+                                        # LIMS Analytical Results Section
+                                        dbc.Card([
+                                            dbc.CardHeader(html.H5("LIMS Analytical Results")),
+                                            dbc.CardBody([
+                                                html.Div(id="view-exp-lims-results-table")
+                                            ])
+                                        ], className="mb-3"),
+                                    ])
+                                ]
+                            ),
+
+                            # Charts Tab
+                            dbc.Tab(
+                                label="Charts",
+                                tab_id="charts-tab",
+                                children=[
+                                    html.Div([
+                                        # Single unified chart with all 6 subplots
+                                        dbc.Card([
+                                            dbc.CardHeader(html.H5([html.I(className="fas fa-chart-line me-2"), "Experiment Analytics Dashboard"])),
+                                            dbc.CardBody([
+                                                dcc.Graph(
+                                                    id="view-exp-unified-chart",
+                                                    style={"height": "1200px"}
+                                                )
+                                            ])
+                                        ], className="mb-3 mt-3"),
+                                    ])
+                                ]
+                            ),
+                        ]
+                    )
                 ]),
                 dbc.ModalFooter([
                     dbc.Button("Close", id="close-view-experiment-modal", color="secondary"),
@@ -1130,7 +1203,7 @@ def toggle_experiment_modal(new_clicks, close_clicks, is_open):
      Output("edit-experiment-name-input", "value"),
      Output("edit-experiment-start-date", "date"),
      Output("edit-experiment-description-input", "value"),
-     Output("selected-experiment-id", "data")],  # Store experiment ID instead of steps
+     Output("selected-experiment-id", "data")],  # Store experiment ID for loading steps
     [Input({'type': 'edit-experiment-btn', 'index': ALL}, 'n_clicks'),
      Input("close-edit-experiment-modal", "n_clicks")],
     prevent_initial_call=True
@@ -1172,7 +1245,7 @@ def toggle_edit_experiment_modal(edit_clicks, close_clicks):
                     experiment.experiment_name,
                     experiment.start_date or date.today(),
                     experiment.description or "",
-                    experiment_id  # Just store the ID
+                    experiment_id  # Store the ID - will trigger store initialization
                 )
 
             except USPExperiment.DoesNotExist:
@@ -1189,14 +1262,16 @@ def toggle_edit_experiment_modal(edit_clicks, close_clicks):
 # Manage edit modal process steps store
 @app.callback(
     Output('edit-process-steps-store', 'data'),
-    [Input('edit-add-process-step', 'n_clicks'),
-     Input({'type': 'edit-delete-step', 'index': ALL}, 'n_clicks')],
+    [Input('selected-experiment-id', 'data'),  # Load steps when experiment ID is set
+     Input('edit-add-process-step', 'n_clicks'),
+     Input({'type': 'edit-delete-step', 'index': ALL}, 'n_clicks'),
+     Input('reload-edit-steps-trigger', 'data')],  # Reload after save
     [State('edit-process-steps-store', 'data'),
      State('edit-experiment-start-date', 'date')],
     prevent_initial_call=True
 )
-def manage_edit_process_steps_store(add_clicks, delete_clicks, store_data, start_date):
-    """Manage process steps in edit modal"""
+def manage_edit_process_steps_store(experiment_id, add_clicks, delete_clicks, reload_trigger, store_data, start_date):
+    """Manage process steps in edit modal - load from DB, add new, or delete NEW steps only"""
     ctx = dash.callback_context
     if not ctx.triggered:
         raise PreventUpdate
@@ -1204,7 +1279,70 @@ def manage_edit_process_steps_store(add_clicks, delete_clicks, store_data, start
     triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
     print(f"🔧 EDIT manage_process_steps_store triggered by: {triggered_id}")
 
-    # Add step
+    # CASE 0: Reload trigger fired - reload steps from database after save
+    if triggered_id == "reload-edit-steps-trigger":
+        if not experiment_id:
+            print("🔧 EDIT RELOAD: No experiment ID, clearing store")
+            return []
+
+        print(f"🔄 EDIT RELOAD: Reloading steps from database for experiment {experiment_id}")
+        try:
+            experiment = USPExperiment.objects.get(id=experiment_id)
+            steps = experiment.process_steps.all().order_by('step_order')
+            steps_data = []
+            for idx, step in enumerate(steps):
+                steps_data.append({
+                    'index': idx,
+                    'step_db_id': step.id,  # Track database ID for updates
+                    'step_name': step.step_name,
+                    'step_type': step.step_type,
+                    'start_date': step.planned_start_date.isoformat() if step.planned_start_date else date.today().isoformat(),
+                    'duration': step.planned_duration_days,
+                    'status': step.status or 'Pending'
+                })
+            print(f"🔄 EDIT RELOAD: Successfully reloaded {len(steps_data)} steps from database")
+            return steps_data
+        except USPExperiment.DoesNotExist:
+            print(f"🔄 EDIT RELOAD: Experiment {experiment_id} not found")
+            return []
+        except Exception as e:
+            print(f"🔄 EDIT RELOAD: Error loading steps: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    # CASE 1: Experiment ID changed - load steps from database
+    if triggered_id == "selected-experiment-id":
+        if not experiment_id:
+            print("🔧 EDIT: No experiment ID, clearing store")
+            return []
+
+        try:
+            experiment = USPExperiment.objects.get(id=experiment_id)
+            steps = experiment.process_steps.all().order_by('step_order')
+            steps_data = []
+            for idx, step in enumerate(steps):
+                steps_data.append({
+                    'index': idx,
+                    'step_db_id': step.id,  # Track database ID for updates
+                    'step_name': step.step_name,
+                    'step_type': step.step_type,
+                    'start_date': step.planned_start_date.isoformat() if step.planned_start_date else date.today().isoformat(),
+                    'duration': step.planned_duration_days,
+                    'status': step.status or 'Pending'
+                })
+            print(f"🔧 EDIT: Loaded {len(steps_data)} steps from database for experiment {experiment_id}")
+            return steps_data
+        except USPExperiment.DoesNotExist:
+            print(f"🔧 EDIT: Experiment {experiment_id} not found")
+            return []
+        except Exception as e:
+            print(f"🔧 EDIT: Error loading steps: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    # CASE 2: Add step button clicked
     if triggered_id == "edit-add-process-step":
         if not add_clicks:
             raise PreventUpdate
@@ -1214,6 +1352,7 @@ def manage_edit_process_steps_store(add_clicks, delete_clicks, store_data, start
 
         new_step = {
             'index': new_index,
+            'step_db_id': None,  # None indicates new step to be created
             'step_name': '',
             'step_type': 'Seed_Train',
             'start_date': start_date if start_date else date.today().isoformat(),
@@ -1222,10 +1361,10 @@ def manage_edit_process_steps_store(add_clicks, delete_clicks, store_data, start
         }
 
         result = current_steps + [new_step]
-        print(f"🔧 EDIT: Added step, now {len(result)} steps")
+        print(f"🔧 EDIT: Added new step, now {len(result)} steps")
         return result
 
-    # Delete step
+    # CASE 3: Delete step button clicked (only for NEW steps without db_id)
     if triggered_id.startswith('{') and 'edit-delete-step' in triggered_id:
         import json
         triggered_dict = json.loads(triggered_id)
@@ -1234,113 +1373,97 @@ def manage_edit_process_steps_store(add_clicks, delete_clicks, store_data, start
         current_steps = store_data if store_data and isinstance(store_data, list) else []
 
         if clicked_index < len(current_steps):
-            new_steps = current_steps[:clicked_index] + current_steps[clicked_index + 1:]
+            step_to_delete = current_steps[clicked_index]
 
-            # Re-index
-            for i, step in enumerate(new_steps):
-                step['index'] = i
+            # ONLY allow deletion of NEW steps (no db_id)
+            if step_to_delete.get('step_db_id') is None:
+                new_steps = current_steps[:clicked_index] + current_steps[clicked_index + 1:]
 
-            print(f"🔧 EDIT: Deleted step at index {clicked_index}, now {len(new_steps)} steps")
-            return new_steps
+                # Re-index
+                for i, step in enumerate(new_steps):
+                    step['index'] = i
+
+                print(f"🔧 EDIT: Deleted NEW step at index {clicked_index}, now {len(new_steps)} steps")
+                return new_steps
+            else:
+                print(f"⚠️ EDIT: Cannot delete existing step with db_id={step_to_delete.get('step_db_id')}")
+                # Don't delete existing steps - return unchanged data
+                return store_data
 
     raise PreventUpdate
 
-# Render process steps in edit modal - query database directly
+# Render process steps in edit modal - use store data
 @app.callback(
     Output('edit-process-steps-container', 'children'),
-    [Input('edit-experiment-modal', 'is_open'),
-     Input('edit-add-process-step', 'n_clicks')],
-    [State('selected-experiment-id', 'data'),
-     State('edit-process-steps-container', 'children')],
-    prevent_initial_call=False
+    Input('edit-process-steps-store', 'data')
 )
-def render_edit_process_steps(is_open, add_clicks, experiment_id, current_children):
-    """Render process step cards by querying database directly"""
-    ctx = dash.callback_context
-    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
+def render_edit_process_steps(store_data):
+    """Render process step cards from store data"""
+    print(f"🎨 EDIT RENDER called: type={type(store_data)}, len={len(store_data) if store_data else 0}")
+    print(f"🎨 EDIT RENDER data: {store_data}")
 
-    print(f"🎨 EDIT RENDER called by: {triggered_id}, is_open={is_open}, experiment_id={experiment_id}")
-
-    # Only render when modal is open
-    if not is_open or not experiment_id:
-        print("🎨 EDIT RENDER: Modal closed or no experiment, returning placeholder")
+    # Handle empty or invalid data
+    if not store_data or not isinstance(store_data, list) or len(store_data) == 0:
+        print("🎨 EDIT RENDER: Returning placeholder")
         return html.P("Click 'Add Step' to add process steps",
                      className="text-muted text-center py-4")
 
-    try:
-        # Query database directly for process steps
-        experiment = USPExperiment.objects.get(id=experiment_id)
-        steps = experiment.process_steps.all().order_by('step_order')
+    # Create cards from store data
+    cards = []
+    for step_data in store_data:
+        idx = step_data.get('index', 0)
+        print(f"🎨 EDIT: Creating card {idx}: {step_data.get('step_name', 'Unnamed')}")
+        card = create_edit_process_step_card(step_data, idx)
+        cards.append(card)
 
-        print(f"🎨 EDIT RENDER: Found {steps.count()} process steps from database")
-
-        if steps.count() == 0:
-            print("🎨 EDIT RENDER: No steps, returning placeholder")
-            return html.P("Click 'Add Step' to add process steps",
-                         className="text-muted text-center py-4")
-
-        # Create cards from database steps
-        cards = []
-        for idx, step in enumerate(steps):
-            step_data = {
-                'index': idx,
-                'step_name': step.step_name,
-                'step_type': step.step_type,
-                'start_date': step.planned_start_date.isoformat() if step.planned_start_date else date.today().isoformat(),
-                'duration': step.planned_duration_days,
-                'status': step.status or 'Pending'
-            }
-            print(f"🎨 EDIT: Creating card {idx}: {step.step_name}")
-            card = create_edit_process_step_card(step_data, idx)
-            cards.append(card)
-
-        print(f"🎨 EDIT RENDER: Returning {len(cards)} cards")
-        return cards
-
-    except USPExperiment.DoesNotExist:
-        print(f"🎨 EDIT RENDER: Experiment {experiment_id} not found")
-        return html.P("Experiment not found",
-                     className="text-muted text-center py-4")
-    except Exception as e:
-        print(f"🎨 EDIT RENDER: Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return html.P("Error loading process steps",
-                     className="text-muted text-center py-4")
+    print(f"🎨 EDIT RENDER: Returning {len(cards)} cards")
+    return cards
 
 # Save edited experiment
 @app.callback(
     [Output("edit-modal-alert-container", "children"),
      Output("alert-container", "children", allow_duplicate=True),
-     Output("edit-experiment-modal", "is_open", allow_duplicate=True)],
+     Output("edit-experiment-modal", "is_open", allow_duplicate=True),
+     Output("reload-edit-steps-trigger", "data")],  # Trigger reload
     [Input("save-edit-experiment-btn", "n_clicks")],
     [State("edit-experiment-id-input", "value"),
      State("edit-project-id-input", "value"),
      State("edit-experiment-name-input", "value"),
      State("edit-experiment-start-date", "date"),
      State("edit-experiment-description-input", "value"),
+     State("selected-experiment-id", "data"),  # Get current experiment DB ID
+     State({'type': 'edit-step-db-id', 'index': ALL}, 'data'),  # Track which steps are existing
      State({'type': 'edit-step-name', 'index': ALL}, 'value'),
      State({'type': 'edit-step-type', 'index': ALL}, 'value'),
      State({'type': 'edit-step-start-date', 'index': ALL}, 'date'),
      State({'type': 'edit-step-duration', 'index': ALL}, 'value'),
-     State({'type': 'edit-step-status', 'index': ALL}, 'value')],
+     State({'type': 'edit-step-status', 'index': ALL}, 'value'),
+     State("reload-edit-steps-trigger", "data")],  # Current trigger value
     prevent_initial_call=True
 )
-def save_edit_experiment(n_clicks, exp_id, project_id, exp_name, start_date, description,
-                        step_names, step_types, step_start_dates, step_durations, step_statuses):
-    """Update existing experiment with process steps"""
+def save_edit_experiment(n_clicks, exp_id, project_id, exp_name, start_date, description, experiment_db_id,
+                        step_db_ids, step_names, step_types, step_start_dates, step_durations, step_statuses, current_trigger):
+    """Update existing experiment with process steps - UPDATE or CREATE, never DELETE"""
     if not n_clicks:
         raise PreventUpdate
 
+    # VALIDATE INPUTS FIRST - BEFORE ANY DATABASE OPERATIONS
     if not exp_name:
-        return (dbc.Alert("Please enter an experiment name", color="danger", duration=3000), no_update, no_update)
+        return (dbc.Alert("Please enter an experiment name", color="danger", duration=3000), no_update, no_update, no_update)
 
     if not step_names or len(step_names) == 0:
-        return (dbc.Alert("Please define at least one process step", color="danger", duration=3000), no_update, no_update)
+        print(f"⚠️ VALIDATION FAILED: No step names received. step_names={step_names}")
+        return (dbc.Alert("Please define at least one process step. If you added steps, please try again.", color="danger", duration=5000), no_update, no_update, no_update)
 
     # Validate that at least one step has a name
     if not any(name.strip() for name in step_names if name):
-        return (dbc.Alert("Please enter a name for at least one process step", color="danger", duration=3000), no_update, no_update)
+        print(f"⚠️ VALIDATION FAILED: No valid step names. step_names={step_names}")
+        return (dbc.Alert("Please enter a name for at least one process step", color="danger", duration=3000), no_update, no_update, no_update)
+
+    # Log what we received for debugging
+    print(f"📋 Saving experiment {exp_id}: {len(step_names)} steps received")
+    print(f"   Step DB IDs: {step_db_ids}")
+    print(f"   Step names: {step_names}")
 
     try:
         # Convert start_date to date object if needed
@@ -1349,52 +1472,107 @@ def save_edit_experiment(n_clicks, exp_id, project_id, exp_name, start_date, des
 
         # UPDATE existing experiment
         try:
-            experiment = USPExperiment.objects.get(experiment_id=exp_id)
-            experiment.project_id = project_id or ""
-            experiment.experiment_name = exp_name
-            experiment.start_date = start_date
-            experiment.description = description or ""
-            experiment.save()
+            from django.db import transaction
 
-            # Delete existing process steps and recreate
-            experiment.process_steps.all().delete()
+            # Use atomic transaction - if anything fails, everything rolls back
+            with transaction.atomic():
+                experiment = USPExperiment.objects.get(experiment_id=exp_id)
+                experiment.project_id = project_id or ""
+                experiment.experiment_name = exp_name
+                experiment.start_date = start_date
+                experiment.description = description or ""
+                experiment.save()
 
-            # Create new process steps from pattern-matching inputs
-            for i in range(len(step_names)):
-                if step_names[i] and step_names[i].strip():  # Only create if step has a name
-                    step_start = pd.to_datetime(step_start_dates[i]).date() if step_start_dates[i] else start_date
-                    step_duration = int(step_durations[i]) if step_durations[i] else 7
-                    step_status = step_statuses[i] if i < len(step_statuses) and step_statuses[i] else 'Pending'
+                # Update or create process steps - NO DELETES!
+                updated_steps = 0
+                created_steps = 0
 
-                    USPProcessStep.objects.create(
-                        experiment=experiment,
-                        step_name=step_names[i],
-                        step_type=step_types[i] if i < len(step_types) else 'Seed_Train',
-                        step_order=i + 1,
-                        planned_duration_days=step_duration,
-                        planned_start_date=step_start,
-                        planned_end_date=step_start + timedelta(days=step_duration),
-                        status=step_status
-                    )
+                for i in range(len(step_names)):
+                    if step_names[i] and step_names[i].strip():  # Only process if step has a name
+                        step_start = pd.to_datetime(step_start_dates[i]).date() if step_start_dates[i] else start_date
+                        step_duration = int(step_durations[i]) if step_durations[i] else 7
+                        step_status = step_statuses[i] if i < len(step_statuses) and step_statuses[i] else 'Pending'
+                        step_type = step_types[i] if i < len(step_types) else 'Seed_Train'
+                        step_db_id = step_db_ids[i] if i < len(step_db_ids) else None
 
-            # Show success message and close modal
+                        if step_db_id:
+                            # UPDATE existing step
+                            try:
+                                step = USPProcessStep.objects.get(id=step_db_id)
+                                step.step_name = step_names[i]
+                                step.step_type = step_type
+                                step.step_order = i + 1
+                                step.planned_duration_days = step_duration
+                                step.planned_start_date = step_start
+                                step.planned_end_date = step_start + timedelta(days=step_duration)
+                                step.status = step_status
+                                step.save()
+                                updated_steps += 1
+                                print(f"   ✏️ Updated step {i+1}: {step_names[i]} (ID: {step_db_id})")
+                            except USPProcessStep.DoesNotExist:
+                                print(f"   ⚠️ Step ID {step_db_id} not found, creating new instead")
+                                # Create new if somehow the ID doesn't exist
+                                USPProcessStep.objects.create(
+                                    experiment=experiment,
+                                    step_name=step_names[i],
+                                    step_type=step_type,
+                                    step_order=i + 1,
+                                    planned_duration_days=step_duration,
+                                    planned_start_date=step_start,
+                                    planned_end_date=step_start + timedelta(days=step_duration),
+                                    status=step_status
+                                )
+                                created_steps += 1
+                        else:
+                            # CREATE new step
+                            USPProcessStep.objects.create(
+                                experiment=experiment,
+                                step_name=step_names[i],
+                                step_type=step_type,
+                                step_order=i + 1,
+                                planned_duration_days=step_duration,
+                                planned_start_date=step_start,
+                                planned_end_date=step_start + timedelta(days=step_duration),
+                                status=step_status
+                            )
+                            created_steps += 1
+                            print(f"   ➕ Created step {i+1}: {step_names[i]} ({step_type})")
+
+                # Verify at least one step was processed
+                if updated_steps == 0 and created_steps == 0:
+                    print(f"⚠️ ERROR: No steps were updated or created! Rolling back transaction.")
+                    raise ValueError("No valid steps were processed. Please ensure all steps have names.")
+
+                print(f"✅ Successfully updated experiment {experiment.experiment_id}: {updated_steps} updated, {created_steps} created")
+
+            # Show success message in modal alert area
             success_alert = dbc.Alert(
-                f"Successfully updated experiment {experiment.experiment_id}!",
+                [
+                    html.I(className="fas fa-check-circle me-2"),
+                    f"Successfully updated experiment {experiment.experiment_id}! ({updated_steps} steps updated, {created_steps} steps created)"
+                ],
                 color="success",
-                duration=4000
+                duration=6000,
+                dismissable=True,
+                className="mb-3"
             )
-            print(f"✅ Successfully updated experiment {experiment.experiment_id}")
-            return (no_update, success_alert, False)  # Close modal
+
+            # Trigger reload by incrementing the trigger value
+            # This will cause the manage_edit_process_steps_store callback to reload fresh data
+            # ensuring newly created steps now show as "Existing Steps" with no delete button
+            new_trigger = (current_trigger or 0) + 1
+            print(f"✅ Triggering steps reload (trigger={new_trigger})")
+            return (success_alert, no_update, no_update, new_trigger)  # Keep modal open, trigger reload
 
         except USPExperiment.DoesNotExist:
-            return (dbc.Alert(f"Experiment {exp_id} not found", color="danger", duration=4000), no_update, no_update)
+            return (dbc.Alert(f"Experiment {exp_id} not found", color="danger", duration=4000), no_update, no_update, no_update)
 
     except Exception as e:
-        print(f"Error saving experiment: {e}")
+        print(f"❌ Error saving experiment: {e}")
         import traceback
         traceback.print_exc()
-        error_alert = dbc.Alert(f"Error: {str(e)}", color="danger", duration=5000)
-        return (error_alert, no_update, no_update)
+        error_alert = dbc.Alert(f"Error saving experiment: {str(e)}", color="danger", duration=5000)
+        return (error_alert, no_update, no_update, no_update)
 
 # UNIFIED callback to manage process steps store
 @app.callback(
@@ -2037,11 +2215,19 @@ def save_all_seedtrains(n_clicks, experiment_id, step_id, project, db_ids, proje
             messages.append(f"{len(errors)} error(s) occurred")
 
         alert_color = "success" if not errors else ("warning" if created_count + updated_count > 0 else "danger")
+        icon_class = "fas fa-check-circle" if not errors else "fas fa-exclamation-triangle"
         alert_message = " | ".join(messages)
         if errors:
             alert_message += "\n" + "\n".join(errors[:3])  # Show first 3 errors
 
-        return dbc.Alert(alert_message, color=alert_color, duration=5000), table_data
+        alert = dbc.Alert(
+            [html.I(className=f"{icon_class} me-2"), alert_message],
+            color=alert_color,
+            duration=6000,
+            dismissable=True,
+            className="mb-3"
+        )
+        return alert, table_data
 
     except Exception as e:
         print(f"Error saving seed trains: {e}")
@@ -2770,10 +2956,18 @@ def save_all_fedbatch(n_clicks, experiment_id, step_id, db_ids, project_ids, cel
     if not n_clicks:
         raise PreventUpdate
 
+    print(f"🔵 save_all_fedbatch called: n_clicks={n_clicks}")
+    print(f"   experiment_id={experiment_id}, step_id={step_id}")
+    print(f"   db_ids={db_ids}")
+    print(f"   vessel_types={vessel_types}")
+    print(f"   inoc_dates={inoc_dates}")
+
     if not experiment_id or not step_id:
+        print(f"❌ Missing experiment_id or step_id")
         return dbc.Alert("Please select an experiment and process step", color="danger", duration=4000), no_update
 
     if not db_ids:
+        print(f"❌ No db_ids provided")
         return dbc.Alert("No fed batch vessels to save", color="warning", duration=3000), no_update
 
     try:
@@ -2825,15 +3019,19 @@ def save_all_fedbatch(n_clicks, experiment_id, step_id, db_ids, project_ids, cel
 
                     vessel.save()
                     updated_count += 1
+                    print(f"   ✅ Updated vessel ID {db_ids[i]}")
 
                 except Exception as e:
                     errors.append(f"Row {i+1}: Error updating - {str(e)}")
-                    print(f"Error updating vessel {db_ids[i]}: {e}")
+                    print(f"❌ Error updating vessel {db_ids[i]}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
 
             else:  # New record - CREATE
                 try:
                     vessel_id = generate_fed_batch_id()
+                    print(f"   ➕ Creating new vessel: {vessel_id}")
 
                     # Build serial numbers JSON
                     serial_numbers = {}
@@ -2860,10 +3058,13 @@ def save_all_fedbatch(n_clicks, experiment_id, step_id, db_ids, project_ids, cel
                         notes=notes_list[i] or ""
                     )
                     created_count += 1
+                    print(f"   ✅ Created vessel {vessel_id}")
 
                 except Exception as e:
                     errors.append(f"Row {i+1}: Error creating - {str(e)}")
-                    print(f"Error creating vessel: {e}")
+                    print(f"❌ Error creating vessel: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
 
         # Reload table data from database
@@ -2910,11 +3111,22 @@ def save_all_fedbatch(n_clicks, experiment_id, step_id, db_ids, project_ids, cel
             messages.append(f"{len(errors)} error(s) occurred")
 
         alert_color = "success" if not errors else ("warning" if created_count + updated_count > 0 else "danger")
+        icon_class = "fas fa-check-circle" if not errors else "fas fa-exclamation-triangle"
         alert_message = " | ".join(messages)
         if errors:
             alert_message += "\n" + "\n".join(errors[:3])
 
-        return dbc.Alert(alert_message, color=alert_color, duration=5000), table_data
+        print(f"✅ Fed batch save completed: created={created_count}, updated={updated_count}, errors={len(errors)}")
+        print(f"   Reloaded {len(table_data)} vessels from database")
+
+        alert = dbc.Alert(
+            [html.I(className=f"{icon_class} me-2"), alert_message],
+            color=alert_color,
+            duration=6000,
+            dismissable=True,
+            className="mb-3"
+        )
+        return alert, table_data
 
     except Exception as e:
         print(f"Error saving fed batch vessels: {e}")
@@ -3436,16 +3648,26 @@ def save_all_cellbank(n_clicks, experiment_id, step_id, db_ids, seed_trains, den
         # Build success/error message
         messages = []
         if created_count > 0:
-            messages.append(f"✓ Created {created_count} cell bank(s)")
+            messages.append(f"Created {created_count} cell bank(s)")
         if updated_count > 0:
-            messages.append(f"✓ Updated {updated_count} cell bank(s)")
+            messages.append(f"Updated {updated_count} cell bank(s)")
+        if errors:
+            messages.append(f"{len(errors)} error(s) occurred")
 
         alert_color = "success" if not errors else ("warning" if created_count + updated_count > 0 else "danger")
+        icon_class = "fas fa-check-circle" if not errors else "fas fa-exclamation-triangle"
         alert_message = " | ".join(messages)
         if errors:
             alert_message += "\n" + "\n".join(errors[:3])
 
-        return dbc.Alert(alert_message, color=alert_color, duration=5000), table_data
+        alert = dbc.Alert(
+            [html.I(className=f"{icon_class} me-2"), alert_message],
+            color=alert_color,
+            duration=6000,
+            dismissable=True,
+            className="mb-3"
+        )
+        return alert, table_data
 
     except Exception as e:
         print(f"Error saving cell banks: {e}")
@@ -3558,13 +3780,19 @@ def toggle_view_experiment_modal(view_clicks, close_click, is_open, button_ids):
     if 'close-view-experiment-modal' in trigger_id:
         return False, None
 
-    # View button clicked
-    if view_clicks and any(view_clicks):
-        # Find which button was clicked
-        clicked_index = next((i for i, clicks in enumerate(view_clicks) if clicks), None)
-        if clicked_index is not None:
-            experiment_id = button_ids[clicked_index]['index']
-            return True, experiment_id
+    # View button clicked - parse the trigger_id to get the exact button
+    if 'view-experiment-btn' in trigger_id:
+        # Check if any button was actually clicked (not just created)
+        if not view_clicks or all(click is None for click in view_clicks):
+            raise PreventUpdate
+
+        # Parse the pattern-matching ID from the trigger
+        # Format: {"index":"exp_id","type":"view-experiment-btn"}.n_clicks
+        import json
+        id_str = trigger_id.split('.')[0]  # Get the ID part before .n_clicks
+        button_id = json.loads(id_str)
+        experiment_id = button_id['index']
+        return True, experiment_id
 
     return is_open, no_update
 
@@ -3673,54 +3901,112 @@ def populate_view_experiment_modal(experiment_id):
         else:
             vessels_table = html.P("No fed batch vessels found for this experiment.", className="text-muted")
 
-        # Get LIMS analytical results linked to this experiment
-        # Link by project_id or by searching for seed train IDs and vessel IDs
-        lims_samples = LimsSampleAnalysis.objects.filter(
-            Q(project_id=experiment.project_id) if experiment.project_id else Q(sample_id__in=[])
-        ).select_related(
-            'sec_result', 'titer_result', 'ce_sds_result', 'cief_result'
-        ).order_by('-sample_date')[:50]  # Limit to 50 most recent
+        # Get LIMS analytical results for UPFB vessels only (wide format with comprehensive data)
+        # Get all UPFB vessels for this experiment
+        upfb_vessels = USPVessel.objects.filter(
+            process_step__experiment=experiment,
+            vessel_id__istartswith='UPFB'
+        ).select_related('process_step').values('vessel_id', 'project_id', 'cell_line')
 
-        if lims_samples.exists():
+        if upfb_vessels:
+            # Build wide format table: one row per UPFB vessel
             lims_rows = []
-            for sample in lims_samples:
-                # Collect available results
-                results = []
-                if sample.sec_result:
-                    results.append(f"SEC: {sample.sec_result.monomer_percent:.1f}%" if hasattr(sample.sec_result, 'monomer_percent') and sample.sec_result.monomer_percent else "SEC")
-                if sample.titer_result:
-                    results.append(f"Titer: {sample.titer_result.titer_mg_ml:.2f} mg/mL" if hasattr(sample.titer_result, 'titer_mg_ml') and sample.titer_result.titer_mg_ml else "Titer")
-                if sample.ce_sds_result:
-                    results.append("CE-SDS")
-                if sample.cief_result:
-                    results.append("cIEF")
-                if sample.a280_result:
-                    results.append(f"A280: {sample.a280_result:.2f}")
 
-                results_str = ", ".join(results) if results else "-"
+            for vessel in upfb_vessels:
+                vessel_id = vessel['vessel_id']
+                project_id = vessel['project_id'] or experiment.project_id or '-'
+                cell_line = vessel['cell_line'] or '-'
+
+                # Query all samples for this vessel, ordered by most recent first
+                vessel_samples = LimsSampleAnalysis.objects.filter(
+                    sample_id__istartswith=vessel_id
+                ).select_related('sec_result', 'titer_result', 'ce_sds_result', 'cief_result', 'up'
+                ).order_by('-sample_date', '-created_at')
+
+                # Initialize result values
+                sec_hmw = '-'
+                sec_monomer = '-'
+                sec_lmw = '-'
+                titer_with_day = '-'
+                cesds_purity = '-'
+                cief_main = '-'
+                cief_acidic = '-'
+                cief_basic = '-'
+
+                # Get most recent SEC result
+                sec_sample = vessel_samples.filter(sec_result__isnull=False).first()
+                if sec_sample and sec_sample.sec_result:
+                    sec_result = sec_sample.sec_result
+                    if sec_result.hmw is not None:
+                        sec_hmw = f"{sec_result.hmw:.1f}%"
+                    if sec_result.main_peak is not None:
+                        sec_monomer = f"{sec_result.main_peak:.1f}%"
+                    if sec_result.lmw is not None:
+                        sec_lmw = f"{sec_result.lmw:.1f}%"
+
+                # Get most recent Titer result with day information
+                titer_sample = vessel_samples.filter(titer_result__isnull=False).first()
+                if titer_sample and titer_sample.titer_result and titer_sample.titer_result.titer is not None:
+                    titer_value = titer_sample.titer_result.titer
+
+                    # Extract process day from sample ID (e.g., "UPFB0001 D10" -> "D10")
+                    day_str = '-'
+                    day_match = re.search(r'D(\d+)', titer_sample.sample_id, re.IGNORECASE)
+                    if day_match:
+                        day_str = f"D{day_match.group(1)}"
+                    elif titer_sample.up and hasattr(titer_sample.up, 'culture_duration') and titer_sample.up.culture_duration is not None:
+                        day_str = f"D{titer_sample.up.culture_duration}"
+
+                    titer_with_day = f"{titer_value:.2f} @ {day_str}"
+
+                # Get most recent CE-SDS result
+                cesds_sample = vessel_samples.filter(ce_sds_result__isnull=False).first()
+                if cesds_sample and cesds_sample.ce_sds_result and cesds_sample.ce_sds_result.purity is not None:
+                    cesds_purity = f"{cesds_sample.ce_sds_result.purity:.1f}%"
+
+                # Get most recent cIEF result
+                cief_sample = vessel_samples.filter(cief_result__isnull=False).first()
+                if cief_sample and cief_sample.cief_result:
+                    cief_result = cief_sample.cief_result
+                    if cief_result.main_peak is not None:
+                        cief_main = f"{cief_result.main_peak:.1f}%"
+                    if cief_result.acidic_variants is not None:
+                        cief_acidic = f"{cief_result.acidic_variants:.1f}%"
+                    if cief_result.basic_variants is not None:
+                        cief_basic = f"{cief_result.basic_variants:.1f}%"
 
                 lims_rows.append(html.Tr([
-                    html.Td(sample.sample_id),
-                    html.Td(sample.project_id or '-'),
-                    html.Td(sample.sample_date.strftime('%Y-%m-%d') if sample.sample_date else '-'),
-                    html.Td(sample.description or '-'),
-                    html.Td(results_str),
-                    html.Td(dbc.Badge(sample.status, color="success" if sample.status == "complete" else "warning", className="text-capitalize")),
+                    html.Td(vessel_id),
+                    html.Td(project_id),
+                    html.Td(cell_line),
+                    html.Td(sec_hmw),
+                    html.Td(sec_monomer),
+                    html.Td(sec_lmw),
+                    html.Td(titer_with_day),
+                    html.Td(cesds_purity),
+                    html.Td(cief_main),
+                    html.Td(cief_acidic),
+                    html.Td(cief_basic),
                 ]))
 
             lims_table = dbc.Table([
                 html.Thead(html.Tr([
-                    html.Th("Sample ID"),
+                    html.Th("Vessel ID"),
                     html.Th("Project ID"),
-                    html.Th("Sample Date"),
-                    html.Th("Description"),
-                    html.Th("Available Results"),
-                    html.Th("Status"),
+                    html.Th("Cell Line"),
+                    html.Th("SEC HMW %"),
+                    html.Th("SEC Monomer %"),
+                    html.Th("SEC LMW %"),
+                    html.Th("Titer (g/L)"),
+                    html.Th("CE-SDS Purity %"),
+                    html.Th("cIEF Main %"),
+                    html.Th("cIEF Acidic %"),
+                    html.Th("cIEF Basic %"),
                 ])),
                 html.Tbody(lims_rows)
-            ], bordered=True, hover=True, responsive=True, striped=True, size='sm')
+            ], bordered=True, hover=True, responsive=True, striped=True, size='sm', style={'fontSize': '0.85rem'})
         else:
-            lims_table = html.P("No LIMS analytical results found for this project.", className="text-muted")
+            lims_table = html.P("No UPFB vessels found for this experiment.", className="text-muted")
 
         return (title, exp_id, project_id, status, start_date, name, description,
                 seed_trains_table, vessels_table, lims_table)
@@ -3738,5 +4024,331 @@ def populate_view_experiment_modal(experiment_id):
                 html.P("Error loading data", className="text-danger"),
                 html.P("Error loading data", className="text-danger"),
                 html.P("Error loading data", className="text-danger"))
+
+# ============================================================================
+# CHART CALLBACKS FOR VIEW EXPERIMENT MODAL
+# ============================================================================
+
+# Helper function to get experiment data for charts
+def get_experiment_vessels_data(experiment):
+    """Get all seed trains and vessels for an experiment with metadata"""
+    import re
+
+    vessel_info = {}
+
+    # Get all seed trains for this experiment
+    seed_trains = USPSeedTrain.objects.filter(
+        process_step__experiment=experiment
+    ).values('seed_train_id', 'thaw_date', 'project_id', 'cell_line')
+
+    for st in seed_trains:
+        if st['seed_train_id'] and st['thaw_date']:
+            vessel_info[st['seed_train_id']] = {
+                'start_date': st['thaw_date'],
+                'project_id': st['project_id'] or experiment.project_id,
+                'cell_line': st['cell_line'] or 'N/A'
+            }
+
+    # Get all vessels for this experiment
+    vessels = USPVessel.objects.filter(
+        process_step__experiment=experiment
+    ).values('vessel_id', 'inoculation_date', 'project_id', 'cell_line')
+
+    for v in vessels:
+        if v['vessel_id'] and v['inoculation_date']:
+            vessel_info[v['vessel_id']] = {
+                'start_date': v['inoculation_date'],
+                'project_id': v['project_id'] or experiment.project_id,
+                'cell_line': v['cell_line'] or 'N/A'
+            }
+
+    return vessel_info
+
+def extract_vessel_id(sample_id):
+    """Extract vessel ID from sample_id"""
+    if not sample_id:
+        return None
+    match = re.search(r'(UPST\d+|UPFB\d+)', str(sample_id), re.IGNORECASE)
+    return match.group(1).upper() if match else None
+
+def calculate_process_day(date_time, vessel_id, vessel_info):
+    """Calculate process day based on vessel start date"""
+    if not vessel_id or vessel_id not in vessel_info:
+        return 0
+    start_date = vessel_info[vessel_id]['start_date']
+    if isinstance(date_time, pd.Timestamp):
+        date_only = date_time.date()
+    else:
+        date_only = pd.to_datetime(date_time).date()
+    days = (date_only - start_date).days
+    return max(0, days)
+
+def get_vessel_label(vessel_id, vessel_info):
+    """Create a descriptive label for a vessel including project ID and cell line"""
+    if vessel_id not in vessel_info:
+        return vessel_id
+
+    info = vessel_info[vessel_id]
+    project = info.get('project_id', 'N/A')
+    cell_line = info.get('cell_line', 'N/A')
+
+    # Format: "UPFB0001 | P1234 | CHO-K1"
+    return f"{vessel_id} | {project} | {cell_line}"
+
+# Unified Callback for All Charts
+@app.callback(
+    Output("view-exp-unified-chart", "figure"),
+    [Input("view-experiment-tabs", "active_tab"),
+     Input("view-experiment-id", "data")],
+    prevent_initial_call=True
+)
+def update_unified_charts(active_tab, experiment_id):
+    """Create unified dashboard with all charts in a 2x3 grid with shared legend"""
+    if active_tab != "charts-tab" or not experiment_id:
+        raise PreventUpdate
+
+    try:
+        import re
+        from django.db.models import Q
+
+        experiment = USPExperiment.objects.get(id=experiment_id)
+        vessel_info = get_experiment_vessels_data(experiment)
+
+        if not vessel_info:
+            fig = go.Figure()
+            fig.add_annotation(text="No vessels found for this experiment",
+                             xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+            return fig
+
+        # Create subplot figure: 3 rows x 2 columns
+        fig = make_subplots(
+            rows=3, cols=2,
+            subplot_titles=('Viable Cell Density (VCD)', 'Titer Over Time',
+                          'Glucose', 'Lactate',
+                          'Ammonium (NH4+)', 'pH'),
+            specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                   [{"secondary_y": False}, {"secondary_y": False}],
+                   [{"secondary_y": False}, {"secondary_y": False}]],
+            vertical_spacing=0.12,
+            horizontal_spacing=0.10
+        )
+
+        colors = px.colors.qualitative.Set1
+        vessel_ids_list = sorted(vessel_info.keys())
+
+        # Build query for all vessel IDs
+        query = Q()
+        for vessel_id in vessel_info.keys():
+            query |= Q(sample_id__icontains=vessel_id)
+
+        # ========== ROW 1, COL 1: VCD Chart ==========
+        vicell_data = ViCellData.objects.filter(query, sample_type=3).values(
+            'sample_id', 'date_time', 'viable_cells_per_ml'
+        )
+        vcd_df = pd.DataFrame(list(vicell_data))
+
+        if not vcd_df.empty:
+            vcd_df['vessel_id'] = vcd_df['sample_id'].apply(extract_vessel_id)
+            vcd_df['process_day'] = vcd_df.apply(lambda row: calculate_process_day(row['date_time'], row['vessel_id'], vessel_info), axis=1)
+            vcd_df = vcd_df.dropna(subset=['viable_cells_per_ml']).sort_values(['vessel_id', 'process_day'])
+
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                if vessel_id in vcd_df['vessel_id'].values:
+                    vessel_df = vcd_df[vcd_df['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['viable_cells_per_ml'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=6),
+                        legendgroup=vessel_id,
+                        showlegend=True,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>VCD: %{{y:.2e}}/mL<extra></extra>"
+                    ), row=1, col=1)
+
+        # ========== ROW 1, COL 2: Titer Chart ==========
+        query_titer = Q()
+        for vessel_id in vessel_info.keys():
+            query_titer |= Q(sample_id__sample_id__istartswith=vessel_id)
+
+        titer_results = LimsTiterResult.objects.select_related('sample_id').filter(query_titer).values(
+            'sample_id__sample_id', 'titer', 'sample_id__sample_date'
+        )
+
+        titer_list = []
+        for result in titer_results:
+            sample_id = result['sample_id__sample_id']
+            vessel_id = extract_vessel_id(sample_id)
+            day_match = re.search(r'D(\d+)', str(sample_id), re.IGNORECASE)
+            if day_match and vessel_id:
+                titer_list.append({
+                    'vessel_id': vessel_id,
+                    'day': int(day_match.group(1)),
+                    'titer': result['titer']
+                })
+
+        titer_df = pd.DataFrame(titer_list)
+
+        if not titer_df.empty:
+            titer_df = titer_df.dropna(subset=['titer']).sort_values(['vessel_id', 'day'])
+
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                if vessel_id in titer_df['vessel_id'].values:
+                    vessel_df = titer_df[titer_df['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['day'],
+                        y=vessel_df['titer'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=6),
+                        legendgroup=vessel_id,
+                        showlegend=False,  # Only show legend once
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Titer: %{{y:.3f}} g/L<extra></extra>"
+                    ), row=1, col=2)
+
+        # ========== ROWS 2-3: NovaFlex Charts ==========
+        nova_data = NovaFlex2.objects.filter(query).values(
+            'sample_id', 'date_time', 'gluc', 'lac', 'nh4', 'pH', 'dilution_factor'
+        )
+        nova_df = pd.DataFrame(list(nova_data))
+
+        if not nova_df.empty:
+            nova_df['vessel_id'] = nova_df['sample_id'].apply(extract_vessel_id)
+            nova_df['process_day'] = nova_df.apply(lambda row: calculate_process_day(row['date_time'], row['vessel_id'], vessel_info), axis=1)
+            nova_df['dilution_factor'] = nova_df['dilution_factor'].fillna(1.0)
+
+            for col in ['gluc', 'lac', 'nh4']:
+                if col in nova_df.columns:
+                    nova_df[col] = nova_df[col] * nova_df['dilution_factor']
+
+            nova_df = nova_df.sort_values(['vessel_id', 'process_day'])
+
+            # Glucose (Row 2, Col 1)
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                df_clean = nova_df.dropna(subset=['gluc'])
+                if vessel_id in df_clean['vessel_id'].values:
+                    vessel_df = df_clean[df_clean['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['gluc'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=5),
+                        legendgroup=vessel_id,
+                        showlegend=False,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Glucose: %{{y:.2f}} g/L<extra></extra>"
+                    ), row=2, col=1)
+
+            # Lactate (Row 2, Col 2)
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                df_clean = nova_df.dropna(subset=['lac'])
+                if vessel_id in df_clean['vessel_id'].values:
+                    vessel_df = df_clean[df_clean['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['lac'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=5),
+                        legendgroup=vessel_id,
+                        showlegend=False,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Lactate: %{{y:.2f}} g/L<extra></extra>"
+                    ), row=2, col=2)
+
+            # Ammonium (Row 3, Col 1)
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                df_clean = nova_df.dropna(subset=['nh4'])
+                if vessel_id in df_clean['vessel_id'].values:
+                    vessel_df = df_clean[df_clean['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['nh4'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=5),
+                        legendgroup=vessel_id,
+                        showlegend=False,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>NH4+: %{{y:.2f}} mmol/L<extra></extra>"
+                    ), row=3, col=1)
+
+            # pH (Row 3, Col 2)
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                df_clean = nova_df.dropna(subset=['pH'])
+                if vessel_id in df_clean['vessel_id'].values:
+                    vessel_df = df_clean[df_clean['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['pH'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=5),
+                        legendgroup=vessel_id,
+                        showlegend=False,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>pH: %{{y:.2f}}<extra></extra>"
+                    ), row=3, col=2)
+
+        # Update axes labels
+        fig.update_xaxes(title_text="Process Day", row=1, col=1)
+        fig.update_xaxes(title_text="Process Day", row=1, col=2)
+        fig.update_xaxes(title_text="Process Day", row=2, col=1)
+        fig.update_xaxes(title_text="Process Day", row=2, col=2)
+        fig.update_xaxes(title_text="Process Day", row=3, col=1)
+        fig.update_xaxes(title_text="Process Day", row=3, col=2)
+
+        fig.update_yaxes(title_text="Cells/mL", row=1, col=1)
+        fig.update_yaxes(title_text="Titer (g/L)", row=1, col=2)
+        fig.update_yaxes(title_text="Glucose (g/L)", row=2, col=1)
+        fig.update_yaxes(title_text="Lactate (g/L)", row=2, col=2)
+        fig.update_yaxes(title_text="NH4+ (mmol/L)", row=3, col=1)
+        fig.update_yaxes(title_text="pH", row=3, col=2)
+
+        # Update overall layout with unified legend on the right
+        fig.update_layout(
+            height=1200,
+            template="plotly_white",
+            hovermode="x unified",
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                yanchor="top",
+                y=1,
+                xanchor="left",
+                x=1.02,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1,
+                font=dict(size=10)
+            ),
+            margin=dict(l=80, r=200, t=80, b=80)
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating unified charts: {e}")
+        import traceback
+        traceback.print_exc()
+        fig = go.Figure()
+        fig.add_annotation(text=f"Error: {str(e)}",
+                         xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return fig
 
 print("USP Experiment Management App initialized successfully")
