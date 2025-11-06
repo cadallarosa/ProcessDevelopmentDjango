@@ -4120,13 +4120,15 @@ def update_unified_charts(active_tab, experiment_id):
                              xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
             return fig
 
-        # Create subplot figure: 3 rows x 2 columns
+        # Create subplot figure: 4 rows x 2 columns
         fig = make_subplots(
-            rows=3, cols=2,
-            subplot_titles=('Viable Cell Density (VCD)', 'Titer Over Time',
-                          'Glucose', 'Lactate',
-                          'Ammonium (NH4+)', 'pH'),
+            rows=4, cols=2,
+            subplot_titles=('Viable Cell Density (VCD)', 'Viability (%)',
+                          'Titer Over Time', 'Glucose',
+                          'Lactate', 'Ammonium (NH4+)',
+                          'pH', ''),
             specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                   [{"secondary_y": False}, {"secondary_y": False}],
                    [{"secondary_y": False}, {"secondary_y": False}],
                    [{"secondary_y": False}, {"secondary_y": False}]],
             vertical_spacing=0.12,
@@ -4143,7 +4145,7 @@ def update_unified_charts(active_tab, experiment_id):
 
         # ========== ROW 1, COL 1: VCD Chart ==========
         vicell_data = ViCellData.objects.filter(query, sample_type=3).values(
-            'sample_id', 'date_time', 'viable_cells_per_ml'
+            'sample_id', 'date_time', 'viable_cells_per_ml', 'viability'
         )
         vcd_df = pd.DataFrame(list(vicell_data))
 
@@ -4169,7 +4171,27 @@ def update_unified_charts(active_tab, experiment_id):
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>VCD: %{{y:.2e}}/mL<extra></extra>"
                     ), row=1, col=1)
 
-        # ========== ROW 1, COL 2: Titer Chart ==========
+        # ========== ROW 1, COL 2: Viability Chart ==========
+        if not vcd_df.empty:
+            for idx, vessel_id in enumerate(vessel_ids_list):
+                df_clean = vcd_df.dropna(subset=['viability'])
+                if vessel_id in df_clean['vessel_id'].values:
+                    vessel_df = df_clean[df_clean['vessel_id'] == vessel_id]
+                    vessel_label = get_vessel_label(vessel_id, vessel_info)
+
+                    fig.add_trace(go.Scatter(
+                        x=vessel_df['process_day'],
+                        y=vessel_df['viability'],
+                        mode='lines+markers',
+                        name=vessel_label,
+                        line=dict(color=colors[idx % len(colors)], width=2),
+                        marker=dict(size=5),
+                        legendgroup=vessel_id,
+                        showlegend=False,
+                        hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Viability: %{{y:.1f}}%<extra></extra>"
+                    ), row=1, col=2)
+
+        # ========== ROW 2, COL 1: Titer Chart ==========
         query_titer = Q()
         for vessel_id in vessel_info.keys():
             query_titer |= Q(sample_id__sample_id__istartswith=vessel_id)
@@ -4206,13 +4228,13 @@ def update_unified_charts(active_tab, experiment_id):
                         mode='lines+markers',
                         name=vessel_label,
                         line=dict(color=colors[idx % len(colors)], width=2),
-                        marker=dict(size=6),
+                        marker=dict(size=5),
                         legendgroup=vessel_id,
                         showlegend=False,  # Only show legend once
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Titer: %{{y:.3f}} g/L<extra></extra>"
-                    ), row=1, col=2)
+                    ), row=2, col=1)
 
-        # ========== ROWS 2-3: NovaFlex Charts ==========
+        # ========== ROWS 2-4: NovaFlex Charts ==========
         nova_data = NovaFlex2.objects.filter(query).values(
             'sample_id', 'date_time', 'gluc', 'lac', 'nh4', 'pH', 'dilution_factor'
         )
@@ -4229,7 +4251,7 @@ def update_unified_charts(active_tab, experiment_id):
 
             nova_df = nova_df.sort_values(['vessel_id', 'process_day'])
 
-            # Glucose (Row 2, Col 1)
+            # Glucose (Row 2, Col 2)
             for idx, vessel_id in enumerate(vessel_ids_list):
                 df_clean = nova_df.dropna(subset=['gluc'])
                 if vessel_id in df_clean['vessel_id'].values:
@@ -4246,9 +4268,9 @@ def update_unified_charts(active_tab, experiment_id):
                         legendgroup=vessel_id,
                         showlegend=False,
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Glucose: %{{y:.2f}} g/L<extra></extra>"
-                    ), row=2, col=1)
+                    ), row=2, col=2)
 
-            # Lactate (Row 2, Col 2)
+            # Lactate (Row 3, Col 1)
             for idx, vessel_id in enumerate(vessel_ids_list):
                 df_clean = nova_df.dropna(subset=['lac'])
                 if vessel_id in df_clean['vessel_id'].values:
@@ -4265,9 +4287,9 @@ def update_unified_charts(active_tab, experiment_id):
                         legendgroup=vessel_id,
                         showlegend=False,
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>Lactate: %{{y:.2f}} g/L<extra></extra>"
-                    ), row=2, col=2)
+                    ), row=3, col=1)
 
-            # Ammonium (Row 3, Col 1)
+            # Ammonium (Row 3, Col 2)
             for idx, vessel_id in enumerate(vessel_ids_list):
                 df_clean = nova_df.dropna(subset=['nh4'])
                 if vessel_id in df_clean['vessel_id'].values:
@@ -4284,9 +4306,9 @@ def update_unified_charts(active_tab, experiment_id):
                         legendgroup=vessel_id,
                         showlegend=False,
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>NH4+: %{{y:.2f}} mmol/L<extra></extra>"
-                    ), row=3, col=1)
+                    ), row=3, col=2)
 
-            # pH (Row 3, Col 2)
+            # pH (Row 4, Col 1)
             for idx, vessel_id in enumerate(vessel_ids_list):
                 df_clean = nova_df.dropna(subset=['pH'])
                 if vessel_id in df_clean['vessel_id'].values:
@@ -4303,7 +4325,7 @@ def update_unified_charts(active_tab, experiment_id):
                         legendgroup=vessel_id,
                         showlegend=False,
                         hovertemplate=f"{vessel_label}<br>Day: %{{x}}<br>pH: %{{y:.2f}}<extra></extra>"
-                    ), row=3, col=2)
+                    ), row=4, col=1)
 
         # Update axes labels
         fig.update_xaxes(title_text="Process Day", row=1, col=1)
@@ -4312,17 +4334,19 @@ def update_unified_charts(active_tab, experiment_id):
         fig.update_xaxes(title_text="Process Day", row=2, col=2)
         fig.update_xaxes(title_text="Process Day", row=3, col=1)
         fig.update_xaxes(title_text="Process Day", row=3, col=2)
+        fig.update_xaxes(title_text="Process Day", row=4, col=1)
 
         fig.update_yaxes(title_text="Cells/mL", row=1, col=1)
-        fig.update_yaxes(title_text="Titer (g/L)", row=1, col=2)
-        fig.update_yaxes(title_text="Glucose (g/L)", row=2, col=1)
-        fig.update_yaxes(title_text="Lactate (g/L)", row=2, col=2)
-        fig.update_yaxes(title_text="NH4+ (mmol/L)", row=3, col=1)
-        fig.update_yaxes(title_text="pH", row=3, col=2)
+        fig.update_yaxes(title_text="Viability (%)", range=[0, 100], dtick=20, row=1, col=2)
+        fig.update_yaxes(title_text="Titer (g/L)", row=2, col=1)
+        fig.update_yaxes(title_text="Glucose (g/L)", row=2, col=2)
+        fig.update_yaxes(title_text="Lactate (g/L)", row=3, col=1)
+        fig.update_yaxes(title_text="NH4+ (mmol/L)", row=3, col=2)
+        fig.update_yaxes(title_text="pH", row=4, col=1)
 
         # Update overall layout with unified legend on the right
         fig.update_layout(
-            height=1200,
+            height=1600,
             template="plotly_white",
             hovermode="x unified",
             showlegend=True,
