@@ -300,35 +300,129 @@ def insert_into_database(chrom_metadata, data_points, use_orm=True):
     print(f"✅ Inserted/Updated data for result_id {result_id} using {'ORM' if use_orm else 'Raw SQL'}")
 
 
-def process_files(directory, reported_folder, use_orm=False):
-    """ Processes all ARW files and inserts data into MySQL using ORM or raw SQL. """
+def process_files(directory, reported_folder, error_folder=None, use_orm=False):
+    """
+    Processes all ARW files and inserts data into MySQL using ORM or raw SQL.
 
-    # Ensure the Reported folder exists
+    Args:
+        directory: Directory containing files to process
+        reported_folder: Folder to move successfully processed files
+        error_folder: Folder to move files that failed to process (optional)
+        use_orm: Use Django ORM vs raw SQL
+
+    Returns:
+        dict: Summary of processing results
+    """
+    from datetime import datetime
+
+    # Default error folder to a subdirectory if not specified
+    if error_folder is None:
+        error_folder = os.path.join(os.path.dirname(directory), "Error Files")
+
+    # Ensure folders exist
     os.makedirs(reported_folder, exist_ok=True)
+    os.makedirs(error_folder, exist_ok=True)
 
     # Get the list of .arw files
     files = [f for f in os.listdir(directory) if f.endswith(".arw")]
+
     if not files:
         print("⚠️ No .arw files found.")
-        return
+        return {
+            'total_files': 0,
+            'successful': 0,
+            'failed': 0,
+            'errors': []
+        }
+
+    # Results tracking
+    successful_files = []
+    failed_files = []
+    error_details = []
+
+    print(f"Found {len(files)} .arw files to process")
 
     # Process each file
     for filename in tqdm(files, desc="Processing Files", unit="file"):
         file_path = os.path.join(directory, filename)
 
-        # Parse the file
-        chrom_metadata, data_points = parse_arw_file(file_path)
+        try:
+            # Parse the file
+            chrom_metadata, data_points = parse_arw_file(file_path)
 
-        # Insert into the database
-        insert_into_database(chrom_metadata, data_points, use_orm)
+            if not chrom_metadata or not data_points or len(data_points) == 0:
+                raise Exception("Empty or invalid file content")
 
-        # Move file to the reported folder (overwrite if exists to allow re-importing)
-        reported_path = os.path.join(reported_folder, filename)
-        if os.path.exists(reported_path):
-            os.remove(reported_path)  # Remove existing file first
-        shutil.move(file_path, reported_path)
+            # Insert into the database
+            insert_into_database(chrom_metadata, data_points, use_orm)
 
-    print("✅ Processing complete!")
+            print(f"✅ {filename}: Successfully processed")
+            successful_files.append(filename)
+
+            # Move file to the reported folder
+            reported_path = os.path.join(reported_folder, filename)
+            if os.path.exists(reported_path):
+                os.remove(reported_path)  # Remove existing file first
+            shutil.move(file_path, reported_path)
+
+        except Exception as e:
+            # Log the error
+            error_msg = str(e)
+            print(f"❌ {filename}: {error_msg}")
+
+            failed_files.append(filename)
+            error_details.append({
+                'file': filename,
+                'error': error_msg,
+                'timestamp': datetime.now().isoformat()
+            })
+
+            # Move to error folder
+            try:
+                error_path = os.path.join(error_folder, filename)
+                if os.path.exists(error_path):
+                    os.remove(error_path)  # Remove existing file first
+                shutil.move(file_path, error_path)
+                print(f"   Moved to Error Files folder for manual review")
+            except Exception as move_error:
+                print(f"   ⚠️ Failed to move to error folder: {move_error}")
+
+    # Write error log if there were failures
+    if error_details:
+        error_log_path = os.path.join(error_folder, f"import_errors_arw_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        try:
+            with open(error_log_path, 'w') as f:
+                f.write(f"SEC ARW Import Error Log - {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                for err in error_details:
+                    f.write(f"File: {err['file']}\n")
+                    f.write(f"Time: {err['timestamp']}\n")
+                    f.write(f"Error: {err['error']}\n")
+                    f.write("-" * 80 + "\n\n")
+            print(f"\n📝 Error log written to: {error_log_path}")
+        except Exception as log_error:
+            print(f"⚠️ Failed to write error log: {log_error}")
+
+    # Print summary
+    print("\n" + "=" * 80)
+    print("ARW IMPORT SUMMARY")
+    print("=" * 80)
+    print(f"Total files: {len(files)}")
+    print(f"✅ Successful: {len(successful_files)}")
+    print(f"❌ Failed: {len(failed_files)}")
+    if failed_files:
+        print(f"\nFailed files moved to: {error_folder}")
+        print("Please review manually to determine the issue.")
+    print("=" * 80)
+
+    return {
+        'total_files': len(files),
+        'successful': len(successful_files),
+        'failed': len(failed_files),
+        'successful_files': successful_files,
+        'failed_files': failed_files,
+        'errors': error_details
+    }
 
 
 

@@ -157,9 +157,21 @@ def extract_metadata(file_path):
     }
     # print(metadata_dict['Dilution'])
     # Extract `result_id` from "Result Id" field in metadata
-    # Handle cases where multiple Result IDs are comma-separated (take the last one)
+    # Handle cases where multiple Result IDs are comma-separated
     result_id_str = metadata_dict.get("Result Id", "0")
-    result_id = int(result_id_str.split(",")[-1].strip())
+    result_ids_in_content = [int(x.strip()) for x in result_id_str.split(",")]
+
+    # ✅ NEW: Extract Result ID from filename (e.g., CAD_export_report93265.ars -> 93265)
+    filename_match = re.search(r'(\d+)\.ars$', file_path)
+    filename_result_id = int(filename_match.group(1)) if filename_match else None
+
+    # ✅ Use filename's Result ID if it's in the content list, otherwise use the last one
+    if filename_result_id and filename_result_id in result_ids_in_content:
+        result_id = filename_result_id
+        print(f"✅ Using Result ID from filename: {result_id} (content had: {result_ids_in_content})")
+    else:
+        result_id = result_ids_in_content[-1]
+        print(f"⚠️ Filename ID {filename_result_id} not in content {result_ids_in_content}, using last: {result_id}")
 
     # Update metadata_dict with the parsed result_id
     metadata_dict["Result Id"] = result_id
@@ -315,8 +327,13 @@ def extract_peak_results(file_path, result_id, system_name):
             check = True
             continue  # Skip the header row
 
+        # ✅ NEW: Skip separator rows (rows with just '#' or '#' followed by empty cells)
+        if check and (row == ['#'] or (len(row) > 0 and row[0] == '#' and all(x == '' or x == ' ' for x in row[1:]))):
+            print(f"Skipping separator row: {row[:3]}")
+            continue
+
         # Start collecting peak data
-        elif check and any(keyword in row for keyword in ["ACQUITY TUV ChA", "2998 Ch1 280nm@6.0nm","DAD.0.0"]):
+        elif check and any(keyword in row for keyword in ["ACQUITY TUV ChA", "ACQUITY TUV ChB", "2998 Ch1 280nm@6.0nm","DAD.0.0"]):
             # print(row)
             # Ensure correct header row exists before adding data
             if not report:
@@ -470,75 +487,173 @@ def insert_peak_results(peak_results_df, use_orm=True):
 
 
 def process_file(file_path):
-    # Step 1: Extract metadata into a dictionary
-    metadata_dict, result_id = extract_metadata(file_path)
+    """
+    Process a single .ars file.
 
-    if metadata_dict is None:
-        print(f"Skipping file {file_path} due to invalid metadata.")
-        return  # Skip this file if there's no valid metadata
+    Returns:
+        tuple: (success: bool, error_message: str or None)
+    """
+    try:
+        # Step 1: Extract metadata into a dictionary
+        metadata_dict, result_id = extract_metadata(file_path)
 
-    # Step 2: Normalize sample names (prefix, suffix, etc.)
-    metadata_dict = normalize_sample_names(metadata_dict)
+        if metadata_dict is None:
+            return False, "Invalid metadata - Result ID is 0 or missing"
 
-    # Step 3: Convert the dictionary to a DataFrame
-    metadata_df = convert_dict_to_df(metadata_dict)
+        # Step 2: Normalize sample names (prefix, suffix, etc.)
+        metadata_dict = normalize_sample_names(metadata_dict)
 
-    if metadata_df is not None:
-        # Step 4: Insert the metadata DataFrame into the DB
-        insert_metadata(metadata_dict, use_orm=True)
-    else:
-        print(f"Skipping file {file_path} due to invalid DataFrame conversion.")
+        # Step 3: Convert the dictionary to a DataFrame
+        metadata_df = convert_dict_to_df(metadata_dict)
+
+        if metadata_df is not None:
+            # Step 4: Insert the metadata DataFrame into the DB
+            insert_metadata(metadata_dict, use_orm=True)
+            return True, None
+        else:
+            return False, "Failed to convert metadata to DataFrame"
+
+    except KeyError as e:
+        return False, f"Missing required field: {e}"
+    except ValueError as e:
+        return False, f"Invalid data format: {e}"
+    except Exception as e:
+        return False, f"Unexpected error: {type(e).__name__}: {e}"
 
 
-def process_files(directory, reported_folder):
-    # Ensure the Reported folder exists
+def process_files(directory, reported_folder, error_folder=None):
+    """
+    Process all .ars files in directory.
+
+    Args:
+        directory: Directory containing files to process
+        reported_folder: Folder to move successfully processed files
+        error_folder: Folder to move files that failed to process (optional)
+
+    Returns:
+        dict: Summary of processing results
+    """
+    from datetime import datetime
+
+    # Default error folder to a subdirectory if not specified
+    if error_folder is None:
+        error_folder = os.path.join(os.path.dirname(directory), "Error Files")
+
+    # Ensure folders exist
     os.makedirs(reported_folder, exist_ok=True)
+    os.makedirs(error_folder, exist_ok=True)
 
     # Get the list of .ars files
     files = [f for f in os.listdir(directory) if f.endswith(".ars")]
 
-    # List to hold files that need to be moved
-    files_to_move = []
-
-    files_processed = False
     if len(files) == 0:
-        files_processed = True
-    else:
-        files_processed = False
+        print("No .ars files found to process")
+        return {
+            'total_files': 0,
+            'successful': 0,
+            'failed': 0,
+            'errors': []
+        }
 
-    while not files_processed:
-        # Wrap the files in a tqdm progress bar
-        for filename in tqdm(files, desc="Processing Files", unit="file"):
-            file_path = os.path.join(directory, filename)
+    # Results tracking
+    successful_files = []
+    failed_files = []
+    error_details = []
 
-            # Step 1: Process the file (extract metadata, convert to DataFrame, and insert)
-            process_file(file_path)  # This will handle metadata extraction, conversion, and DB insertion
+    print(f"Found {len(files)} .ars files to process")
 
-            # Extract peak results using the result_id (assuming result_id comes from process_file)
+    # Wrap the files in a tqdm progress bar
+    for filename in tqdm(files, desc="Processing Files", unit="file"):
+        file_path = os.path.join(directory, filename)
+
+        try:
+            # Step 1: Process the file (metadata extraction and insertion)
+            success, error_msg = process_file(file_path)
+
+            if not success:
+                raise Exception(f"Metadata processing failed: {error_msg}")
+
+            # Step 2: Extract and insert peak results
             metadata_dict, result_id = extract_metadata(file_path)
 
-            # Check if metadata extraction was successful before proceeding
             if metadata_dict is None or result_id == 0:
-                print(f"⚠️ Skipping peak results for {filename} - invalid metadata or result_id")
-                continue
+                raise Exception("Invalid metadata or result_id after processing")
 
-            system_name = metadata_dict['System Name']
+            system_name = metadata_dict.get('System Name')
+            if not system_name:
+                raise Exception("Missing System Name in metadata")
+
             peak_results_df = extract_peak_results(file_path, result_id, system_name)
 
-            # Step 2: Insert peak results into the DB if the dataframe is not None
-            if peak_results_df is not None:
+            if peak_results_df is not None and len(peak_results_df) > 0:
                 insert_peak_results(peak_results_df, use_orm=True)
+                print(f"✅ {filename}: Successfully processed ({len(peak_results_df)} peaks)")
             else:
-                print(f"No peak result data found for file: {filename}")
+                print(f"✅ {filename}: Successfully processed (no peak results)")
 
-            # Add the file to the list of files to move
-            files_to_move.append(file_path)
+            successful_files.append(filename)
 
-        files_processed = True
+            # Move to reported folder
+            reported_path = os.path.join(reported_folder, filename)
+            if os.path.exists(reported_path):
+                os.remove(reported_path)  # Remove existing file first
+            shutil.move(file_path, reported_path)
 
-    # Step 3: Move all processed files to the Reported folder in bulk
-    for file_path in files_to_move:
-        reported_path = os.path.join(reported_folder, os.path.basename(file_path))
-        if os.path.exists(reported_path):
-            os.remove(reported_path)  # Remove existing file first to allow re-importing
-        shutil.move(file_path, reported_path)
+        except Exception as e:
+            # Log the error
+            error_msg = str(e)
+            print(f"❌ {filename}: {error_msg}")
+
+            failed_files.append(filename)
+            error_details.append({
+                'file': filename,
+                'error': error_msg,
+                'timestamp': datetime.now().isoformat()
+            })
+
+            # Move to error folder
+            try:
+                error_path = os.path.join(error_folder, filename)
+                if os.path.exists(error_path):
+                    os.remove(error_path)  # Remove existing file first
+                shutil.move(file_path, error_path)
+                print(f"   Moved to Error Files folder for manual review")
+            except Exception as move_error:
+                print(f"   ⚠️ Failed to move to error folder: {move_error}")
+
+    # Write error log if there were failures
+    if error_details:
+        error_log_path = os.path.join(error_folder, f"import_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        try:
+            with open(error_log_path, 'w') as f:
+                f.write(f"SEC Import Error Log - {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                for err in error_details:
+                    f.write(f"File: {err['file']}\n")
+                    f.write(f"Time: {err['timestamp']}\n")
+                    f.write(f"Error: {err['error']}\n")
+                    f.write("-" * 80 + "\n\n")
+            print(f"\n📝 Error log written to: {error_log_path}")
+        except Exception as log_error:
+            print(f"⚠️ Failed to write error log: {log_error}")
+
+    # Print summary
+    print("\n" + "=" * 80)
+    print("IMPORT SUMMARY")
+    print("=" * 80)
+    print(f"Total files: {len(files)}")
+    print(f"✅ Successful: {len(successful_files)}")
+    print(f"❌ Failed: {len(failed_files)}")
+    if failed_files:
+        print(f"\nFailed files moved to: {error_folder}")
+        print("Please review manually to determine the issue.")
+    print("=" * 80)
+
+    return {
+        'total_files': len(files),
+        'successful': len(successful_files),
+        'failed': len(failed_files),
+        'successful_files': successful_files,
+        'failed_files': failed_files,
+        'errors': error_details
+    }

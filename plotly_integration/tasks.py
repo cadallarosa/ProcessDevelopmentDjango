@@ -28,7 +28,8 @@ MAX_WAIT_TIME = 3600  # Maximum 1 hour wait for traversal
 
 # ========== EMPOWER CONFIGURATION ==========
 EMPOWER_IMPORT_FOLDER = "/mnt/fs2/Chris Dallarosa/Database Imports"
-EMPOWER_REPORTED_FOLDER = "/mnt/fs2/Chris Dallarosa/Database Imported"
+EMPOWER_REPORTED_FOLDER = "/mnt/fs2/DjangoRawData/Empower/Imported"
+EMPOWER_ERROR_FOLDER = "/mnt/fs2/DjangoRawData/Empower/Error Files"
 EMPOWER_PROCESSED_FILES_LOG = os.path.join(settings.BASE_DIR, 'empower_processed_files.txt')
 
 # ========== VICELL CONFIGURATION ==========
@@ -446,7 +447,11 @@ def import_empower_files(self):
         if ars_files:
             self.update_state(state='PROGRESS', meta={'current': 10, 'total': 100,
                                                       'status': f'Processing {len(ars_files)} .ars files...'})
-            process_ars.process_files(directory=EMPOWER_IMPORT_FOLDER, reported_folder=EMPOWER_REPORTED_FOLDER)
+            process_ars.process_files(
+                directory=EMPOWER_IMPORT_FOLDER,
+                reported_folder=EMPOWER_REPORTED_FOLDER,
+                error_folder=EMPOWER_ERROR_FOLDER
+            )
 
             # Mark all ars files as processed
             for filename in ars_files:
@@ -457,7 +462,11 @@ def import_empower_files(self):
         if arw_files:
             self.update_state(state='PROGRESS', meta={'current': 40, 'total': 100,
                                                       'status': f'Processing {len(arw_files)} .arw files...'})
-            process_arw.process_files(directory=EMPOWER_IMPORT_FOLDER, reported_folder=EMPOWER_REPORTED_FOLDER)
+            process_arw.process_files(
+                directory=EMPOWER_IMPORT_FOLDER,
+                reported_folder=EMPOWER_REPORTED_FOLDER,
+                error_folder=EMPOWER_ERROR_FOLDER
+            )
 
             # Mark all arw files as processed
             for filename in arw_files:
