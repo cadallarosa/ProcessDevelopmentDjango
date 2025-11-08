@@ -97,13 +97,15 @@ def create_sidebar_navigation():
             'icon': 'fa-vials',
             'color': '#e67e22',
             'items': [
-                {'name': 'Dashboard', 'href': '#!/formulation/dashboard', 'icon': 'fa-chart-pie'},
-                {'name': 'Create Experiment', 'href': '#!/formulation/create-experiment', 'icon': 'fa-plus-circle'},
-                {'name': 'Experiment Manager', 'href': '#!/formulation/experiment-manager', 'icon': 'fa-flask'},
-                {'name': 'Design Formulations', 'href': '#!/formulation/design', 'icon': 'fa-vials'},
-                {'name': 'Sample Management', 'href': '#!/formulation/samples', 'icon': 'fa-plus-circle'},
-                {'name': 'Data Entry', 'href': '#!/formulation/data-entry', 'icon': 'fa-table'},
-                {'name': 'Stability Visualization', 'href': '#!/formulation/visualization', 'icon': 'fa-chart-line'}
+                # {'name': 'Dashboard', 'href': '#!/formulation/dashboard', 'icon': 'fa-chart-pie'},
+                # {'name': 'Create Experiment', 'href': '#!/formulation/create-experiment', 'icon': 'fa-plus-circle'},
+                # {'name': 'Experiment Manager', 'href': '#!/formulation/experiment-manager', 'icon': 'fa-flask'},
+                # {'name': 'Design Formulations', 'href': '#!/formulation/design', 'icon': 'fa-vials'},
+                # {'name': 'Sample Management', 'href': '#!/formulation/samples', 'icon': 'fa-plus-circle'},
+                # {'name': 'Data Entry', 'href': '#!/formulation/data-entry', 'icon': 'fa-table'},
+                # {'name': 'Stability Visualization', 'href': '#!/formulation/visualization', 'icon': 'fa-chart-line'},
+                {'name': 'Plasma Stability', 'href': '#!/formulation/plasma-stability', 'icon': 'fa-chart-line'}
+
             ]
         },
         {

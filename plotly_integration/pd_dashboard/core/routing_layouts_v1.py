@@ -99,16 +99,18 @@ def create_page_router(app):
             "/cld/nova": ("CLD Nova", "/plotly_integration/dash-app/app/CLDNovaFlexIIApp/", "refresh-cld-nova", False),
 
             # Formulation routes
-            "/formulation/dashboard": ("Formulation Dashboard", "/plotly_integration/dash-app/app/FormulationDashboardApp/", "refresh-formulation-dashboard", False),
-            "/formulation/create-experiment": ("Create New Experiment", "/plotly_integration/dash-app/app/ExperimentCreationApp/", "refresh-create-experiment", False),
-            "/formulation/experiment-manager": ("Experiment Manager", "/plotly_integration/dash-app/app/FormulationExperimentManager/", "refresh-experiment-manager", False),
-            "/formulation/design": ("Design Formulations", "/plotly_integration/dash-app/app/FormulationDesignApp/", "refresh-formulation-design", False),
-            "/formulation/samples": ("Sample Management", "/plotly_integration/dash-app/app/SampleManagementApp/", "refresh-sample-management", False),
-            "/formulation/data-entry": ("Analytical Data Entry", "/plotly_integration/dash-app/app/DataEntryApp/", "refresh-data-entry", False),
-            "/formulation/stability": ("Formulation Stability Studies", "/plotly_integration/dash-app/app/FormulationStabilityApp/", "refresh-formulation-stability", False),
-            "/formulation/visualization": ("Formulation Stability Visualization", "/plotly_integration/dash-app/app/FormulationVisualizationApp/", "refresh-formulation-visualization", False),
+            # "/formulation/dashboard": ("Formulation Dashboard", "/plotly_integration/dash-app/app/FormulationDashboardApp/", "refresh-formulation-dashboard", False),
+            # "/formulation/create-experiment": ("Create New Experiment", "/plotly_integration/dash-app/app/ExperimentCreationApp/", "refresh-create-experiment", False),
+            # "/formulation/experiment-manager": ("Experiment Manager", "/plotly_integration/dash-app/app/FormulationExperimentManager/", "refresh-experiment-manager", False),
+            # "/formulation/design": ("Design Formulations", "/plotly_integration/dash-app/app/FormulationDesignApp/", "refresh-formulation-design", False),
+            # "/formulation/samples": ("Sample Management", "/plotly_integration/dash-app/app/SampleManagementApp/", "refresh-sample-management", False),
+            # "/formulation/data-entry": ("Analytical Data Entry", "/plotly_integration/dash-app/app/DataEntryApp/", "refresh-data-entry", False),
+            # "/formulation/stability": ("Formulation Stability Studies", "/plotly_integration/dash-app/app/FormulationStabilityApp/", "refresh-formulation-stability", False),
+            # "/formulation/visualization": ("Formulation Stability Visualization", "/plotly_integration/dash-app/app/FormulationVisualizationApp/", "refresh-formulation-visualization", False),
+            "/formulation/plasma-stability": ("Plasma Stability","/plotly_integration/dash-app/app/PlasmaStabilityAppV4/","refresh-formulation-plasma-stability", False),
 
-            # Formulation routes
+
+            # Protein Engineering routes
             "/protein-engineering/octet-kinetics": ("Octet Kinetics", "/plotly_integration/dash-app/app/OctetKineticsDashboard/", "refresh-kinetics-dashboard", False),
 
             # Database Management routes

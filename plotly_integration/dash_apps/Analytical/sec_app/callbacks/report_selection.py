@@ -452,3 +452,27 @@ def update_temp_report(selected_rows, sample_data, view_mode):
     except Exception as e:
         print(f"Error updating temporary report: {e}")
         return "Error updating temporary report."
+
+
+# Clientside callback to update parent dashboard URL when report selection changes
+app.clientside_callback(
+    """
+    function(reportId) {
+        // Only update if we have a valid report ID and we're in an iframe
+        if (reportId && window.parent !== window) {
+            // Get current URL and build new hash
+            var currentUrl = window.parent.location.pathname;
+            var newHash = '#!/analytical/sec?report_id=' + reportId;
+            var newUrl = currentUrl + newHash;
+
+            // Update URL without triggering navigation/reload
+            window.parent.history.replaceState(null, '', newUrl);
+        }
+        // Return no_update to prevent any UI changes
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("url", "href", allow_duplicate=True),
+    Input("selected-report", "data"),
+    prevent_initial_call=True
+)
