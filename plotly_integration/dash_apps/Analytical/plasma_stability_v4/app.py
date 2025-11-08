@@ -28,7 +28,7 @@ from .callbacks import (
 
 # Create the Dash app
 app = DjangoDash(
-    "PlasmaStabilityAppV5",
+    "PlasmaStabilityApp",
     external_stylesheets=[dbc.themes.BOOTSTRAP]
 )
 
