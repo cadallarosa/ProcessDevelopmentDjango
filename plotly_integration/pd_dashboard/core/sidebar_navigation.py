@@ -117,6 +117,17 @@ def create_sidebar_navigation():
                 {'name': 'Octet Kinetics', 'href': '#!/protein-engineering/octet-kinetics', 'icon': 'fa-chart-line'}
             ]
         },
+        {
+            'id': 'dev-apps',
+            'title': 'Dev Apps',
+            'icon': 'fa-flask',
+            'color': '#9b59b6',
+            'items': [
+                {'name': 'Image Arrangement', 'href': '#!/dev-apps/image-arrangement', 'icon': 'fa-images'},
+                {'name': 'Project Management', 'href': '#!/dev-apps/project-management', 'icon': 'fa-tasks'},
+                {'name': 'Molecule Dashboard', 'href': '#!/dev-apps/molecule-dashboard', 'icon': 'fa-chart-bar'}
+            ]
+        },
 
     ]
 

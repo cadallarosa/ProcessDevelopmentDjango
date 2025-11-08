@@ -107,11 +107,16 @@ def create_page_router(app):
             # "/formulation/data-entry": ("Analytical Data Entry", "/plotly_integration/dash-app/app/DataEntryApp/", "refresh-data-entry", False),
             # "/formulation/stability": ("Formulation Stability Studies", "/plotly_integration/dash-app/app/FormulationStabilityApp/", "refresh-formulation-stability", False),
             # "/formulation/visualization": ("Formulation Stability Visualization", "/plotly_integration/dash-app/app/FormulationVisualizationApp/", "refresh-formulation-visualization", False),
-            "/formulation/plasma-stability": ("Plasma Stability","/plotly_integration/dash-app/app/PlasmaStabilityAppV4/","refresh-formulation-plasma-stability", False),
+            "/formulation/plasma-stability": ("Plasma Stability","/plotly_integration/dash-app/app/PlasmaStabilityApp/","refresh-formulation-plasma-stability", False),
 
 
             # Protein Engineering routes
             "/protein-engineering/octet-kinetics": ("Octet Kinetics", "/plotly_integration/dash-app/app/OctetKineticsDashboard/", "refresh-kinetics-dashboard", False),
+
+            # Dev Apps routes
+            "/dev-apps/image-arrangement": ("Image Arrangement", "/plotly_integration/dash-app/app/ImageArrangementV5App/", "refresh-dev-image-arrangement", False),
+            "/dev-apps/project-management": ("Project Management", "/plotly_integration/dash-app/app/ProjectManagementApp/", "refresh-dev-project-management", False),
+            "/dev-apps/molecule-dashboard": ("Molecule Dashboard", "/plotly_integration/dash-app/app/MoleculeDashboardApp/", "refresh-dev-molecule-dashboard", False),
 
             # Database Management routes
             "/database/import-empower": ("Import Empower Data", "/plotly_integration/dash-app/app/DatabaseManagerApp/", "refresh-db-empower", False),
