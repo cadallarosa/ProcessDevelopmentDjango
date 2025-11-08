@@ -9,20 +9,20 @@ VENV_PATH="$PROJECT_DIR/.venv/.venv"
 OPCUA_DIR="$PROJECT_DIR/plotly_integration/process_development/downstream_processing/akta/opcua_server/opcua-browser"
 NODE_PATH="/home/cdallarosa/.config/JetBrains/PyCharm2025.1/node/versions/22.15.1/bin/node"
 
-# Kill any existing processes
-echo "🔄 Stopping existing processes..."
-sudo pkill -f "runserver 0.0.0.0:8000" 2>/dev/null
-sudo pkill -f "server.js" 2>/dev/null
-sudo pkill -f "celery.*worker" 2>/dev/null
-sudo pkill -f "celery.*beat" 2>/dev/null
-sleep 2
-
-# Start Django server
-echo "📦 Starting Django server on port 8000..."
-cd "$PROJECT_DIR" && \
-source "$VENV_PATH/bin/activate" && \
-python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
-DJANGO_PID=$!
+## Kill any existing processes
+#echo "🔄 Stopping existing processes..."
+#sudo pkill -f "runserver 0.0.0.0:8000" 2>/dev/null
+#sudo pkill -f "server.js" 2>/dev/null
+#sudo pkill -f "celery.*worker" 2>/dev/null
+#sudo pkill -f "celery.*beat" 2>/dev/null
+#sleep 2
+#
+## Start Django server
+#echo "📦 Starting Django server on port 8000..."
+#cd "$PROJECT_DIR" && \
+#source "$VENV_PATH/bin/activate" && \
+#python manage.py runserver 0.0.0.0:8000 > django.log 2>&1 &
+#DJANGO_PID=$!
 
 ## Start Node.js server
 #echo "🌐 Starting Node.js server..."
