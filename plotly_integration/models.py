@@ -1097,7 +1097,25 @@ class LimsDnAssignment(models.Model):
     notes = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=50, default="Pending")
 
-    # Mass Balance fields
+    # Mass Balance fields - PD Sample links
+    input_pd_sample = models.ForeignKey(
+        "LimsSampleAnalysis",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dn_as_input",
+        help_text="Input PD sample for this DN experiment"
+    )
+    output_pd_sample = models.ForeignKey(
+        "LimsSampleAnalysis",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dn_as_output",
+        help_text="Output PD sample for this DN experiment"
+    )
+
+    # Mass Balance fields - Volume and Concentration
     input_volume = models.FloatField(null=True, blank=True, help_text="Input volume in mL")
     input_concentration = models.FloatField(null=True, blank=True, help_text="Input concentration in mg/mL")
     output_volume = models.FloatField(null=True, blank=True, help_text="Output volume in mL")
@@ -2069,6 +2087,7 @@ class USPSeedTrain(models.Model):
     id = models.AutoField(primary_key=True)
     process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='seed_trains')
     seed_train_id = models.CharField(max_length=100, unique=True)  # UPST####
+    project_id = models.CharField(max_length=100, blank=True, null=True, help_text="Project identifier")
     vessel_type = models.CharField(max_length=20, choices=SEED_VESSEL_TYPE_CHOICES)
     thaw_date = models.DateField()
     start_volume = models.FloatField(help_text="mL")  # Renamed from culture_volume
@@ -2141,6 +2160,7 @@ class USPVessel(models.Model):
     process_step = models.ForeignKey(USPProcessStep, on_delete=models.CASCADE, related_name='vessels')
     seed_train = models.ForeignKey(USPSeedTrain, on_delete=models.SET_NULL, null=True, blank=True, related_name='downstream_vessels')
     vessel_id = models.CharField(max_length=100)  # UPFB####
+    project_id = models.CharField(max_length=100, blank=True, null=True, help_text="Project identifier")
     vessel_type = models.CharField(max_length=20, choices=VESSEL_TYPE_CHOICES)
     start_volume = models.FloatField(null=True, blank=True, help_text="mL")
     cell_line = models.CharField(max_length=100, blank=True, null=True)
@@ -3615,3 +3635,386 @@ class OctetKineticsSensor(models.Model):
             np.array(self.dissociation_data.get('time', [])),
             np.array(self.dissociation_data.get('response', []))
         )
+
+
+# ========================================
+# Project Management Models
+# ========================================
+
+class Project(models.Model):
+    """
+    Core project model for tracking protein engineering projects.
+    Replaces Excel-based tracking with database solution.
+    """
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('On Hold', 'On Hold'),
+        ('Cancelled', 'Cancelled'),
+        ('Completed', 'Completed'),
+    ]
+
+    # Core identifiers
+    molecule_id = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        help_text="Unique molecule identifier (e.g., SI-212E18)"
+    )
+    priority_set = models.IntegerField(
+        default=1,
+        help_text="Priority grouping (1=highest priority)"
+    )
+
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='Active',
+        db_index=True
+    )
+
+    # Date tracking
+    creation_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date molecule was created"
+    )
+    cloning_finish_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date cloning was completed"
+    )
+    purification_finish_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date purification was completed"
+    )
+
+    # Calculated fields
+    lead_time = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Total lead time in days"
+    )
+
+    # Team assignment
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projects_created',
+        help_text="User who created this project"
+    )
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projects_assigned',
+        help_text="User assigned to this project"
+    )
+
+    # Additional information
+    notes = models.TextField(
+        blank=True,
+        help_text="Project notes and comments"
+    )
+
+    # Stock tracking
+    current_concentration = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Current stock concentration (mg/mL)"
+    )
+    current_volume = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Current stock volume (mL)"
+    )
+    stock_location = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Physical storage location (e.g., Freezer A, Shelf 3)"
+    )
+    last_volume_update = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When stock levels were last updated"
+    )
+    last_updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='volume_updates',
+        help_text="User who last updated stock levels"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'project_management_project'
+        ordering = ['-priority_set', '-creation_date']
+        indexes = [
+            models.Index(fields=['status', 'priority_set']),
+            models.Index(fields=['assigned_to', 'status']),
+            models.Index(fields=['-creation_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.molecule_id} - {self.status}"
+
+    def calculate_lead_time(self):
+        """Calculate lead time from creation to purification finish."""
+        if self.creation_date and self.purification_finish_date:
+            delta = self.purification_finish_date - self.creation_date
+            return delta.days
+        return None
+
+    def get_stock_status(self):
+        """
+        Calculate stock status based on current volume.
+        Returns: 'Available', 'Low Stock', 'Critical', or 'Depleted'
+        """
+        if self.current_volume is None:
+            return 'Unknown'
+        elif self.current_volume <= 0:
+            return 'Depleted'
+        elif self.current_volume < 5:
+            return 'Critical'
+        elif self.current_volume < 10:
+            return 'Low Stock'
+        else:
+            return 'Available'
+
+    def get_image_url(self):
+        """Get network URL for molecule structure image."""
+        return f"http://fs2.systimmune.net/imgs/{self.molecule_id}.png"
+
+    def save(self, *args, **kwargs):
+        """Override save to auto-calculate lead time."""
+        self.lead_time = self.calculate_lead_time()
+        super().save(*args, **kwargs)
+
+
+class ProjectDecisionHistory(models.Model):
+    """
+    Track all decisions made on projects for audit trail and analysis.
+    """
+    DECISION_TYPES = [
+        ('Status Change', 'Status Change'),
+        ('Priority Change', 'Priority Change'),
+        ('Assignment Change', 'Assignment Change'),
+        ('Push Forward', 'Push Forward'),
+        ('Hold', 'Hold'),
+        ('Cancel', 'Cancel'),
+        ('Reactivate', 'Reactivate'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='decision_history'
+    )
+
+    # Decision details
+    decision_date = models.DateTimeField(default=timezone.now)
+    decision_type = models.CharField(max_length=50, choices=DECISION_TYPES)
+    decision_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='decisions_made'
+    )
+
+    # Status tracking
+    previous_status = models.CharField(max_length=20, blank=True)
+    new_status = models.CharField(max_length=20, blank=True)
+
+    # Rationale
+    rationale = models.TextField(
+        help_text="Reason for this decision"
+    )
+
+    # System recommendation at time of decision
+    system_recommendation = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="What the system recommended at decision time"
+    )
+
+    class Meta:
+        db_table = 'project_management_decision_history'
+        ordering = ['-decision_date']
+        indexes = [
+            models.Index(fields=['project', '-decision_date']),
+            models.Index(fields=['decision_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.molecule_id} - {self.decision_type} on {self.decision_date.date()}"
+
+
+class ProjectMetrics(models.Model):
+    """
+    Store calculated metrics and recommendations for projects.
+    Used by the decision engine to suggest actions.
+    """
+    RECOMMENDATIONS = [
+        ('PUSH FORWARD', 'Push Forward - Continue with high priority'),
+        ('MONITOR', 'Monitor - Track progress, no immediate action'),
+        ('REVIEW', 'Review - Requires management review'),
+        ('CONSIDER CANCELLATION', 'Consider Cancellation - May need to cancel'),
+    ]
+
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='metrics',
+        primary_key=True
+    )
+
+    # Individual scores (0-100 scale)
+    on_time_score = models.FloatField(
+        default=0,
+        help_text="Score based on timeline adherence"
+    )
+    priority_score = models.FloatField(
+        default=0,
+        help_text="Score based on priority set"
+    )
+    resource_score = models.FloatField(
+        default=0,
+        help_text="Score based on resource utilization"
+    )
+    completion_score = models.FloatField(
+        default=0,
+        help_text="Score based on progress completion"
+    )
+
+    # Weighted total
+    weighted_total = models.FloatField(
+        default=0,
+        help_text="Weighted sum of all scores"
+    )
+
+    # System recommendation
+    recommendation = models.CharField(
+        max_length=50,
+        choices=RECOMMENDATIONS,
+        default='MONITOR'
+    )
+
+    # Recommendation details
+    recommendation_reason = models.TextField(
+        blank=True,
+        help_text="Explanation of why this recommendation was made"
+    )
+
+    # Tracking
+    last_calculated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'project_management_metrics'
+        verbose_name_plural = 'Project Metrics'
+
+    def __str__(self):
+        return f"{self.project.molecule_id} - {self.recommendation} (Score: {self.weighted_total:.1f})"
+
+    def calculate_weighted_score(self):
+        """
+        Calculate weighted total score.
+        Weights: priority=40%, on_time=30%, completion=20%, resource=10%
+        """
+        self.weighted_total = (
+            self.priority_score * 0.40 +
+            self.on_time_score * 0.30 +
+            self.completion_score * 0.20 +
+            self.resource_score * 0.10
+        )
+        return self.weighted_total
+
+    def update_recommendation(self):
+        """Update recommendation based on current scores."""
+        score = self.weighted_total
+        status = self.project.status
+
+        if status == 'Cancelled':
+            self.recommendation = 'CONSIDER CANCELLATION'
+            self.recommendation_reason = "Project already cancelled"
+        elif status == 'Completed':
+            self.recommendation = 'PUSH FORWARD'
+            self.recommendation_reason = "Project completed successfully"
+        elif score >= 75:
+            self.recommendation = 'PUSH FORWARD'
+            self.recommendation_reason = f"High score ({score:.1f}) indicates strong performance"
+        elif score >= 50:
+            self.recommendation = 'MONITOR'
+            self.recommendation_reason = f"Moderate score ({score:.1f}) - continue monitoring"
+        elif score >= 30:
+            self.recommendation = 'REVIEW'
+            self.recommendation_reason = f"Low score ({score:.1f}) - management review recommended"
+        else:
+            self.recommendation = 'CONSIDER CANCELLATION'
+            self.recommendation_reason = f"Very low score ({score:.1f}) - consider cancellation"
+
+    def save(self, *args, **kwargs):
+        """Override save to auto-calculate scores and recommendation."""
+        self.calculate_weighted_score()
+        self.update_recommendation()
+        super().save(*args, **kwargs)
+
+
+# ============================================
+# Image Arrangement Configuration Sets
+# ============================================
+
+class ImageArrangementSet(models.Model):
+    """
+    Stores saved configurations for the image arrangement app
+    Allows users to save and reload table configurations
+    """
+    set_name = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text='Unique name for this configuration set'
+    )
+    description = models.TextField(
+        blank=True,
+        help_text='Optional description of this configuration'
+    )
+
+    # Configuration data stored as JSON
+    configuration_data = models.JSONField(
+        help_text='JSON array of table rows with molecule_id, phase, project_id, group, subset, notes'
+    )
+
+    # Metadata
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(auto_now=True)
+    created_by = models.CharField(max_length=100, blank=True)
+
+    # Layout settings
+    layout_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('standard', 'Standard Layout'),
+            ('alternative', 'Alternative Comparison')
+        ],
+        default='alternative',
+        help_text='Layout mode used for this configuration'
+    )
+
+    class Meta:
+        db_table = 'image_arrangement_set'
+        ordering = ['-created_date']
+        indexes = [
+            models.Index(fields=['set_name']),
+            models.Index(fields=['-created_date']),
+        ]
+
+    def __str__(self):
+        return f'{self.set_name} ({self.created_date.strftime("%Y-%m-%d")})'
