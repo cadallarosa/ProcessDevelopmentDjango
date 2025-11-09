@@ -18,6 +18,7 @@ class PlotlyIntegrationConfig(AppConfig):
                 import plotly_integration.dash_apps.Analytical.titer.titer_analysis_app
                 import plotly_integration.dash_apps.Analytical.titer.create_titer_report_app
                 import plotly_integration.dash_apps.Analytical.plasma_stability_v4.app
+                import plotly_integration.dash_apps.Analytical.plasma_stability_v6.app
 
                 # SEC Apps
                 import plotly_integration.dash_apps.Analytical.sec_app_embedded.app
@@ -72,6 +73,10 @@ class PlotlyIntegrationConfig(AppConfig):
 
                 # Protein Engineering Apps
                 import plotly_integration.dash_apps.protein_engineering.image_arrangement.app
+
+                # Development Apps
+                import plotly_integration.dash_apps.development_apps.image_arrangement_v5.app
+                import plotly_integration.dash_apps.development_apps.molecule_dashboard.app
 
                 # Nova Flex Apps
                 import plotly_integration.process_development.cell_culture.nova_flex_2.nova_create_report_app
