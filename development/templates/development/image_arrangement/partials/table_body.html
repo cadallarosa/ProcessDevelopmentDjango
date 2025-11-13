@@ -1,0 +1,51 @@
+{% if rows %}
+    {% for row in rows %}
+        <tr>
+            <td>
+                <input type="text"
+                       class="form-control form-control-sm"
+                       value="{{ row.project_id }}"
+                       placeholder="Enter Project ID">
+            </td>
+            <td>
+                <select class="form-select form-select-sm">
+                    <option value="">Select Phase...</option>
+                    {% for phase in phase_options %}
+                        <option value="{{ phase }}" {% if row.phase == phase %}selected{% endif %}>
+                            {{ phase }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <input type="text"
+                       class="form-control form-control-sm"
+                       value="{{ row.group }}"
+                       placeholder="Group">
+            </td>
+            <td>
+                <input type="text"
+                       class="form-control form-control-sm"
+                       value="{{ row.subset }}"
+                       placeholder="Subset">
+            </td>
+            <td>
+                <input type="text"
+                       class="form-control form-control-sm"
+                       value="{{ row.annotations }}"
+                       placeholder="Notes...">
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-danger">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="6" class="text-center text-muted">
+            No data configured. Click "Add Row" or "Load Sample Data" to begin.
+        </td>
+    </tr>
+{% endif %}

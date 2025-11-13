@@ -1,0 +1,45 @@
+<div>
+    <!-- Stats Summary -->
+    <div class="alert alert-success mb-3">
+        <i class="bi bi-check-circle"></i>
+        <strong>Layout Generated!</strong>
+        {{ stats.total_images }} images | {{ stats.total_groups }} groups | {{ stats.total_phases }} phases
+    </div>
+
+    <!-- Export Button -->
+    <div class="mb-3">
+        <button class="btn btn-success btn-lg"
+                hx-post="{% url 'development:img_export' %}"
+                hx-swap="none">
+            <i class="bi bi-file-earmark-ppt"></i> Export to PowerPoint
+        </button>
+    </div>
+
+    <!-- 5-Column Grid of Images -->
+    <div class="row">
+        {% for molecule in molecules %}
+            <div class="col-md-2 col-sm-4 mb-3">
+                <div class="card image-card">
+                    <img src="http://fs2.systimmune.net/imgs/{{ molecule.project_id }}.png"
+                         alt="{{ molecule.project_id }}"
+                         class="card-img-top"
+                         onclick="previewImage('{{ molecule.project_id }}')">
+                    <div class="card-body p-2">
+                        <p class="small mb-0 text-center">{{ molecule.project_id }}</p>
+                    </div>
+                </div>
+            </div>
+
+            {% if forloop.counter|divisibleby:5 %}
+                </div><div class="row">
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function previewImage(projectId) {
+    // Open modal with image details
+    alert('Preview for ' + projectId + '\nModal implementation coming soon!');
+}
+</script>

@@ -1,0 +1,48 @@
+<tr>
+    <td>
+        <input type="text"
+               class="form-control form-control-sm"
+               name="project_id_{{ row_index }}"
+               value="{{ row.project_id }}"
+               placeholder="Enter Project ID">
+    </td>
+    <td>
+        <select class="form-select form-select-sm" name="phase_{{ row_index }}">
+            <option value="">Select Phase...</option>
+            {% for phase in phase_options %}
+                <option value="{{ phase }}" {% if row.phase == phase %}selected{% endif %}>
+                    {{ phase }}
+                </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <input type="text"
+               class="form-control form-control-sm"
+               name="group_{{ row_index }}"
+               value="{{ row.group }}"
+               placeholder="Group">
+    </td>
+    <td>
+        <input type="text"
+               class="form-control form-control-sm"
+               name="subset_{{ row_index }}"
+               value="{{ row.subset }}"
+               placeholder="Subset">
+    </td>
+    <td>
+        <input type="text"
+               class="form-control form-control-sm"
+               name="annotations_{{ row_index }}"
+               value="{{ row.annotations }}"
+               placeholder="Notes...">
+    </td>
+    <td class="text-center">
+        <button class="btn btn-sm btn-danger"
+                hx-delete="{% url 'development:img_delete_row' row_index %}"
+                hx-target="closest tr"
+                hx-swap="outerHTML">
+            <i class="bi bi-trash"></i>
+        </button>
+    </td>
+</tr>

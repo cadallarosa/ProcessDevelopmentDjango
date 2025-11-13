@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Library Comparison - Plotly.js vs Tabulator.js</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Tabulator CSS -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Tabulator.js -->
+    <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+
+    <style>
+        .comparison-section {
+            min-height: 500px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .feature-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .feature-check {
+            color: #28a745;
+        }
+        .feature-cross {
+            color: #dc3545;
+        }
+        #plotly-table {
+            margin-top: 20px;
+        }
+        #tabulator-table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="display-5">📊 Table Library Comparison</h1>
+                <p class="lead">Compare Plotly.js vs Tabulator.js for data tables</p>
+                <a href="{% url 'development:image_arrangement' %}" class="btn btn-secondary">← Back to Image Arrangement</a>
+            </div>
+        </div>
+
+        <!-- Side-by-Side Comparison -->
+        <div class="row">
+            <!-- Plotly.js Table -->
+            <div class="col-md-6">
+                <div class="comparison-section">
+                    <h3>Plotly.js Table</h3>
+                    <p class="text-muted">Plotly's table component - typically used for display, not editing</p>
+
+                    <div id="plotly-table"></div>
+
+                    <div class="feature-list">
+                        <h5>Features:</h5>
+                        <ul>
+                            <li><span class="feature-check">✓</span> Beautiful rendering</li>
+                            <li><span class="feature-check">✓</span> Good for reports/dashboards</li>
+                            <li><span class="feature-check">✓</span> Integrates with Plotly charts</li>
+                            <li><span class="feature-cross">✗</span> NOT editable (read-only)</li>
+                            <li><span class="feature-cross">✗</span> No inline editing</li>
+                            <li><span class="feature-cross">✗</span> No dropdowns</li>
+                            <li><span class="feature-cross">✗</span> Can't add/delete rows</li>
+                            <li><span class="feature-cross">✗</span> Limited interaction</li>
+                        </ul>
+                        <div class="alert alert-warning">
+                            <strong>Verdict:</strong> Plotly.js is great for <strong>charts</strong>, but its table is <strong>read-only display only</strong>.
+                            Not suitable for data entry/editing like Dash DataTable.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabulator.js Table -->
+            <div class="col-md-6">
+                <div class="comparison-section">
+                    <h3>Tabulator.js Table</h3>
+                    <p class="text-muted">Excel-like data grid - designed for editing and interaction</p>
+
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-success" onclick="addRow()">+ Add Row</button>
+                        <button class="btn btn-sm btn-danger" onclick="clearTable()">Clear All</button>
+                    </div>
+
+                    <div id="tabulator-table"></div>
+
+                    <div class="feature-list">
+                        <h5>Features:</h5>
+                        <ul>
+                            <li><span class="feature-check">✓</span> <strong>Fully editable</strong> (click to edit)</li>
+                            <li><span class="feature-check">✓</span> <strong>Inline editing</strong> (like Excel)</li>
+                            <li><span class="feature-check">✓</span> <strong>Dropdowns</strong> (try Phase column)</li>
+                            <li><span class="feature-check">✓</span> <strong>Add/delete rows</strong> (buttons above)</li>
+                            <li><span class="feature-check">✓</span> Sorting (click headers)</li>
+                            <li><span class="feature-check">✓</span> Filtering</li>
+                            <li><span class="feature-check">✓</span> Copy-paste from Excel</li>
+                            <li><span class="feature-check">✓</span> Export to CSV/Excel</li>
+                            <li><span class="feature-check">✓</span> No jQuery needed</li>
+                        </ul>
+                        <div class="alert alert-success">
+                            <strong>Verdict:</strong> Tabulator.js is the <strong>perfect replacement</strong> for Dash DataTable.
+                            All the same features + more!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h4>📝 Summary</h4>
+                    <ul>
+                        <li><strong>Plotly.js:</strong> Use for <strong>charts and graphs</strong> only. The table component is read-only and not suitable for data entry.</li>
+                        <li><strong>Tabulator.js:</strong> Use for <strong>editable data tables</strong>. Perfect replacement for Dash DataTable with even more features.</li>
+                    </ul>
+                    <p class="mb-0"><strong>Recommendation:</strong> Use <strong>Tabulator.js</strong> for your image arrangement table + <strong>Plotly.js</strong> for any charts you might add later!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data from Django
+        const sampleData = {{ sample_data|safe }};
+
+        // ========================================
+        // Plotly.js Table (Read-Only Display)
+        // ========================================
+        function initPlotlyTable() {
+            const values = [
+                sampleData.map(row => row.project_id),
+                sampleData.map(row => row.phase),
+                sampleData.map(row => row.group),
+                sampleData.map(row => row.subset),
+                sampleData.map(row => row.notes)
+            ];
+
+            const data = [{
+                type: 'table',
+                header: {
+                    values: ['<b>Project ID</b>', '<b>Phase</b>', '<b>Group</b>', '<b>Subset</b>', '<b>Notes</b>'],
+                    align: 'left',
+                    line: {width: 1, color: 'black'},
+                    fill: {color: '#007bff'},
+                    font: {family: "Arial", size: 12, color: "white"}
+                },
+                cells: {
+                    values: values,
+                    align: 'left',
+                    line: {color: "black", width: 1},
+                    fill: {color: ['#f8f9fa', 'white']},
+                    font: {family: "Arial", size: 11, color: ["black"]}
+                }
+            }];
+
+            const layout = {
+                title: 'Plotly Table (Read-Only)',
+                height: 400
+            };
+
+            Plotly.newPlot('plotly-table', data, layout);
+        }
+
+        // ========================================
+        // Tabulator.js Table (Fully Editable)
+        // ========================================
+        let tabulatorTable;
+
+        function initTabulatorTable() {
+            tabulatorTable = new Tabulator("#tabulator-table", {
+                data: sampleData,
+                height: 400,
+                layout: "fitColumns",
+                placeholder: "No Data Available",
+
+                columns: [
+                    {
+                        title: "Project ID",
+                        field: "project_id",
+                        editor: "input",  // Editable text input
+                        headerFilter: "input"
+                    },
+                    {
+                        title: "Phase",
+                        field: "phase",
+                        editor: "list",  // Dropdown editor
+                        editorParams: {
+                            values: {{ phase_options|safe }}
+                        },
+                        headerFilter: "list",
+                        headerFilterParams: {values: {{ phase_options|safe }}}
+                    },
+                    {
+                        title: "Group",
+                        field: "group",
+                        editor: "input",
+                        headerFilter: "input"
+                    },
+                    {
+                        title: "Subset",
+                        field: "subset",
+                        editor: "input",
+                        headerFilter: "input"
+                    },
+                    {
+                        title: "Notes",
+                        field: "notes",
+                        editor: "input",
+                        headerFilter: "input"
+                    },
+                    {
+                        title: "Actions",
+                        field: "actions",
+                        width: 100,
+                        formatter: function() {
+                            return "<button class='btn btn-sm btn-danger'>Delete</button>";
+                        },
+                        cellClick: function(e, cell) {
+                            cell.getRow().delete();
+                        }
+                    }
+                ],
+
+                // Events
+                cellEdited: function(cell) {
+                    console.log("Cell edited:", cell.getField(), "=", cell.getValue());
+                    // Here you would send to server via HTMX
+                },
+
+                // Row styling
+                rowFormatter: function(row) {
+                    if (row.getIndex() % 2 === 0) {
+                        row.getElement().style.backgroundColor = "#f8f9fa";
+                    }
+                }
+            });
+        }
+
+        // Add row function
+        function addRow() {
+            tabulatorTable.addRow({
+                project_id: "",
+                phase: "",
+                group: "",
+                subset: "",
+                notes: ""
+            });
+        }
+
+        // Clear table function
+        function clearTable() {
+            if (confirm("Clear all rows?")) {
+                tabulatorTable.clearData();
+            }
+        }
+
+        // Initialize both tables on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initPlotlyTable();
+            initTabulatorTable();
+        });
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
