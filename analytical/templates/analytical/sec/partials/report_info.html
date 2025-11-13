@@ -1,0 +1,35 @@
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle"></i> <strong>Error:</strong> {{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% elif report %}
+<div class="alert alert-success">
+    <h6 class="alert-heading mb-2">
+        <i class="bi bi-check-circle"></i> Report Loaded
+    </h6>
+    <hr>
+    <p class="mb-1"><strong>Report Name:</strong> {{ report.report_name|default:"N/A" }}</p>
+    <p class="mb-1"><strong>Project ID:</strong> {{ report.project_id|default:"N/A" }}</p>
+    <p class="mb-0"><strong>Samples:</strong> {{ sample_count }}</p>
+</div>
+
+<!-- Sample list -->
+{% if samples %}
+<div class="mt-3">
+    <h6 class="fw-bold">
+        <i class="bi bi-list-ul"></i> Samples in Report
+    </h6>
+    <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+        {% for sample in samples %}
+        <div class="list-group-item list-group-item-action p-2">
+            <small>
+                <i class="bi bi-circle-fill" style="font-size: 6px; color: #0056b3;"></i>
+                {{ sample.sample_name }}
+            </small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endif %}

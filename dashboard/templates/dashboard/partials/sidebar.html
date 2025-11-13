@@ -1,0 +1,75 @@
+{% load static %}
+
+<nav id="sidebar" class="sidebar">
+    <!-- Sidebar Header -->
+    <div class="sidebar-header">
+        <h3>
+            <i class="fas fa-tachometer-alt"></i>
+            Dashboard
+        </h3>
+    </div>
+
+    <!-- Navigation Sections -->
+    <div class="sidebar-nav">
+        {% for section in navigation_sections %}
+            <div class="nav-section">
+                {% if section.is_collapsible and section.items.all %}
+                    <!-- Collapsible Section Header -->
+                    <button class="nav-header" 
+                            data-target="section-{{ section.id }}"
+                            data-section-id="{{ section.id }}"
+                            aria-expanded="false">
+                        {% if section.icon %}
+                            <i class="fas {{ section.icon }}"></i>
+                        {% endif %}
+                        <span class="nav-title">{{ section.title }}</span>
+                        <i class="fas fa-chevron-down nav-chevron"></i>
+                    </button>
+                    
+                    <!-- Collapsible Submenu -->
+                    <div id="section-{{ section.id }}"
+                         class="nav-submenu collapsed"
+                         data-section-id="{{ section.id }}">
+                        {% for item in section.items.all %}
+                            {% if item.is_active %}
+                                <a href="{{ item.url }}"
+                                   class="nav-item"
+                                   title="{{ item.description }}"
+                                   hx-get="{{ item.url }}"
+                                   hx-target="#main-content"
+                                   hx-swap="innerHTML"
+                                   hx-push-url="true"
+                                   hx-indicator="#loading-indicator">
+                                    {% if item.icon %}
+                                        <i class="fas {{ item.icon }}"></i>
+                                    {% endif %}
+                                    {{ item.name }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Direct Link (non-collapsible) -->
+                    <a href="{{ section.url }}" class="nav-header nav-link-direct">
+                        {% if section.icon %}
+                            <i class="fas {{ section.icon }}"></i>
+                        {% endif %}
+                        <span class="nav-title">{{ section.title }}</span>
+                    </a>
+                {% endif %}
+            </div>
+        {% empty %}
+            <div class="nav-section">
+                <p class="text-muted px-3">No navigation items configured.</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sidebar Footer (optional) -->
+    <div class="sidebar-footer">
+        <button id="toggle-all-btn" class="btn-sidebar-action" title="Toggle All Sections">
+            <i class="fas fa-compress-alt"></i>
+            <span id="toggle-btn-text">Collapse All</span>
+        </button>
+    </div>
+</nav>

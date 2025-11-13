@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plotly.js Subplot Example</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <h2>Plotly.js Subplots Example</h2>
+
+    <!-- Example 1: Simple 2x2 Grid -->
+    <h3>1. Simple 2x2 Grid (Python makes_subplots equivalent)</h3>
+    <div id="subplot1" style="width:100%;height:600px;"></div>
+
+    <!-- Example 2: Shared X-Axis -->
+    <h3>2. Shared X-Axis (like SEC multi-channel)</h3>
+    <div id="subplot2" style="width:100%;height:600px;"></div>
+
+    <script>
+        // ========== Example 1: 2x2 Grid ==========
+        // In Python plotly: make_subplots(rows=2, cols=2)
+        var trace1 = {
+            x: [1, 2, 3, 4],
+            y: [10, 15, 13, 17],
+            mode: 'lines',
+            name: 'Trace 1',
+            xaxis: 'x1',  // Top-left
+            yaxis: 'y1'
+        };
+
+        var trace2 = {
+            x: [1, 2, 3, 4],
+            y: [16, 5, 11, 9],
+            mode: 'lines',
+            name: 'Trace 2',
+            xaxis: 'x2',  // Top-right
+            yaxis: 'y2'
+        };
+
+        var trace3 = {
+            x: [1, 2, 3, 4],
+            y: [12, 9, 15, 12],
+            mode: 'markers',
+            name: 'Trace 3',
+            xaxis: 'x3',  // Bottom-left
+            yaxis: 'y3'
+        };
+
+        var trace4 = {
+            x: [1, 2, 3, 4],
+            y: [6, 12, 10, 8],
+            mode: 'markers',
+            name: 'Trace 4',
+            xaxis: 'x4',  // Bottom-right
+            yaxis: 'y4'
+        };
+
+        var layout1 = {
+            title: '2x2 Subplot Grid',
+            // Grid configuration
+            grid: {
+                rows: 2,
+                columns: 2,
+                pattern: 'independent'
+            },
+            // Individual axis configuration
+            xaxis1: {domain: [0, 0.45], anchor: 'y1', title: 'X1'},
+            yaxis1: {domain: [0.55, 1], anchor: 'x1', title: 'Y1'},
+
+            xaxis2: {domain: [0.55, 1], anchor: 'y2', title: 'X2'},
+            yaxis2: {domain: [0.55, 1], anchor: 'x2', title: 'Y2'},
+
+            xaxis3: {domain: [0, 0.45], anchor: 'y3', title: 'X3'},
+            yaxis3: {domain: [0, 0.45], anchor: 'x3', title: 'Y3'},
+
+            xaxis4: {domain: [0.55, 1], anchor: 'y4', title: 'X4'},
+            yaxis4: {domain: [0, 0.45], anchor: 'x4', title: 'Y4'}
+        };
+
+        Plotly.newPlot('subplot1', [trace1, trace2, trace3, trace4], layout1);
+
+
+        // ========== Example 2: Shared X-Axis (for SEC) ==========
+        // Like UV280, UV260, Pressure stacked vertically
+        var uv280 = {
+            x: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            y: [0, 10, 50, 100, 80, 60, 40, 20, 10, 5, 0],
+            mode: 'lines',
+            name: 'UV280',
+            line: {color: '#0056b3', width: 2}
+        };
+
+        var uv260 = {
+            x: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            y: [0, 8, 40, 80, 65, 50, 35, 15, 8, 4, 0],
+            mode: 'lines',
+            name: 'UV260',
+            line: {color: '#dc3545', width: 2},
+            yaxis: 'y2'  // Use second y-axis
+        };
+
+        var pressure = {
+            x: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            y: [1.0, 1.1, 1.2, 1.25, 1.25, 1.2, 1.15, 1.1, 1.05, 1.0, 1.0],
+            mode: 'lines',
+            name: 'Pressure',
+            line: {color: '#28a745', width: 2},
+            yaxis: 'y3'  // Use third y-axis
+        };
+
+        var layout2 = {
+            title: 'Stacked Subplots (Shared X-Axis)',
+
+            // X-axis (shared across all plots)
+            xaxis: {
+                title: 'Retention Time (min)',
+                domain: [0, 1]  // Full width
+            },
+
+            // Y-axes stacked vertically
+            yaxis: {
+                title: 'UV280 (mAU)',
+                domain: [0.7, 1],  // Top 30%
+                anchor: 'x'
+            },
+            yaxis2: {
+                title: 'UV260 (mAU)',
+                domain: [0.35, 0.65],  // Middle 30%
+                anchor: 'x'
+            },
+            yaxis3: {
+                title: 'Pressure (MPa)',
+                domain: [0, 0.3],  // Bottom 30%
+                anchor: 'x'
+            },
+
+            height: 700,
+            showlegend: true
+        };
+
+        Plotly.newPlot('subplot2', [uv280, uv260, pressure], layout2);
+    </script>
+
+    <hr>
+    <h3>Key Points for Plotly.js Subplots:</h3>
+    <ul>
+        <li><strong>Domain-based:</strong> Define subplot positions using <code>[xmin, xmax]</code> and <code>[ymin, ymax]</code> (0 to 1)</li>
+        <li><strong>Axis naming:</strong> x-axes: <code>xaxis</code>, <code>xaxis2</code>, <code>xaxis3</code>... Same for y-axes</li>
+        <li><strong>Anchoring:</strong> Each axis must be anchored to its corresponding perpendicular axis</li>
+        <li><strong>Grid helper:</strong> Use <code>grid: {rows: 2, columns: 2}</code> for automatic positioning</li>
+        <li><strong>Shared axes:</strong> Point multiple y-axes to the same x-axis for stacked plots</li>
+    </ul>
+
+    <h3>Python make_subplots equivalent:</h3>
+    <pre>
+# Python Plotly
+from plotly.subplots import make_subplots
+fig = make_subplots(rows=2, cols=2)
+fig.add_trace(trace1, row=1, col=1)
+fig.add_trace(trace2, row=1, col=2)
+
+# JavaScript Plotly equivalent (manual layout)
+var layout = {
+    xaxis1: {domain: [0, 0.45]},
+    yaxis1: {domain: [0.55, 1]},
+    xaxis2: {domain: [0.55, 1]},
+    yaxis2: {domain: [0.55, 1]}
+};
+Plotly.newPlot('div', [trace1, trace2], layout);
+    </pre>
+</body>
+</html>

@@ -1,0 +1,663 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_title }}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Tabulator.js -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --border-radius: 8px;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .app-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #003d82 100%);
+            color: white;
+            padding: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+        }
+
+        .plot-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            min-height: 600px;
+        }
+
+        .settings-panel {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #003d82;
+            border-color: #003d82;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+
+        .htmx-indicator {
+            display: none;
+        }
+
+        .htmx-request .htmx-indicator {
+            display: inline-block;
+        }
+
+        .htmx-request.htmx-indicator {
+            display: inline-block;
+        }
+
+        .table-responsive {
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background-color: #343a40;
+            color: white;
+            border: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+
+        .alert {
+            border-radius: var(--border-radius);
+        }
+
+        .badge {
+            padding: 0.35em 0.65em;
+        }
+
+        /* Button bar styling */
+        .button-bar {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* Tab content min height */
+        .tab-content {
+            min-height: 600px;
+        }
+
+        /* Two-column layout for plots tab */
+        .plots-layout {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .plot-area-col {
+            flex: 1;
+            min-width: 0; /* Allow flex item to shrink below content size */
+        }
+
+        .settings-col {
+            width: 300px;
+            flex-shrink: 0;
+        }
+
+        /* Plotly container */
+        #plotly-chart {
+            width: 100%;
+            min-height: 600px;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        /* Results table styling */
+        .results-container {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+        }
+
+        /* Dropdown button group */
+        .btn-group .dropdown-menu {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Tabulator table styling */
+        .tabulator {
+            border: 1px solid #dee2e6;
+            border-radius: var(--border-radius);
+            position: relative;
+            z-index: 1;
+        }
+
+        .tabulator-row.tabulator-selected {
+            background-color: #e7f3ff !important;
+        }
+
+        .tabulator-row.tabulator-selectable:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .tabulator-row {
+            min-height: 40px;
+        }
+
+        .tabulator-cell {
+            pointer-events: auto;
+        }
+
+        .tabulator .tabulator-tableholder {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Modal adjustments - prevent modal scroll, only table scrolls */
+        #loadReportModal .modal-body {
+            padding: 1.5rem;
+            overflow: hidden; /* No modal scroll */
+        }
+
+        #select-report-pane {
+            display: flex;
+            flex-direction: column;
+            height: calc(70vh - 100px); /* Fixed height for tab pane */
+        }
+
+        #reports-table {
+            flex: 0 0 auto;
+            height: calc(70vh - 300px); /* Fixed height - leaves room for filters */
+            min-height: 400px;
+        }
+
+        .tabulator .tabulator-tableholder {
+            overflow-y: auto !important; /* Table scrolls */
+        }
+
+        #selected-report-info {
+            min-height: 48px; /* Reserve space even when hidden */
+            margin-bottom: 0;
+        }
+
+        #selected-report-info.d-none {
+            visibility: hidden; /* Keep space but hide content */
+            display: block !important; /* Override d-none */
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="app-header">
+        <div class="container-fluid">
+            <h1 class="h2 mb-1">
+                <i class="bi bi-graph-up"></i> {{ app_title }}
+            </h1>
+            <p class="mb-0 opacity-75">Size Exclusion Chromatography Analysis & Visualization</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid">
+        <!-- Button Bar -->
+        <div class="button-bar">
+            <div class="d-flex gap-2 flex-wrap">
+                <!-- Load Report Button -->
+                <button class="btn btn-primary" id="btn-load-report" title="Keyboard shortcut: Alt+O">
+                    <i class="bi bi-folder-open"></i> Load Report <small class="opacity-75">(Alt+O)</small>
+                </button>
+
+                <!-- Export Dropdown -->
+                <div class="btn-group">
+                    <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" id="export-excel">
+                            <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="export-ppt">
+                            <i class="bi bi-file-earmark-ppt"></i> Export to PowerPoint
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" id="export-png">
+                            <i class="bi bi-image"></i> Export Plot as PNG
+                        </a></li>
+                    </ul>
+                </div>
+
+                <!-- Save Settings Button -->
+                <button class="btn btn-secondary" id="btn-save-settings">
+                    <i class="bi bi-save"></i> Save Settings
+                </button>
+
+                <!-- Reset Button -->
+                <button class="btn btn-outline-danger" id="btn-reset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </button>
+
+                <!-- Loading indicator -->
+                <div class="ms-auto">
+                    <span id="global-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm text-primary"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="plots-tab" data-bs-toggle="tab" data-bs-target="#plots-pane" type="button" role="tab">
+                    <i class="bi bi-graph-up"></i> Plots
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="results-tab" data-bs-toggle="tab" data-bs-target="#results-pane" type="button" role="tab">
+                    <i class="bi bi-table"></i> Results Table
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="std-tab" data-bs-toggle="tab" data-bs-target="#std-pane" type="button" role="tab">
+                    <i class="bi bi-bezier2"></i> STD Results
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content pt-3" id="mainTabContent">
+            <!-- Tab 1: Plots -->
+            <div class="tab-pane fade show active" id="plots-pane" role="tabpanel">
+                <div class="plots-layout">
+                    <!-- Plot Area (Left) -->
+                    <div class="plot-area-col">
+                        <div class="plot-container position-relative">
+                            <div class="loading-overlay" id="plot-loading">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                                    <div class="text-muted">Loading plot data...</div>
+                                </div>
+                            </div>
+                            <div id="plotly-chart"></div>
+                            <div id="plot-welcome" class="text-center py-5">
+                                <i class="bi bi-graph-up display-1 text-muted mb-3"></i>
+                                <h4 class="text-muted">Welcome to SEC Analysis</h4>
+                                <p class="text-muted">Click "Load Report" to begin</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings Panel (Right) -->
+                    <div class="settings-col">
+                        <div class="settings-panel">
+                            <h5 class="mb-3">
+                                <i class="bi bi-sliders"></i> Plot Configuration
+                            </h5>
+
+                            <!-- Plot Type -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">Plot Type</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="plot-type" id="plot-overlay" value="overlay" checked>
+                                    <label class="btn btn-outline-primary btn-sm" for="plot-overlay">Overlay</label>
+
+                                    <input type="radio" class="btn-check" name="plot-type" id="plot-subplots" value="subplots">
+                                    <label class="btn btn-outline-primary btn-sm" for="plot-subplots">Subplots</label>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Channel Selection -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">
+                                    <i class="bi bi-eye"></i> Display Channel
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="display-channel" id="ch-uv280" value="uv280" checked>
+                                    <label class="form-check-label" for="ch-uv280">UV280</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="display-channel" id="ch-uv260" value="uv260">
+                                    <label class="form-check-label" for="ch-uv260">UV260</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="display-channel" id="ch-pressure" value="pressure">
+                                    <label class="form-check-label" for="ch-pressure">Pressure</label>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Peak Detection Settings -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">
+                                    <i class="bi bi-bullseye"></i> Main Peak Detection
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-rt" value="rt" checked>
+                                    <label class="form-check-label" for="mode-rt">By Retention Time</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-height" value="height">
+                                    <label class="form-check-label" for="mode-height">By Peak Height</label>
+                                </div>
+
+                                <div id="rt-input-group" class="mt-2">
+                                    <label for="main-peak-rt" class="form-label small">Main Peak RT (min)</label>
+                                    <input type="number" class="form-control form-control-sm" id="main-peak-rt" value="10.5" step="0.1">
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- MW Settings -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">
+                                    <i class="bi bi-calculator"></i> MW Calculation
+                                </label>
+                                <div class="mb-2">
+                                    <label for="low-mw-cutoff" class="form-label small">Low MW Cutoff (kDa)</label>
+                                    <input type="number" class="form-control form-control-sm" id="low-mw-cutoff" value="12" step="1">
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="use-std-curve" value="1">
+                                    <label class="form-check-label" for="use-std-curve">Use Standard Curve</label>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Shading Options -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">
+                                    <i class="bi bi-palette"></i> Shading & Markers
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="show-shading" value="1" checked>
+                                    <label class="form-check-label" for="show-shading">Show Region Shading</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="show-droplines" value="1">
+                                    <label class="form-check-label" for="show-droplines">Show Region Droplines</label>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Line Styling -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">
+                                    <i class="bi bi-pencil"></i> Line Styling
+                                </label>
+                                <div class="mb-2">
+                                    <label for="line-width" class="form-label small">Line Width</label>
+                                    <input type="number" class="form-control form-control-sm" id="line-width" value="1.5" min="0.5" max="5" step="0.5">
+                                </div>
+                                <div>
+                                    <label for="subplot-color" class="form-label small">Subplot Line Color</label>
+                                    <input type="color" class="form-control form-control-color" id="subplot-color" value="#000000" title="Choose line color for subplots">
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Apply Button -->
+                            <div class="d-grid">
+                                <button type="button" class="btn btn-primary" id="btn-apply-settings">
+                                    <i class="bi bi-check-circle"></i> Apply Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Results Table -->
+            <div class="tab-pane fade" id="results-pane" role="tabpanel">
+                <div class="results-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="bi bi-table"></i> Analysis Results</h5>
+                        <button class="btn btn-sm btn-success" id="export-results-excel">
+                            <i class="bi bi-file-earmark-excel"></i> Export
+                        </button>
+                    </div>
+                    <div id="results-table-container">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-table display-4"></i>
+                            <p class="mt-3">Load a report to view results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: STD Results -->
+            <div class="tab-pane fade" id="std-pane" role="tabpanel">
+                <div class="results-container">
+                    <h5 class="mb-3"><i class="bi bi-bezier2"></i> Standard Curve Analysis</h5>
+                    <div id="std-analysis-container">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-bezier2 display-4"></i>
+                            <p class="mt-3">Load a report with standard data to view analysis</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Load Report Modal with Tabs -->
+    <div class="modal fade" id="loadReportModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-folder-open"></i> Select/Create Report</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="reportModalTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="select-report-tab" data-bs-toggle="tab"
+                                    data-bs-target="#select-report-pane" type="button" role="tab">
+                                <i class="bi bi-list-ul"></i> Select Report
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="create-report-tab" data-bs-toggle="tab"
+                                    data-bs-target="#create-report-pane" type="button" role="tab">
+                                <i class="bi bi-plus-circle"></i> Create Report
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="reportModalTabContent">
+                        <!-- Select Report Tab -->
+                        <div class="tab-pane fade show active" id="select-report-pane" role="tabpanel">
+                            <!-- Filters -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="report-search" class="form-label">Search</label>
+                                    <input type="text" class="form-control" id="report-search"
+                                           placeholder="Search by Report ID or Name...">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="report-type-filter" class="form-label">Type</label>
+                                    <select class="form-select" id="report-type-filter">
+                                        <option value="">All Types</option>
+                                        <option value="PD">Process Development</option>
+                                        <option value="UP">Upstream</option>
+                                        <option value="FB">Feedback</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button class="btn btn-outline-primary w-100" id="refresh-reports-btn">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tabulator Table -->
+                            <div id="reports-table" class="mb-3"></div>
+
+                            <!-- Selected Report Info -->
+                            <div id="selected-report-info" class="alert alert-info d-none">
+                                <strong>Selected:</strong> <span id="selected-report-name"></span>
+                            </div>
+                        </div>
+
+                        <!-- Create Report Tab -->
+                        <div class="tab-pane fade" id="create-report-pane" role="tabpanel">
+                            <div style="height: 500px; overflow: hidden;">
+                                <iframe id="create-report-iframe"
+                                        src="/plotly_integration/dash-app/app/CreateSECReportApp/"
+                                        style="width: 100%; height: 100%; border: none;">
+                                </iframe>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="modal-load-btn">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="modal-loading"></span>
+                        Load Selected Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JS will be loaded here -->
+    <script src="{% static 'analytical/js/sec_loader.js' %}"></script>
+    <script src="{% static 'analytical/js/sec_plot_manager.js' %}"></script>
+    <script src="{% static 'analytical/js/sec_report_modal.js' %}"></script>
+
+    <!-- Inline initialization -->
+    <script>
+        // Toggle RT input visibility based on peak detection mode
+        document.addEventListener('DOMContentLoaded', function() {
+            const rtRadio = document.getElementById('mode-rt');
+            const heightRadio = document.getElementById('mode-height');
+            const rtInputGroup = document.getElementById('rt-input-group');
+
+            function updateRTInput() {
+                if (rtRadio && rtRadio.checked) {
+                    rtInputGroup.style.display = 'block';
+                } else {
+                    rtInputGroup.style.display = 'none';
+                }
+            }
+
+            if (rtRadio && heightRadio) {
+                rtRadio.addEventListener('change', updateRTInput);
+                heightRadio.addEventListener('change', updateRTInput);
+                updateRTInput();
+            }
+
+            // Show load report modal on button click
+            document.getElementById('btn-load-report').addEventListener('click', function() {
+                const modal = new bootstrap.Modal(document.getElementById('loadReportModal'));
+                modal.show();
+            });
+
+            // Export PNG using Plotly
+            document.getElementById('export-png').addEventListener('click', function(e) {
+                e.preventDefault();
+                const plotDiv = document.getElementById('plotly-chart');
+                if (plotDiv && plotDiv.data && plotDiv.data.length > 0) {
+                    Plotly.downloadImage(plotDiv, {
+                        format: 'png',
+                        width: 1200,
+                        height: 800,
+                        filename: 'sec_plot'
+                    });
+                } else {
+                    alert('No plot data available to export');
+                }
+            });
+
+            // Reset button
+            document.getElementById('btn-reset').addEventListener('click', function() {
+                if (confirm('Are you sure you want to reset? This will clear all loaded data.')) {
+                    window.location.reload();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

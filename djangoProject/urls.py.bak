@@ -24,14 +24,16 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('plotly_integration/', include('plotly_integration.urls')),
-    path('development/', include('development.urls')),  # HTMX development apps
-    path('analytical/', include('analytical.urls')),  # HTMX analytical apps
 
-    # Main dashboard (new home page)
-    path('', include('dashboard.urls')),
+    # Root URL embeds PD Dashboard
+    path('', pd_dashboard_view, name='pd_dashboard'),
 
-    # Legacy PD Dashboard
-    path('pd-dashboard/', pd_dashboard_view, name='pd_dashboard'),
+    # Shortcut to PD Dashboard
+    path('dashboard/', pd_dashboard_view, name='pd_dashboard_alt'),
+
+
+
+
 ]
 
 from django.conf import settings

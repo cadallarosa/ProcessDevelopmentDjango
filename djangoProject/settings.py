@@ -18,6 +18,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',  # Keep only this occurrence
     'plotly_integration',
+    'development',  # HTMX development apps
+    'analytical',  # HTMX analytical apps (SEC, etc.)
+    'dashboard',  # Main dashboard with collapsible sidebar
     'corsheaders',
     'channels',
     'channels_redis',

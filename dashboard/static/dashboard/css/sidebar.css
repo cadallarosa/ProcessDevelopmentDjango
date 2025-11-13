@@ -1,0 +1,377 @@
+/* ==========================================
+   SIDEBAR STYLING - Matching PD Dashboard
+   ========================================== */
+
+:root {
+    --sidebar-width: 220px;
+    --sidebar-bg: #2c3e50;
+    --sidebar-header-bg: #34495e;
+    --sidebar-text: #ecf0f1;
+    --sidebar-hover: #34495e;
+    --sidebar-active: #3498db;
+    --content-bg: #fafbfc;
+    --transition-speed: 0.3s;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--content-bg);
+}
+
+/* ==========================================
+   SIDEBAR CONTAINER
+   ========================================== */
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: transform var(--transition-speed) ease;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar.hidden {
+    transform: translateX(calc(-1 * var(--sidebar-width)));
+}
+
+/* Custom scrollbar for sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ==========================================
+   SIDEBAR HEADER
+   ========================================== */
+
+.sidebar-header {
+    background-color: var(--sidebar-header-bg);
+    padding: 1.5rem 1rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--sidebar-text);
+}
+
+.sidebar-header i {
+    margin-right: 0.5rem;
+    color: var(--sidebar-active);
+}
+
+/* ==========================================
+   NAVIGATION SECTIONS
+   ========================================== */
+
+.sidebar-nav {
+    flex: 1;
+    padding: 0.5rem 0;
+}
+
+.nav-section {
+    margin-bottom: 0.5rem;
+}
+
+/* ==========================================
+   NAVIGATION HEADERS (Collapsible & Links)
+   ========================================== */
+
+.nav-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--sidebar-text);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-speed) ease;
+    text-align: left;
+    text-decoration: none;
+}
+
+.nav-header:hover {
+    background-color: var(--sidebar-hover);
+}
+
+.nav-header i:first-child {
+    margin-right: 0.75rem;
+    width: 20px;
+    text-align: center;
+}
+
+.nav-title {
+    flex: 1;
+}
+
+/* Chevron icon for collapsible sections */
+.nav-chevron {
+    margin-left: auto;
+    font-size: 0.75rem;
+    transition: transform var(--transition-speed) ease;
+}
+
+.nav-header[aria-expanded="true"] .nav-chevron {
+    transform: rotate(180deg);
+}
+
+/* Direct link styling (non-collapsible) */
+.nav-link-direct {
+    display: flex;
+}
+
+.nav-link-direct:hover {
+    color: var(--sidebar-text);
+    text-decoration: none;
+}
+
+/* ==========================================
+   SUBMENU (Collapsible Content)
+   ========================================== */
+
+.nav-submenu {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height var(--transition-speed) ease,
+                padding var(--transition-speed) ease,
+                opacity var(--transition-speed) ease;
+    padding: 0.5rem 0;
+    opacity: 1;
+}
+
+.nav-submenu.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+/* ==========================================
+   NAVIGATION ITEMS
+   ========================================== */
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem 0.6rem 2.5rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease, color 0.2s ease, padding-left 0.2s ease;
+}
+
+.nav-item:hover {
+    background-color: var(--sidebar-hover);
+    color: var(--sidebar-text);
+    padding-left: 2.75rem;
+    text-decoration: none;
+}
+
+.nav-item.active {
+    background-color: var(--sidebar-active);
+    color: white;
+    border-left: 3px solid #fff;
+}
+
+.nav-item i {
+    margin-right: 0.5rem;
+    width: 16px;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+/* ==========================================
+   SIDEBAR FOOTER
+   ========================================== */
+
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.btn-sidebar-action {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--sidebar-text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.btn-sidebar-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-sidebar-action i {
+    margin-right: 0.5rem;
+}
+
+/* ==========================================
+   MAIN CONTENT AREA
+   ========================================== */
+
+.main-content {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    padding: 2rem;
+    background-color: var(--content-bg);
+    transition: margin-left var(--transition-speed) ease;
+}
+
+.main-content.expanded {
+    margin-left: 0;
+}
+
+/* ==========================================
+   SIDEBAR TOGGLE BUTTON
+   ========================================== */
+
+.sidebar-toggle-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    left: var(--sidebar-width);
+    z-index: 1001;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    border: none;
+    border-left: none;
+    padding: 0.5rem 0.4rem;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.15);
+    transition: left var(--transition-speed) ease,
+                opacity 0.2s ease,
+                background-color 0.2s ease,
+                transform 0.2s ease;
+    opacity: 0.3;
+    font-size: 0.9rem;
+    width: 28px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: var(--sidebar-hover);
+    opacity: 1;
+    transform: translateY(-50%) translateX(2px);
+}
+
+.sidebar-toggle-btn.sidebar-hidden {
+    left: 0;
+}
+
+.sidebar-toggle-btn i {
+    font-size: 0.9rem;
+}
+
+/* ==========================================
+   RESPONSIVE DESIGN
+   ========================================== */
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+    
+    .sidebar.mobile-visible {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .sidebar-toggle-btn {
+        left: 1rem;
+    }
+    
+    .sidebar-toggle-btn.sidebar-visible {
+        left: calc(var(--sidebar-width) + 1rem);
+    }
+}
+
+/* ==========================================
+   UTILITY CLASSES
+   ========================================== */
+
+.text-muted {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ==========================================
+   HTMX LOADING INDICATOR
+   ========================================== */
+
+.htmx-indicator {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.htmx-indicator.htmx-request {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==========================================
+   ACTIVE NAVIGATION STATE
+   ========================================== */
+
+.nav-item.nav-active {
+    background-color: var(--sidebar-active);
+    color: white;
+    border-left: 3px solid #fff;
+}

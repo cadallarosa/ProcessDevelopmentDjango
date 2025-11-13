@@ -1,0 +1,63 @@
+<!-- Plot and Results Table -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-graph-up"></i> SEC Chromatography Plot
+        {% if sample_count %}
+        <span class="badge bg-light text-dark float-end">{{ sample_count }} Sample{{ sample_count|pluralize }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <!-- Plot -->
+        <div id="plotly-chart" style="min-height: 700px;"></div>
+
+        <!-- Store plot data in a data attribute -->
+        <div id="plot-data-container" style="display: none;" data-plot='{{ plot_json|safe }}'></div>
+    </div>
+</div>
+
+<!-- Results Table -->
+{% if analysis_results %}
+<div class="card mt-3">
+    <div class="card-header">
+        <i class="bi bi-table"></i> Analysis Results
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>Sample Name</th>
+                        <th>Main Peak RT (min)</th>
+                        <th>HMW %</th>
+                        <th>Main Peak %</th>
+                        <th>LMW %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result_id, data in analysis_results.items %}
+                    <tr>
+                        <td><strong>{{ data.sample_name }}</strong></td>
+                        <td>{{ data.main_peak_rt|default:"-"|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge" style="background-color: rgba(220, 53, 69, 0.7);">
+                                {{ data.hmw_percent|floatformat:2 }}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: rgba(40, 167, 69, 0.7);">
+                                {{ data.main_percent|floatformat:2 }}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: rgba(23, 162, 184, 0.7);">
+                                {{ data.lmw_percent|floatformat:2 }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}

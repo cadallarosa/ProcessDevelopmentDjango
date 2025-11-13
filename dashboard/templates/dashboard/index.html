@@ -1,0 +1,62 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Home - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4">Welcome to the Dashboard</h1>
+            <p class="lead">Your central hub for analytical tools and process development applications.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-microscope text-primary"></i> Analytical Tools
+                    </h5>
+                    <p class="card-text">Access SEC analysis, CE-SDS, cIEF, and other analytical applications.</p>
+                    <a href="/analytical/" class="btn btn-primary">Go to Analytical</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-flask text-success"></i> Development Apps
+                    </h5>
+                    <p class="card-text">Image arrangement, molecule dashboard, and development tools.</p>
+                    <a href="/development/" class="btn btn-success">Go to Development</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line text-info"></i> Process Development
+                    </h5>
+                    <p class="card-text">Cell culture, downstream processing, and LIMS integration.</p>
+                    <a href="/plotly_integration/" class="btn btn-info">Go to PD Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Tip:</strong> Use the sidebar navigation to quickly access different sections and tools.
+                You can collapse/expand sections and hide the entire sidebar for more screen space.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
