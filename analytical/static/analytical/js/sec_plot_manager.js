@@ -221,7 +221,15 @@ async function exportToPPT() {
  */
 function togglePlotType() {
     const plotType = document.querySelector('input[name="plot-type"]:checked')?.value;
-    console.log('[Plot Manager] ⏱️ Plot type changed to:', plotType);
+    const subplotMode = document.querySelector('input[name="subplot-mode"]:checked')?.value || 'all';
+
+    // Show/hide subplot mode selector
+    const subplotModeContainer = document.getElementById('subplot-mode-container');
+    if (subplotModeContainer) {
+        subplotModeContainer.style.display = plotType === 'subplots' ? 'block' : 'none';
+    }
+
+    console.log('[Plot Manager] ⏱️ Plot type changed to:', plotType, 'subplot mode:', subplotMode);
 
     if (!window.secData || !window.secData.reportId) {
         console.warn('[Plot Manager] No data loaded');
@@ -234,8 +242,13 @@ function togglePlotType() {
     const startTime = performance.now();
 
     if (plotType === 'subplots') {
-        console.log('[Plot Manager] Rendering subplot mode...');
-        renderSubplots();
+        if (subplotMode === 'grouped') {
+            console.log('[Plot Manager] Rendering grouped subplots...');
+            renderGroupSubplots();
+        } else {
+            console.log('[Plot Manager] Rendering all-sample subplots...');
+            renderSubplots();
+        }
     } else {
         console.log('[Plot Manager] Rendering overlay mode...');
         window.secLoader.renderPlot();
@@ -243,6 +256,52 @@ function togglePlotType() {
 
     const endTime = performance.now();
     console.log(`[Plot Manager] ⏱️ Plot type switch completed in ${(endTime - startTime).toFixed(2)}ms`);
+}
+
+/**
+ * Helper function to sort sample names (FD-###-### format)
+ */
+function sortSamplesByName(samples) {
+    return samples.sort((a, b) => {
+        const nameA = (a.sample_name || '').trim();
+        const nameB = (b.sample_name || '').trim();
+
+        // Extract FD-###-### pattern or other patterns
+        const fdPattern = /^([A-Z]+)-(\d+)-(\d+)/i;
+        const matchA = nameA.match(fdPattern);
+        const matchB = nameB.match(fdPattern);
+
+        if (matchA && matchB) {
+            // Both are FD-###-### format
+            const prefixA = matchA[1].toUpperCase();
+            const prefixB = matchB[1].toUpperCase();
+
+            if (prefixA !== prefixB) {
+                return prefixA.localeCompare(prefixB);
+            }
+
+            // Same prefix, compare first number
+            const num1A = parseInt(matchA[2], 10);
+            const num1B = parseInt(matchB[2], 10);
+            if (num1A !== num1B) {
+                return num1A - num1B;
+            }
+
+            // Same first number, compare second number
+            const num2A = parseInt(matchA[3], 10);
+            const num2B = parseInt(matchB[3], 10);
+            return num2A - num2B;
+        } else if (matchA) {
+            // A is FD format, B is not - A comes first
+            return -1;
+        } else if (matchB) {
+            // B is FD format, A is not - B comes first
+            return 1;
+        } else {
+            // Neither match FD format, alphabetical sort
+            return nameA.localeCompare(nameB);
+        }
+    });
 }
 
 /**
@@ -265,8 +324,62 @@ function renderSubplots() {
     const lineWidth = parseFloat(document.getElementById('line-width')?.value) || 1.5;
     const subplotColor = document.getElementById('subplot-color')?.value || '#000000';
 
-    // Get all result IDs
-    const resultIds = window.secData.metadata?.result_ids || [];
+    // Get all result IDs, filter out Standards/Blanks, and sort by sample name
+    let resultIds = window.secData.metadata?.result_ids || [];
+
+    // Helper function to check if a result should be excluded (Standards/Blanks)
+    function shouldExcludeResult(resultId) {
+        if (!window.secData.groups) {
+            console.log('[Plot Manager] ⚠️ No groups data available for filtering');
+            console.log('[Plot Manager] window.secData:', window.secData);
+            return false;
+        }
+
+        console.log(`[Plot Manager] 🔍 Checking result_id: ${resultId}`);
+
+        for (const [groupName, samples] of Object.entries(window.secData.groups)) {
+            console.log(`[Plot Manager]   Checking group "${groupName}" (${samples.length} samples)`);
+
+            if (samples.some(s => s.result_id === resultId)) {
+                const groupLower = groupName.toLowerCase();
+                if (groupLower.includes('std') || groupLower.includes('standard') || groupLower.includes('blank')) {
+                    console.log(`[Plot Manager] ❌ EXCLUDING result_id ${resultId} (group: "${groupName}")`);
+                    return true;
+                }
+                console.log(`[Plot Manager] ✅ INCLUDING result_id ${resultId} (group: "${groupName}")`);
+                break;
+            }
+        }
+        console.log(`[Plot Manager] ⚠️ Result ${resultId} not found in any group - INCLUDING by default`);
+        return false;
+    }
+
+    console.log('[Plot Manager] Filtering result_ids. Original count:', resultIds.length);
+    console.log('[Plot Manager] Original result_ids:', resultIds);
+
+    // Filter out Standards and Blanks
+    resultIds = resultIds.filter(id => !shouldExcludeResult(id));
+
+    console.log('[Plot Manager] After filtering. New count:', resultIds.length);
+    console.log('[Plot Manager] Filtered result_ids:', resultIds);
+
+    // Create a map of result_id to sample data for sorting
+    if (window.secData.resultsTable && window.secData.resultsTable.results) {
+        const resultsMap = {};
+        window.secData.resultsTable.results.forEach(r => {
+            resultsMap[r.result_id] = r;
+        });
+
+        // Create sorted array
+        const samplesWithIds = resultIds.map(id => ({
+            result_id: id,
+            sample_name: resultsMap[id]?.sample_name || ''
+        }));
+
+        sortSamplesByName(samplesWithIds);
+        resultIds = samplesWithIds.map(s => s.result_id);
+    }
+
     const numSamples = resultIds.length;
 
     if (numSamples === 0) {
@@ -296,15 +409,22 @@ function renderSubplots() {
             const channelKey = `${channel}Traces`;
             const traces = window.secData[channelKey] || [];
 
-            // Match trace by index - traces are created in same order as resultIds
-            if (traces[sampleIdx]) {
-                const trace = traces[sampleIdx];
-                const subplotTrace = {...trace};
+            // Find trace by result_id (not by index, since we've sorted result_ids)
+            const trace = traces.find(t =>
+                t.customdata && t.customdata[0] && t.customdata[0].result_id === resultId
+            );
+
+            if (trace) {
+                // Deep copy to avoid modifying original trace
+                const subplotTrace = JSON.parse(JSON.stringify(trace));
 
                 // Apply user-selected line styling
                 if (subplotTrace.line) {
-                    subplotTrace.line.color = subplotColor;
-                    subplotTrace.line.width = lineWidth;
+                    subplotTrace.line = {
+                        ...subplotTrace.line,
+                        color: subplotColor,
+                        width: lineWidth
+                    };
                 }
 
                 // Assign to correct subplot axes
@@ -380,18 +500,21 @@ function renderSubplots() {
     // Add sample names as subplot titles (always show)
     layout.annotations = [];
 
-    // Try to get sample names from results table, fallback to metadata
+    // Use sorted resultIds to create titles
     if (window.secData.loadingStates.results && window.secData.resultsTable) {
         const results = window.secData.resultsTable.results || [];
+        const resultsMap = {};
+        results.forEach(r => {
+            resultsMap[r.result_id] = r;
+        });
 
-        results.forEach((result, sampleIdx) => {
-            if (sampleIdx >= numSamples) return;
-
+        resultIds.forEach((resultId, sampleIdx) => {
             const subplotNum = sampleIdx + 1;
             const xRef = subplotNum === 1 ? 'x' : `x${subplotNum}`;
             const yRef = subplotNum === 1 ? 'y' : `y${subplotNum}`;
 
-            const sampleName = result.sample_name || `Sample ${result.result_id}`;
+            const result = resultsMap[resultId];
+            const sampleName = result ? (result.sample_name || `Sample ${resultId}`) : `Sample ${resultId}`;
 
             layout.annotations.push({
                 text: `<b>${sampleName}</b>`,
@@ -608,6 +731,177 @@ function renderSubplots() {
 }
 
 /**
+ * Render plots in group subplot mode (each group gets one subplot, excluding Standards/Blanks)
+ */
+function renderGroupSubplots() {
+    console.log('[Plot Manager] 📊 Creating group subplots...');
+
+    const plotDiv = document.getElementById('plotly-chart');
+    if (!plotDiv) {
+        console.error('[Plot Manager] Plot div not found');
+        return;
+    }
+
+    // Get selected channel
+    const selectedChannel = document.querySelector('input[name="display-channel"]:checked')?.value || 'uv280';
+
+    // Get line styling settings
+    const lineWidth = parseFloat(document.getElementById('line-width')?.value) || 1.5;
+
+    // Get groups and filter out Standards and Blanks
+    if (!window.secData.groups || !window.secData.groupColors) {
+        console.error('[Plot Manager] No group data available');
+        return;
+    }
+
+    const filteredGroups = {};
+    for (const [groupName, samples] of Object.entries(window.secData.groups)) {
+        const groupLower = groupName.toLowerCase();
+        if (!groupLower.includes('std') && !groupLower.includes('standard') && !groupLower.includes('blank')) {
+            filteredGroups[groupName] = samples;
+        }
+    }
+
+    const groupNames = Object.keys(filteredGroups);
+    if (groupNames.length === 0) {
+        console.warn('[Plot Manager] No groups to plot after filtering');
+        return;
+    }
+
+    console.log(`[Plot Manager] Creating ${groupNames.length} group subplots for channel: ${selectedChannel}`);
+
+    // Collect all traces with subplot assignments
+    const allTraces = [];
+    const cols = 2;
+    const rows = Math.ceil(groupNames.length / cols);
+
+    // For each group, create a subplot
+    groupNames.forEach((groupName, groupIdx) => {
+        const subplotNum = groupIdx + 1;
+        const samples = filteredGroups[groupName];
+        const groupColor = window.secData.groupColors[groupName];
+
+        // Get traces for this channel
+        const channelKey = `${selectedChannel}Traces`;
+        const traces = window.secData[channelKey] || [];
+
+        // Find all traces that belong to this group
+        samples.forEach(sample => {
+            const trace = traces.find(t =>
+                t.customdata && t.customdata[0] && t.customdata[0].result_id === sample.result_id
+            );
+
+            if (trace) {
+                // Deep copy to avoid modifying original trace
+                const subplotTrace = JSON.parse(JSON.stringify(trace));
+
+                // Apply group color and line width
+                if (subplotTrace.line) {
+                    subplotTrace.line = {
+                        ...subplotTrace.line,
+                        color: groupColor,
+                        width: lineWidth
+                    };
+                }
+
+                // Assign to correct subplot axes
+                const xaxis = subplotNum === 1 ? 'x' : `x${subplotNum}`;
+                const yaxis = subplotNum === 1 ? 'y' : `y${subplotNum}`;
+
+                subplotTrace.xaxis = xaxis;
+                subplotTrace.yaxis = yaxis;
+
+                allTraces.push(subplotTrace);
+            }
+        });
+    });
+
+    // Build layout with subplot axes
+    const layout = {
+        title: {
+            text: `SEC Group Analysis - ${selectedChannel.toUpperCase()}`,
+            font: { size: 20, color: '#343a40', family: 'Arial, sans-serif' }
+        },
+        showlegend: true,
+        legend: {
+            orientation: 'v',
+            x: 1.02,
+            y: 1,
+            xanchor: 'left',
+            yanchor: 'top'
+        },
+        height: 300 * rows,
+        grid: {
+            rows: rows,
+            columns: cols,
+            pattern: 'independent',
+            roworder: 'top to bottom'
+        },
+        margin: { l: 60, r: 200, t: 80, b: 60 }
+    };
+
+    // Create axes for each subplot
+    for (let i = 1; i <= groupNames.length; i++) {
+        const xaxis = i === 1 ? 'xaxis' : `xaxis${i}`;
+        const yaxis = i === 1 ? 'yaxis' : `yaxis${i}`;
+
+        layout[xaxis] = {
+            title: 'Retention Time (min)',
+            showgrid: true,
+            gridcolor: '#e3e6ea',
+            showline: true,
+            linewidth: 1,
+            linecolor: '#343a40'
+        };
+
+        layout[yaxis] = {
+            title: selectedChannel === 'pressure' ? 'Pressure (bar)' : 'Absorbance (mAU)',
+            showgrid: true,
+            gridcolor: '#e3e6ea',
+            showline: true,
+            linewidth: 1,
+            linecolor: '#343a40'
+        };
+    }
+
+    // Add group names as subplot titles
+    layout.annotations = [];
+    groupNames.forEach((groupName, idx) => {
+        const subplotNum = idx + 1;
+        const xRef = subplotNum === 1 ? 'x' : `x${subplotNum}`;
+        const yRef = subplotNum === 1 ? 'y' : `y${subplotNum}`;
+
+        layout.annotations.push({
+            text: `<b>${groupName}</b> (${filteredGroups[groupName].length} samples)`,
+            xref: xRef + ' domain',
+            yref: yRef + ' domain',
+            x: 0.5,
+            y: 1.05,
+            xanchor: 'center',
+            yanchor: 'bottom',
+            showarrow: false,
+            font: {
+                size: 14,
+                color: '#343a40',
+                family: 'Arial, sans-serif'
+            }
+        });
+    });
+
+    console.log(`[Plot Manager] Rendering ${allTraces.length} traces across ${groupNames.length} group subplots`);
+
+    // Render with Plotly
+    Plotly.newPlot(plotDiv, allTraces, layout, {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['sendDataToCloud', 'lasso2d', 'select2d']
+    });
+
+    console.log('[Plot Manager] ✓ Group subplots rendered successfully');
+}
+
+/**
  * Show toast notification
  */
 function showToast(message, type = 'info') {
@@ -686,6 +980,12 @@ function initializePlotManager() {
     // Plot type radio listeners
     const plotTypeRadios = document.querySelectorAll('input[name="plot-type"]');
     plotTypeRadios.forEach(radio => {
+        radio.addEventListener('change', togglePlotType);
+    });
+
+    // Subplot mode radio listeners
+    const subplotModeRadios = document.querySelectorAll('input[name="subplot-mode"]');
+    subplotModeRadios.forEach(radio => {
         radio.addEventListener('change', togglePlotType);
     });
 

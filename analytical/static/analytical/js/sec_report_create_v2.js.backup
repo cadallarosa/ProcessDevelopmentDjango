@@ -53,7 +53,8 @@ function initLeftTable(virtualDomBuffer = null, enableGrouping = true) {
         height: "100%",
         layout: "fitDataStretch",
         placeholder: "No samples available",
-        selectableRows: true, // Make rows selectable (same as example - enables shift-click automatically)
+        selectable: true, // Enable multi-row selection
+        selectableRangeMode: "click", // Allow click-based range selection
 
         // Virtual DOM mode for all sample counts (no pagination)
         virtualDom: true,
@@ -119,8 +120,7 @@ function initLeftTable(virtualDomBuffer = null, enableGrouping = true) {
         ]
     });
 
-    // Add click handler for Alt+Click preview only
-    // Let Tabulator handle all selection natively (click, shift+click, etc.)
+    // Add click handler for rows (not group headers)
     window.reportCreator.leftTable.on("rowClick", function(e, row) {
         // Check if this is a data row (not a group header)
         const data = row.getData();
@@ -146,11 +146,14 @@ function initLeftTable(virtualDomBuffer = null, enableGrouping = true) {
                         previewModal.showPreview(data.result_id);
                     }
                 }
-                // Prevent default to stop selection toggle on Alt+Click
-                e.stopPropagation();
                 return;
             }
-            // For all other clicks (regular, shift, ctrl), let Tabulator handle selection natively
+
+            // Regular click = Toggle row selection (don't add to report)
+            row.toggleSelect();
+            console.log('[Creator] Row selection toggled:', data.result_id);
+        } else {
+            console.log('[Creator] Clicked on non-data row (group header or placeholder)');
         }
     });
 
@@ -232,11 +235,6 @@ function initLeftTable(virtualDomBuffer = null, enableGrouping = true) {
             console.log('[Creator] Clicked empty space - Clearing selection');
             window.reportCreator.leftTable.deselectRow();
         }
-    });
-
-    // Add row selection changed event to log selection count
-    window.reportCreator.leftTable.on("rowSelectionChanged", function(data, rows) {
-        console.log(`[Creator] 📋 Selection changed: ${rows.length} row(s) selected`);
     });
 
     console.log('[Creator] Left table initialized');
@@ -953,10 +951,7 @@ function renameGroup(oldGroupName) {
  */
 function updateCounts() {
     const allData = window.reportCreator.rightTable.getData();
-    const realSamples = allData.filter(row => !row._isPlaceholder);
-    const count = realSamples.length;
-
-    // Update header badge
+    const count = allData.length;
     const elem = document.getElementById('total-samples-count');
     if (elem) {
         elem.textContent = `${count} sample${count !== 1 ? 's' : ''}`;
@@ -988,9 +983,6 @@ async function createReport(e) {
 
     if (realSamples.length === 0) {
         alert('Please add at least one sample to the report');
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('createReportModal'));
-        if (modal) modal.hide();
         return;
     }
 
@@ -1007,12 +999,7 @@ async function createReport(e) {
 
     console.log(`[Creator] ${isEdit ? 'Updating' : 'Creating'} report with`, sampleData.length, 'samples');
 
-    // Find submit button in modal footer
-    const btn = document.querySelector('#createReportModal button[type="submit"]');
-    if (!btn) {
-        console.error('[Creator] Submit button not found!');
-        return;
-    }
+    const btn = document.querySelector('#report-form button[type="submit"]');
     const origText = btn.innerHTML;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${isEdit ? 'Updating' : 'Creating'}...`;
     btn.disabled = true;
@@ -1041,10 +1028,6 @@ async function createReport(e) {
         const result = await res.json();
         const finalReportId = result.report_id || reportId;
         console.log(`[Creator] Report ${isEdit ? 'updated' : 'created'}:`, finalReportId);
-
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('createReportModal'));
-        if (modal) modal.hide();
 
         alert(`Report ${isEdit ? 'updated' : 'created'} successfully! Report ID: ${finalReportId}`);
 

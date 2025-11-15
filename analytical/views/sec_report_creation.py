@@ -30,6 +30,9 @@ def list_samples(request):
         # Get optional prefix filter from query params
         prefix_filter = request.GET.get('prefix', None)
 
+        # Get optional limit parameter (default 500)
+        limit_param = request.GET.get('limit', '500')
+
         # Query samples - don't filter by analysis_type as it's mostly null
         # Filter by sample_prefix instead (FD, FB, UP, UPFB, PD)
         query_start = time.time()
@@ -43,14 +46,29 @@ def list_samples(request):
             else:
                 queryset = queryset.filter(sample_prefix=prefix_filter)
 
-        samples = queryset.order_by("-date_acquired").values(
+        # Order by date (most recent first)
+        queryset = queryset.order_by("-date_acquired")
+
+        # Apply limit if not 'all'
+        if limit_param.lower() != 'all':
+            try:
+                limit = int(limit_param)
+                queryset = queryset[:limit]
+                logger.info(f"Applying limit: {limit} samples")
+            except ValueError:
+                logger.warning(f"Invalid limit parameter: {limit_param}, defaulting to 500")
+                queryset = queryset[:500]
+        else:
+            logger.info("Loading ALL samples (no limit)")
+
+        samples = queryset.values(
             "result_id",
             "sample_name",
             "sample_prefix",
             "system_name",
             "sample_set_name",
             "date_acquired"
-        )[:500]  # Limit to 500 most recent
+        )
         query_end = time.time()
         logger.info(f"DB query completed ({int((query_end - query_start) * 1000)}ms)")
 
@@ -147,17 +165,25 @@ def get_report(request, report_id):
     try:
         report = EmpowerReport.objects.get(report_id=report_id)
 
+        # Ensure sample_data is a list
+        sample_data = report.sample_data if report.sample_data is not None else []
+        if not isinstance(sample_data, list):
+            sample_data = []
+
         return JsonResponse({
             "report_id": report.report_id,
             "report_name": report.report_name,
             "project_id": report.project_id,
             "user_initials": report.user_initials,
             "report_type": report.report_type,
-            "date_created": report.date_created.isoformat() if report.date_created else None,
-            "samples": report.sample_data or []
+            "date_created": report.created_at.isoformat() if report.created_at else None,
+            "samples": sample_data
         })
     except EmpowerReport.DoesNotExist:
         return JsonResponse({"error": "Report not found"}, status=404)
+    except AttributeError as e:
+        logger.error(f"AttributeError fetching report {report_id}: {str(e)}", exc_info=True)
+        return JsonResponse({"error": f"Report data structure error: {str(e)}"}, status=500)
     except Exception as e:
         logger.error(f"Error fetching report {report_id}: {str(e)}", exc_info=True)
         return JsonResponse({"error": str(e)}, status=500)

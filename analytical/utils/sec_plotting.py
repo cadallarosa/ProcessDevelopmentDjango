@@ -27,51 +27,66 @@ def fetch_time_series_data(result_ids):
     print(f"    🔍 fetch_time_series_data: Looking for result_ids={result_ids_int}")
 
     # OPTIMIZED: Fetch all samples in ONE query instead of N queries
-    samples = list(SampleMetadata.objects.filter(result_id__in=result_ids_int).values('result_id', 'injection_id'))
+    # Include system_name to properly query TimeSeriesData
+    samples = list(SampleMetadata.objects.filter(result_id__in=result_ids_int).values('result_id', 'injection_id', 'system_name'))
     print(f"    🔍 Found {len(samples)} samples with injection IDs")
 
-    # Create mapping of result_id -> injection_id
-    injection_map = {s['result_id']: s['injection_id'] for s in samples}
-    injection_ids = list(injection_map.values())
+    # Create mapping of result_id -> {injection_id, system_name}
+    # Filter out samples with NULL injection_id
+    injection_map = {
+        s['result_id']: {'injection_id': s['injection_id'], 'system_name': s['system_name']}
+        for s in samples if s['injection_id'] is not None
+    }
     print(f"    🔍 injection_map: {injection_map}")
-    print(f"    🔍 Fetching timeseries for injection_ids: {injection_ids}")
+    print(f"    🔍 Fetching timeseries for {len(injection_map)} samples with valid injection_ids")
 
     # OPTIMIZED: Fetch ALL time series data in ONE query instead of N queries
-    timeseries_qs = TimeSeriesData.objects.filter(result_id__in=injection_ids).values(
-        'result_id', 'time', 'channel_1', 'channel_2', 'channel_3'
-    )
+    # Query using BOTH injection_id AND system_name for accurate matching
+    from django.db.models import Q
+    q_objects = Q()
+    for result_id, info in injection_map.items():
+        q_objects |= Q(result_id=info['injection_id'], system_name=info['system_name'])
+
+    timeseries_qs = TimeSeriesData.objects.filter(q_objects).values(
+        'result_id', 'system_name', 'time', 'channel_1', 'channel_2', 'channel_3'
+    ).order_by('result_id', 'system_name', 'time')
 
     timeseries_count = timeseries_qs.count()
     print(f"    🔍 Found {timeseries_count} timeseries rows")
 
-    # Group by injection_id
+    # Group by (injection_id, system_name) composite key
     timeseries_by_injection = {}
     for row in timeseries_qs:
-        injection_id = row['result_id']
-        if injection_id not in timeseries_by_injection:
-            timeseries_by_injection[injection_id] = []
-        timeseries_by_injection[injection_id].append({
+        key = (row['result_id'], row['system_name'])
+        if key not in timeseries_by_injection:
+            timeseries_by_injection[key] = []
+        timeseries_by_injection[key].append({
             'time': row['time'],
             'channel_1': row['channel_1'],
             'channel_2': row['channel_2'],
             'channel_3': row['channel_3']
         })
 
-    print(f"    🔍 Grouped into {len(timeseries_by_injection)} injection IDs")
-    for inj_id, rows in timeseries_by_injection.items():
-        print(f"        - {inj_id}: {len(rows)} data points")
+    print(f"    🔍 Grouped into {len(timeseries_by_injection)} injection ID + system pairs")
+    for (inj_id, system), rows in timeseries_by_injection.items():
+        print(f"        - {inj_id} ({system}): {len(rows)} data points")
 
     # Map back to original result_ids (use integers for lookup, but keep original for keys)
     data_dict = {}
     for orig_id, int_id in zip(result_ids, result_ids_int):
-        injection_id = injection_map.get(int_id)
-        if injection_id and injection_id in timeseries_by_injection:
-            df = pd.DataFrame(timeseries_by_injection[injection_id])
-            data_dict[orig_id] = df  # Use original ID (string or int) as key
-            print(f"    ✅ result_id {orig_id} ({int_id}) -> {len(df)} rows")
+        info = injection_map.get(int_id)
+        if info:
+            key = (info['injection_id'], info['system_name'])
+            if key in timeseries_by_injection:
+                df = pd.DataFrame(timeseries_by_injection[key])
+                data_dict[orig_id] = df  # Use original ID (string or int) as key
+                print(f"    ✅ result_id {orig_id} ({int_id}) -> {len(df)} rows [injection={info['injection_id']}, system={info['system_name']}]")
+            else:
+                data_dict[orig_id] = pd.DataFrame(columns=['time', 'channel_1', 'channel_2', 'channel_3'])
+                print(f"    ❌ result_id {orig_id} ({int_id}) -> NO DATA (injection_id={info['injection_id']}, system={info['system_name']} not found in timeseries)")
         else:
             data_dict[orig_id] = pd.DataFrame(columns=['time', 'channel_1', 'channel_2', 'channel_3'])
-            print(f"    ❌ result_id {orig_id} ({int_id}) -> NO DATA (injection_id={injection_id})")
+            print(f"    ❌ result_id {orig_id} ({int_id}) -> NO DATA (NULL injection_id or not in metadata)")
 
     return data_dict
 
@@ -558,6 +573,7 @@ def create_channel_traces(time_series_dict, metadata_dict, channel, analysis_res
             'name': f'{sample_name} - {label}',
             'line': {'color': color, 'width': width, 'dash': dash_style},
             'legendgroup': f'group{idx}',
+            'customdata': [{'result_id': result_id}] * len(df_clean),
             'hovertemplate': f'<b>%{{fullData.name}}</b><br>RT: %{{x:.2f}} min<br>{label}: %{{y:.2f}}<extra></extra>'
         }
 

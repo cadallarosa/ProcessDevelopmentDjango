@@ -330,6 +330,11 @@
                 <button class="nav-link" id="std-tab" data-bs-toggle="tab" data-bs-target="#std-pane" type="button" role="tab">
                     <i class="bi bi-bezier2"></i> STD Results
                 </button>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="blanks-tab" data-bs-toggle="tab" data-bs-target="#blanks-pane" type="button" role="tab">
+                    <i class="bi bi-droplet"></i> Blanks
+                </button>
+            </li>
             </li>
         </ul>
 
@@ -375,24 +380,49 @@
                                 </div>
                             </div>
 
+                            <!-- Subplot Mode (only shown when Subplots is selected) -->
+                            <div class="mb-4" id="subplot-mode-container" style="display: none;">
+                                <label class="form-label fw-bold small">Subplot Mode</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="subplot-mode" id="subplot-all" value="all" checked>
+                                    <label class="form-check-label" for="subplot-all">
+                                        All Samples (1 subplot per sample)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="subplot-mode" id="subplot-grouped" value="grouped">
+                                    <label class="form-check-label" for="subplot-grouped">
+                                        Grouped (1 subplot per group)
+                                    </label>
+                                </div>
+                            </div>
+
                             <hr>
 
                             <!-- Channel Selection -->
                             <div class="mb-4">
                                 <label class="form-label fw-bold small">
                                     <i class="bi bi-eye"></i> Display Channel
+                                    <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="right"
+                                       title="Channel 1 = UV280 (280nm), Channel 2 = UV260 (260nm), Channel 3 = Pressure"></i>
                                 </label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="display-channel" id="ch-uv280" value="uv280" checked>
-                                    <label class="form-check-label" for="ch-uv280">UV280</label>
+                                    <label class="form-check-label" for="ch-uv280">
+                                        UV280 <small class="text-muted">(Channel 1 - 280nm)</small>
+                                    </label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="display-channel" id="ch-uv260" value="uv260">
-                                    <label class="form-check-label" for="ch-uv260">UV260</label>
+                                    <label class="form-check-label" for="ch-uv260">
+                                        UV260 <small class="text-muted">(Channel 2 - 260nm)</small>
+                                    </label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="display-channel" id="ch-pressure" value="pressure">
-                                    <label class="form-check-label" for="ch-pressure">Pressure</label>
+                                    <label class="form-check-label" for="ch-pressure">
+                                        Pressure <small class="text-muted">(Channel 3)</small>
+                                    </label>
                                 </div>
                             </div>
 
@@ -404,15 +434,15 @@
                                     <i class="bi bi-bullseye"></i> Main Peak Detection
                                 </label>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-rt" value="rt" checked>
-                                    <label class="form-check-label" for="mode-rt">By Retention Time</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-height" value="height">
+                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-height" value="height" checked>
                                     <label class="form-check-label" for="mode-height">By Peak Height</label>
                                 </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="peak-mode" id="mode-rt" value="rt">
+                                    <label class="form-check-label" for="mode-rt">By Retention Time</label>
+                                </div>
 
-                                <div id="rt-input-group" class="mt-2">
+                                <div id="rt-input-group" class="mt-2" style="display: none;">
                                     <label for="main-peak-rt" class="form-label small">Main Peak RT (min)</label>
                                     <input type="number" class="form-control form-control-sm" id="main-peak-rt" value="10.5" step="0.1">
                                 </div>
@@ -511,6 +541,45 @@
                         </div>
                     </div>
                 </div>
+
+            <!-- Tab 4: Blanks -->
+            <div class="tab-pane fade" id="blanks-pane" role="tabpanel">
+                <div class="results-container">
+                    <h5 class="mb-3"><i class="bi bi-droplet"></i> Blank Samples Analysis</h5>
+                    <div class="row">
+                        <!-- UV280 Plot -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">UV280 Traces</h6>
+                                </div>
+                                <div class="card-body position-relative">
+                                    <div id="blanks-uv280-plot" style="min-height: 400px;"></div>
+                                    <div id="blanks-uv280-welcome" class="text-center py-5">
+                                        <i class="bi bi-droplet display-4 text-muted"></i>
+                                        <p class="mt-3 text-muted">Load a report to view blank samples</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Pressure Plot -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Pressure Traces</h6>
+                                </div>
+                                <div class="card-body position-relative">
+                                    <div id="blanks-pressure-plot" style="min-height: 400px;"></div>
+                                    <div id="blanks-pressure-welcome" class="text-center py-5">
+                                        <i class="bi bi-speedometer2 display-4 text-muted"></i>
+                                        <p class="mt-3 text-muted">Load a report to view blank samples</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -609,8 +678,15 @@
 
     <!-- Inline initialization -->
     <script>
+        // Auto-load report from URL if present
+        const initialReportId = {{ initial_report_id|default:"null" }};
+
         // Toggle RT input visibility based on peak detection mode
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Bootstrap tooltips
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
             const rtRadio = document.getElementById('mode-rt');
             const heightRadio = document.getElementById('mode-height');
             const rtInputGroup = document.getElementById('rt-input-group');
@@ -654,9 +730,17 @@
             // Reset button
             document.getElementById('btn-reset').addEventListener('click', function() {
                 if (confirm('Are you sure you want to reset? This will clear all loaded data.')) {
-                    window.location.reload();
+                    window.location.href = '/analytical/sec/';
                 }
             });
+
+            // Auto-load report if URL contains report_id
+            if (initialReportId && window.secLoader) {
+                console.log('[SEC App] Auto-loading report from URL:', initialReportId);
+                setTimeout(() => {
+                    window.secLoader.loadInitialData(initialReportId);
+                }, 500);
+            }
         });
     </script>
 </body>

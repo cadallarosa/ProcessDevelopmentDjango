@@ -14,12 +14,9 @@ function initializeReportsTable() {
     console.log('[Report Modal] ⏱️ [0ms] Starting Tabulator initialization...');
 
     reportsTable = new Tabulator("#reports-table", {
-        height: "100%", // Use CSS-defined height
-        layout: "fitColumns",
+        height: 400,
+        layout: "fitDataFill",
         placeholder: "Loading reports...",
-        pagination: true,
-        paginationSize: 10,
-        paginationSizeSelector: [10, 25, 50, 100],
         selectable: 1, // Single row selection
         selectableRangeMode: "click",
         columns: [
@@ -77,37 +74,17 @@ function initializeReportsTable() {
                 }
             },
             {
-                title: "Actions",
-                field: "actions",
+                title: "Samples",
+                field: "sample_count",
                 width: 100,
-                headerSort: false,
+                sorter: "number",
                 formatter: function(cell) {
-                    return '<button class="btn btn-sm btn-primary edit-report-btn"><i class="bi bi-pencil"></i> Edit</button>';
-                },
-                cellClick: function(e, cell) {
-                    e.stopPropagation(); // Prevent row selection
-                    const reportId = cell.getRow().getData().report_id;
-                    window.location.href = `/analytical/sec/create-report/?report_id=${reportId}`;
+                    const count = cell.getValue();
+                    if (count === undefined || count === null) return '<em class="text-muted">Loading...</em>';
+                    return `${count} sample${count !== 1 ? 's' : ''}`;
                 }
             }
-        ],
-        // Row click expands to show samples
-        rowFormatter: function(row) {
-            const data = row.getData();
-            const element = row.getElement();
-
-            // Create expansion container
-            let holderEl = element.querySelector(".report-expansion");
-            if (!holderEl) {
-                holderEl = document.createElement("div");
-                holderEl.classList.add("report-expansion");
-                holderEl.style.display = "none";
-                holderEl.style.padding = "10px";
-                holderEl.style.backgroundColor = "#f8f9fa";
-                holderEl.style.borderTop = "1px solid #dee2e6";
-                element.appendChild(holderEl);
-            }
-        }
+        ]
     });
 
     const tabulatorCreated = performance.now();
@@ -116,54 +93,21 @@ function initializeReportsTable() {
     // Attach event listeners using .on() method for selection state
     reportsTable.on("rowSelected", function(row) {
         selectedReportData = row.getData();
-        document.getElementById('selected-report-name').textContent =
-            `Report #${selectedReportData.report_id}: ${selectedReportData.report_name || 'Unnamed'}`;
-        document.getElementById('selected-report-info').classList.remove('d-none');
     });
 
     reportsTable.on("rowDeselected", function(row) {
         selectedReportData = null;
-        document.getElementById('selected-report-info').classList.add('d-none');
+    });
+
+    // Double-click to load report
+    reportsTable.on("rowDblClick", function(e, row) {
+        selectedReportData = row.getData();
+        loadSelectedReport();
     });
 
     const eventsAttached = performance.now();
     console.log(`[Report Modal] ⏱️ [${(eventsAttached - initStart).toFixed(0)}ms] Tabulator events attached`);
-
-    // Use event delegation for better performance (single listener on container)
-    const tableElement = document.getElementById('reports-table');
-    if (tableElement) {
-        // Single click handler using event delegation - toggles row expansion
-        tableElement.addEventListener('click', function(e) {
-            // Don't expand if clicking on Edit button
-            if (e.target.closest('.edit-report-btn')) {
-                return;
-            }
-
-            const rowElement = e.target.closest('.tabulator-row');
-            if (rowElement) {
-                const row = reportsTable.getRow(rowElement);
-                if (row) {
-                    toggleRowExpansion(row);
-                }
-            }
-        });
-
-        // Double click handler using event delegation - loads report immediately
-        tableElement.addEventListener('dblclick', function(e) {
-            const rowElement = e.target.closest('.tabulator-row');
-            if (rowElement) {
-                const row = reportsTable.getRow(rowElement);
-                if (row) {
-                    selectedReportData = row.getData();
-                    loadSelectedReport();
-                }
-            }
-        });
-    }
-
-    const delegationAttached = performance.now();
-    console.log(`[Report Modal] ⏱️ [${(delegationAttached - initStart).toFixed(0)}ms] Event delegation attached`);
-    console.log(`[Report Modal] ✅ Total initialization time: ${(delegationAttached - initStart).toFixed(0)}ms`);
+    console.log(`[Report Modal] ✅ Total initialization time: ${(eventsAttached - initStart).toFixed(0)}ms`);
 }
 
 /**
@@ -174,10 +118,7 @@ async function loadReportsData() {
     console.log('[Report Modal] ⏱️ [0ms] Starting data load...');
 
     try {
-        const alertStart = performance.now();
-        reportsTable.alert("Loading reports...");
-        console.log(`[Report Modal] ⏱️ [${(performance.now() - startTime).toFixed(0)}ms] Alert displayed`);
-
+        // Note: Alert removed - Tabulator's placeholder message is sufficient
         const fetchStart = performance.now();
         const response = await fetch('/analytical/sec/api/list-reports/', {
             method: 'GET',
@@ -197,16 +138,30 @@ async function loadReportsData() {
         const parseEnd = performance.now();
         console.log(`[Report Modal] ⏱️ [${(parseEnd - startTime).toFixed(0)}ms] JSON parsed (parse took ${(parseEnd - parseStart).toFixed(0)}ms, ${data.reports.length} reports)`);
 
+        // Add sample counts to each report
+        const processedReports = data.reports.map(report => {
+            let sampleCount = 0;
+            if (report.sample_data) {
+                try {
+                    const sampleData = typeof report.sample_data === 'string'
+                        ? JSON.parse(report.sample_data)
+                        : report.sample_data;
+                    sampleCount = Array.isArray(sampleData) ? sampleData.length : 0;
+                } catch (e) {
+                    console.warn(`[Report Modal] Failed to parse sample_data for report ${report.report_id}:`, e);
+                }
+            }
+            return {
+                ...report,
+                sample_count: sampleCount
+            };
+        });
+
         // Set table data
         const setDataStart = performance.now();
-        await reportsTable.setData(data.reports);
+        await reportsTable.setData(processedReports);
         const setDataEnd = performance.now();
         console.log(`[Report Modal] ⏱️ [${(setDataEnd - startTime).toFixed(0)}ms] setData() completed (took ${(setDataEnd - setDataStart).toFixed(0)}ms)`);
-
-        const clearAlertStart = performance.now();
-        reportsTable.clearAlert();
-        const clearAlertEnd = performance.now();
-        console.log(`[Report Modal] ⏱️ [${(clearAlertEnd - startTime).toFixed(0)}ms] Alert cleared (took ${(clearAlertEnd - clearAlertStart).toFixed(0)}ms)`);
 
         const rowCount = reportsTable.getRows().length;
         const totalTime = performance.now() - startTime;
@@ -255,7 +210,7 @@ function searchReports(searchText) {
  */
 async function loadSelectedReport() {
     if (!selectedReportData) {
-        alert('Please select a report first');
+        console.log('[Report Modal] No report selected');
         return;
     }
 
@@ -266,6 +221,11 @@ async function loadSelectedReport() {
     document.getElementById('modal-load-btn').disabled = true;
 
     try {
+        // Update URL without page reload (using query parameter)
+        const newUrl = `/analytical/sec/?report_id=${selectedReportData.report_id}`;
+        window.history.pushState({reportId: selectedReportData.report_id}, '', newUrl);
+        console.log('[Report Modal] Updated URL to:', newUrl);
+
         // Use the existing loader function
         await window.secLoader.loadInitialData(selectedReportData.report_id);
 
@@ -276,98 +236,12 @@ async function loadSelectedReport() {
         console.log('[Report Modal] ✓ Report loaded successfully');
     } catch (error) {
         console.error('[Report Modal] ❌ Error loading report:', error);
-        alert('Failed to load report: ' + error.message);
     } finally {
         document.getElementById('modal-loading').classList.add('d-none');
         document.getElementById('modal-load-btn').disabled = false;
     }
 }
 
-/**
- * Toggle row expansion to show samples
- */
-async function toggleRowExpansion(row) {
-    const element = row.getElement();
-    const holderEl = element.querySelector('.report-expansion');
-
-    if (!holderEl) {
-        console.error('[Report Modal] Expansion container not found');
-        return;
-    }
-
-    // Toggle visibility
-    if (holderEl.style.display === 'none') {
-        // Expanding - fetch and display samples
-        const reportData = row.getData();
-        console.log('[Report Modal] Expanding row for report:', reportData.report_id);
-
-        // Show loading state
-        holderEl.innerHTML = '<div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span> Loading samples...</div>';
-        holderEl.style.display = 'block';
-
-        try {
-            // Fetch report details including samples
-            const response = await fetch(`/analytical/sec/api/get-report/${reportData.report_id}/`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            // Display samples
-            let html = '<div class="report-expansion-content">';
-            html += '<div class="mb-2"><strong>Samples in this report:</strong></div>';
-
-            if (data.samples && data.samples.length > 0) {
-                html += '<div class="list-group list-group-flush">';
-                data.samples.forEach(sample => {
-                    html += `
-                        <div class="list-group-item py-1 px-2 small">
-                            ${sample.sample_name} <span class="text-muted">(ID: ${sample.result_id})</span>
-                            ${sample.group ? `<span class="badge bg-primary ms-2">${sample.group}</span>` : ''}
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            } else {
-                html += '<div class="text-muted small">No samples in this report</div>';
-            }
-
-            html += '<div class="mt-2">';
-            html += `<button class="btn btn-sm btn-primary load-from-expansion" data-report-id="${reportData.report_id}">`;
-            html += '<i class="bi bi-box-arrow-in-down"></i> Load Report';
-            html += '</button>';
-            html += '</div>';
-            html += '</div>';
-
-            holderEl.innerHTML = html;
-
-            // Add click handler for Load button
-            const loadBtn = holderEl.querySelector('.load-from-expansion');
-            if (loadBtn) {
-                loadBtn.addEventListener('click', async function() {
-                    selectedReportData = reportData;
-                    await loadSelectedReport();
-                });
-            }
-
-        } catch (error) {
-            console.error('[Report Modal] Error fetching samples:', error);
-            holderEl.innerHTML = '<div class="text-danger small py-2">Error loading samples. Please try again.</div>';
-        }
-    } else {
-        // Collapsing
-        console.log('[Report Modal] Collapsing row');
-        holderEl.style.display = 'none';
-        holderEl.innerHTML = '';
-    }
-}
 
 /**
  * Main initialization function
@@ -376,6 +250,13 @@ function initializeModal() {
     // Check if already initialized
     if (reportsTable) {
         console.log('[Report Modal] Already initialized, skipping...');
+        return;
+    }
+
+    // Check if Tabulator is loaded
+    if (typeof Tabulator === 'undefined') {
+        console.warn('[Report Modal] Tabulator not loaded yet, waiting...');
+        setTimeout(initializeModal, 100);
         return;
     }
 
@@ -417,10 +298,17 @@ function initializeModal() {
         });
     });
 
+    // Enter key to load selected report
+    modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && selectedReportData) {
+            e.preventDefault();
+            loadSelectedReport();
+        }
+    });
+
     // Modal hide event - clear selection
     modal.addEventListener('hidden.bs.modal', function() {
         selectedReportData = null;
-        document.getElementById('selected-report-info').classList.add('d-none');
         reportsTable.deselectRow();
     });
 
@@ -460,10 +348,18 @@ function initializeModal() {
 }
 
 // Initialize on DOM ready (for full page loads)
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('[Report Modal] DOMContentLoaded fired');
+// Handle both cases: DOMContentLoaded already fired or not yet fired
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[Report Modal] DOMContentLoaded fired');
+        initializeModal();
+    });
+} else {
+    // DOM already loaded, initialize immediately
+    console.log('[Report Modal] DOM already loaded, initializing immediately');
     initializeModal();
-});
+}
 
 // Initialize after HTMX content swap (for sidebar navigation)
 document.body.addEventListener('htmx:afterSwap', function(event) {

@@ -157,15 +157,6 @@
             height: 24px;
         }
 
-        /* Disable text selection in tables to allow shift-click range selection */
-        #samples-table .tabulator-row,
-        #samples-table .tabulator-cell {
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-        }
-
         /* Hover effects - click to add */
         #samples-table .tabulator-row:hover {
             background-color: #e8f5e9;
@@ -276,12 +267,6 @@
         .card:last-child {
             margin-bottom: 0;
         }
-
-        /* Modal headers should match table card headers */
-        .modal-header {
-            background: var(--primary) !important;
-            color: white !important;
-        }
     </style>
 </head>
 <body>
@@ -349,15 +334,49 @@
                 </div>
             </div>
 
-            <!-- RIGHT PANEL: Selected Samples (Full Height) -->
+            <!-- RIGHT PANEL: Report Details + Selected Samples -->
             <div class="right-panel">
+                <!-- Report Details Card -->
+                <div class="card" style="flex: 0 0 auto;">
+                    <div class="card-header"><i class="bi bi-file-earmark-text"></i> Report Details</div>
+                    <div class="card-body">
+                        <form id="report-form">
+                            {% csrf_token %}
+                            <div class="row mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Report Name *</label>
+                                    <input type="text" class="form-control form-control-sm" id="report-name" required placeholder="e.g., FD-011 SEC Analysis">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Project ID *</label>
+                                    <input type="text" class="form-control form-control-sm" id="project-id" required placeholder="e.g., SI-54X1">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Your Initials *</label>
+                                    <input type="text" class="form-control form-control-sm" id="user-id" required placeholder="e.g., CAD" maxlength="10">
+                                </div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-6">
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i>
+                                        <span class="stats-badge" id="total-samples-count">0 samples</span> selected
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-save"></i> Create Report
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Selected Samples Card -->
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2">
-                            <span><i class="bi bi-list-check"></i> Selected Samples</span>
-                            <span class="stats-badge" id="total-samples-count">0 samples</span>
-                        </div>
+                        <span><i class="bi bi-list-check"></i> Selected Samples</span>
                         <div class="d-flex gap-2 align-items-center">
                             <label class="mb-0 small text-white">Add to:</label>
                             <select class="form-select form-select-sm" id="active-group-select" style="width: auto; min-width: 120px;">
@@ -369,56 +388,11 @@
                             <button class="btn btn-success btn-sm" id="add-group-btn" title="Add New Group">
                                 <i class="bi bi-plus-circle"></i> Add Group
                             </button>
-                            <button class="btn btn-warning btn-sm" id="create-report-btn" data-bs-toggle="modal" data-bs-target="#createReportModal" title="Create Report">
-                                <i class="bi bi-save"></i> Create Report
-                            </button>
                         </div>
                     </div>
                     <div class="card-body">
                         <div id="selected-samples-table"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Report Modal -->
-    <div class="modal fade" id="createReportModal" tabindex="-1" aria-labelledby="createReportModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="createReportModalLabel">
-                        <i class="bi bi-file-earmark-text"></i> Create SEC Report
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="report-form">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="report-name" class="form-label">Report Name *</label>
-                            <input type="text" class="form-control" id="report-name" required placeholder="e.g., FD-011 SEC Analysis">
-                            <div class="form-text">Enter a descriptive name for this report</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="project-id" class="form-label">Project ID *</label>
-                            <input type="text" class="form-control" id="project-id" required placeholder="e.g., SI-54X1">
-                            <div class="form-text">Enter the project or study ID</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="user-id" class="form-label">Your Initials *</label>
-                            <input type="text" class="form-control" id="user-id" required placeholder="e.g., CAD" maxlength="10">
-                            <div class="form-text">Enter your initials (will be recorded as report creator)</div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancel
-                    </button>
-                    <button type="submit" form="report-form" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Create Report
-                    </button>
                 </div>
             </div>
         </div>
@@ -448,19 +422,9 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td><strong>Select Row</strong></td>
+                                    <td><strong>Add Sample</strong></td>
                                     <td><kbd>Click</kbd> on row</td>
-                                    <td>Select a single row (toggle selection)</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Select Multiple Rows</strong></td>
-                                    <td><kbd>Shift</kbd> + <kbd>Click</kbd> on row</td>
-                                    <td>Select range of rows (from last selected to clicked row)</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Add Selected Samples</strong></td>
-                                    <td><kbd>Double-Click</kbd> on selected row</td>
-                                    <td>Add all selected samples to the active group</td>
+                                    <td>Add individual sample to selected group</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Bulk Add</strong></td>
@@ -504,7 +468,6 @@
                         <li><strong>Group Samples:</strong> Use the "Group" button to organize available samples by sample set</li>
                         <li><strong>Create Custom Groups:</strong> Click "+ Add Group" to create new groups for organizing your report</li>
                         <li><strong>Switch Active Group:</strong> Use the "Add to:" dropdown to choose which group new samples are added to</li>
-                        <li><strong>Multi-Select Samples:</strong> Use Shift+Click to select a range of samples, then double-click any selected row to add them all to your report</li>
                         <li><strong>Drag to Reorder:</strong> In the right table, use the drag handle (☰) to reorder samples within or between groups</li>
                         <li><strong>Filter Samples:</strong> Use the search box and filters at the top to quickly find specific samples</li>
                         <li><strong>Preview Before Adding:</strong> Use Alt+Click to preview chromatograms before adding samples to your report</li>

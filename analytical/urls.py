@@ -25,4 +25,5 @@ urlpatterns = [
     path("sec/api/save-settings/", sec.save_settings, name="sec_save_settings"),
     path("sec/api/export-excel/<int:report_id>/", sec.export_excel, name="sec_export_excel"),
     path("sec/api/export-ppt/<int:report_id>/", sec.export_ppt, name="sec_export_ppt"),
+    path("sec/api/get-chromatograms/", sec.get_chromatograms, name="sec_get_chromatograms"),
 ]

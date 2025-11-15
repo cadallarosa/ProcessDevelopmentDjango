@@ -14,7 +14,8 @@ import time
 from ..utils.sec_plotting import (
     analyze_samples,
     create_sec_plot,
-    fetch_sample_metadata
+    fetch_sample_metadata,
+    fetch_time_series_data
 )
 from plotly_integration.models import Report, SampleMetadata
 from analytical.models import EmpowerReport
@@ -27,8 +28,12 @@ def index(request):
     """Main SEC app page"""
     from dashboard.models import NavigationSection
 
+    # Get report_id from query parameter
+    report_id = request.GET.get('report_id', None)
+
     context = {
         'app_title': 'SEC Chromatography Visualization',
+        'initial_report_id': report_id  # Pass report_id to template
     }
 
     # Check if request is from HTMX (sidebar navigation)
@@ -206,6 +211,8 @@ def load_initial_data(request, report_id):
         low_mw_cutoff = float(data.get('lowMwCutoff', 12))
         use_std_curve = data.get('useStdCurve', False)
         show_shading = data.get('showShading', True)
+        batch_size = int(data.get('batchSize', 20))  # Number of samples to load at once
+        batch_offset = int(data.get('batchOffset', 0))  # Starting index for batch
         parse_end = time.time()
         print(f"⏱️ [{int((parse_end - start_time) * 1000)}ms] Settings parsed ({int((parse_end - parse_start) * 1000)}ms)")
 
@@ -228,10 +235,15 @@ def load_initial_data(request, report_id):
         if not result_ids:
             return JsonResponse({'error': 'No samples found in report'}, status=404)
 
-        # Limit to first 10 samples
-        result_ids = result_ids[:10]
+        # Get total count before batching
+        total_samples = len(result_ids)
+
+        # Apply batching for lazy loading
+        end_index = min(batch_offset + batch_size, total_samples)
+        result_ids_batch = result_ids[batch_offset:end_index]
+
         db_end = time.time()
-        print(f"⏱️ [{int((db_end - start_time) * 1000)}ms] Report loaded, result_ids parsed ({int((db_end - db_start) * 1000)}ms, {len(result_ids)} samples)")
+        print(f"⏱️ [{int((db_end - start_time) * 1000)}ms] Report loaded, result_ids parsed ({int((db_end - db_start) * 1000)}ms, batch {batch_offset}-{end_index} of {total_samples} samples)")
 
         # Analyze samples
         from ..utils.sec_plotting import (
@@ -240,7 +252,7 @@ def load_initial_data(request, report_id):
 
         analyze_start = time.time()
         analysis_data = analyze_samples(
-            result_ids=result_ids,
+            result_ids=result_ids_batch,
             peak_mode=peak_mode,
             main_peak_rt=main_peak_rt,
             low_mw_cutoff=low_mw_cutoff,
@@ -277,8 +289,12 @@ def load_initial_data(request, report_id):
             'layout': layout,
             'metadata': {
                 'report_id': report_id,
-                'sample_count': len(result_ids),
-                'result_ids': result_ids,
+                'sample_count': len(result_ids_batch),
+                'total_samples': total_samples,
+                'batch_offset': batch_offset,
+                'batch_size': len(result_ids_batch),
+                'has_more': end_index < total_samples,
+                'result_ids': result_ids_batch,
                 'group_configuration': sample_data  # sample_data from EmpowerReport or old group_configuration
             }
         })
@@ -311,18 +327,24 @@ def load_channel_data(request, report_id, channel):
         if channel not in ['uv260', 'pressure']:
             return JsonResponse({'error': 'Invalid channel'}, status=400)
 
-        # Load report
+        # Load report (try EmpowerReport first, fallback to old Report)
         db_start = time.time()
-        report = Report.objects.filter(report_id=report_id).first()
-        if not report:
-            return JsonResponse({'error': f'Report {report_id} not found'}, status=404)
+        report = EmpowerReport.objects.filter(report_id=report_id, report_type='SEC').first()
+        if report:
+            # New EmpowerReport format
+            result_ids = report.get_result_ids()
+        else:
+            # Fallback to old Report model for backward compatibility
+            old_report = Report.objects.filter(report_id=report_id).first()
+            if not old_report:
+                return JsonResponse({'error': f'Report {report_id} not found'}, status=404)
+            # Parse old format
+            result_ids = [rid.strip() for rid in old_report.selected_result_ids.split(',') if rid.strip()]
 
-        # Parse result IDs
-        result_ids = [rid.strip() for rid in report.selected_result_ids.split(',') if rid.strip()]
         if not result_ids:
             return JsonResponse({'error': 'No samples found in report'}, status=404)
 
-        result_ids = result_ids[:10]
+        # No longer limiting - load all samples for background channels
         db_end = time.time()
         print(f"⏱️ [{int((db_end - start_time) * 1000)}ms] Report loaded ({int((db_end - db_start) * 1000)}ms, {len(result_ids)} samples)")
 
@@ -380,17 +402,23 @@ def load_results_table(request, report_id):
         low_mw_cutoff = float(data.get('lowMwCutoff', 12))
         use_std_curve = data.get('useStdCurve', False)
 
-        # Load report
-        report = Report.objects.filter(report_id=report_id).first()
-        if not report:
-            return JsonResponse({'error': f'Report {report_id} not found'}, status=404)
+        # Load report (try EmpowerReport first, fallback to old Report)
+        report = EmpowerReport.objects.filter(report_id=report_id, report_type='SEC').first()
+        if report:
+            # New EmpowerReport format
+            result_ids = report.get_result_ids()
+        else:
+            # Fallback to old Report model for backward compatibility
+            old_report = Report.objects.filter(report_id=report_id).first()
+            if not old_report:
+                return JsonResponse({'error': f'Report {report_id} not found'}, status=404)
+            # Parse old format
+            result_ids = [rid.strip() for rid in old_report.selected_result_ids.split(',') if rid.strip()]
 
-        # Parse result IDs
-        result_ids = [rid.strip() for rid in report.selected_result_ids.split(',') if rid.strip()]
         if not result_ids:
             return JsonResponse({'error': 'No samples found in report'}, status=404)
 
-        result_ids = result_ids[:10]
+        # No longer limiting - load all samples for results table
 
         # Analyze samples
         from ..utils.sec_plotting import (
@@ -626,4 +654,81 @@ def list_reports(request):
 
     except Exception as e:
         logger.error(f"Error listing reports: {str(e)}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+def get_chromatograms(request):
+    """
+    JSON API: Fetch UV280 chromatogram data for preview modal
+
+    Accepts:
+        POST body: {"result_ids": [123, 456, 789]}
+
+    Returns:
+        JSON: {
+            "traces": [
+                {
+                    "x": [time values],
+                    "y": [UV280 values],
+                    "name": "Sample Name",
+                    "type": "scatter",
+                    "mode": "lines"
+                }
+            ]
+        }
+    """
+    try:
+        # Parse request body
+        body = json.loads(request.body)
+        result_ids = body.get('result_ids', [])
+
+        if not result_ids:
+            return JsonResponse({'error': 'No result_ids provided'}, status=400)
+
+        logger.info(f"Fetching chromatograms for {len(result_ids)} samples: {result_ids}")
+
+        # Fetch time series data (UV280 is channel_1)
+        time_series_data = fetch_time_series_data(result_ids)
+
+        # Fetch sample metadata for names
+        metadata = fetch_sample_metadata(result_ids)
+
+        # Build Plotly traces
+        traces = []
+        for result_id in result_ids:
+            # Get time series dataframe
+            df = time_series_data.get(result_id)
+            if df is None or df.empty:
+                logger.warning(f"No time series data found for result_id {result_id}")
+                continue
+
+            # Get sample metadata
+            meta = metadata.get(result_id, {})
+            sample_name = meta.get('sample_name', f'Result {result_id}')
+
+            # Create trace for UV280 (channel_1)
+            trace = {
+                'x': df['time'].tolist(),
+                'y': df['channel_1'].tolist(),  # UV280 is channel_1
+                'name': sample_name,
+                'type': 'scatter',
+                'mode': 'lines',
+                'hovertemplate': f'<b>{sample_name}</b><br>Time: %{{x:.2f}} min<br>UV280: %{{y:.2f}} mAU<extra></extra>'
+            }
+            traces.append(trace)
+
+        logger.info(f"Successfully created {len(traces)} chromatogram traces")
+
+        return JsonResponse({
+            'traces': traces,
+            'count': len(traces)
+        })
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in request body: {str(e)}")
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+
+    except Exception as e:
+        logger.error(f"Error fetching chromatograms: {str(e)}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
